@@ -9714,13 +9714,31 @@ function loginSupervisor() {
   if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
   if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
 
+  // Verificar siempre contra contraseñas fijas primero
+  const _PWDS_FIJAS = {
+    "Nelson Javier Morera Rincon": "fxntu49t",
+    "Fabian Vargas": "f2y7p8q2",
+    "Heidy Lorena Prieto Ahumada": "k5jmq4hh",
+    "Gina Paola Medina Florez": "6bxkae6u",
+    "Paola Andrea Calderon Cetina": "b72ehx5z",
+    "Catalina Pacheco Burgos": "wfh57adv",
+    "Ivonne Rodriguez": "p42pgchs",
+    "Fabian Concha": "5v4pwnjk",
+    "Marshia Milena Jiménez Gómez": "h6cgh35k",
+    "Johan Sebastián Pardeyn Aguilar": "7eae875x",
+    "Jovanny Alexander Benavides Apraez": "8nrz5qhb",
+    "Jeisson Fabian Molina Ciro": "7nkzng49",
+    "Javier Orlando Hernandez Rivera": "mckpbabs"
+  };
+
   reloadState();
   _ensureSupervisorPasswords();
 
   if (!state.supervisores.includes(nombre)) {
     errEl.style.display = 'block'; errEl.textContent = '✗ Supervisor no encontrado'; return;
   }
-  if (pwd !== state.supervisorPasswords[nombre]) {
+  const pwdCorrecta = _PWDS_FIJAS[nombre] || state.supervisorPasswords[nombre];
+  if (pwd !== pwdCorrecta) {
     errEl.style.display = 'block'; errEl.textContent = '✗ Contraseña incorrecta'; return;
   }
 
