@@ -759,7 +759,7 @@
   }
 
   .role-cards {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
     margin-bottom: 28px;
   }
   .role-card {
@@ -791,6 +791,11 @@
     border-color: var(--accent4);
     background: rgba(91,143,176,0.12);
     box-shadow: 0 0 0 1px rgba(91,143,176,0.22), 0 6px 24px rgba(91,143,176,0.14);
+  }
+  .role-card.selected-role.coordinador-role {
+    border-color: #a078e0;
+    background: rgba(120,91,176,0.14);
+    box-shadow: 0 0 0 1px rgba(120,91,176,0.28), 0 6px 24px rgba(120,91,176,0.18);
   }
   .role-icon { font-size: 28px; margin-bottom: 9px; opacity: 0.85; }
   .role-name { font-weight: 700; font-size: 14px; color: #fff; margin-bottom: 4px; font-family:'Montserrat',sans-serif; }
@@ -976,6 +981,15 @@
   }
   body.modo-supervisor #btn-carga-manual { display: none !important; }
   body.modo-supervisor #gestion-datos-panel { display: none !important; }
+body.modo-coordinador #nav-registro { display: none !important; }
+body.modo-coordinador #nav-ranking { display: none !important; }
+body.modo-coordinador #nav-fi { display: none !important; }
+body.modo-coordinador #nav-reporte { display: none !important; }
+body.modo-coordinador #nav-seguimiento { display: none !important; }
+body.modo-coordinador #nav-accesos { display: none !important; }
+body.modo-coordinador #nav-config { display: none !important; }
+body.modo-coordinador #btn-carga-manual { display: none !important; }
+body.modo-coordinador #gestion-datos-panel { display: none !important; }
 </style>
 </head>
 <body>
@@ -1006,6 +1020,7 @@
       <div id="sidebar-sup-name" style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;
                                         overflow:hidden;text-overflow:ellipsis"></div>
     </div>
+    <div id="sidebar-coord-indicator" style="display:none;margin:12px 16px 0;padding:10px 14px;background:rgba(120,91,176,0.15);border:1px solid rgba(120,91,176,0.30);border-radius:var(--radius-sm)"><div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:rgba(140,110,200,0.90);margin-bottom:3px">Sesión coordinador</div><div id="sidebar-coord-name" style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div></div>
     <nav class="nav">
       <div class="nav-item active" onclick="showView('dashboard',this)">
         <span class="nav-icon">◈</span> Dashboard
@@ -1026,13 +1041,13 @@
       <div class="nav-item" id="nav-fi" onclick="showView('formacion-inicial',this)">
         <span class="nav-icon">🎓</span> Formación Inicial
       </div>
-      <div class="nav-item" onclick="showView('reporte',this)">
+      <div class="nav-item" id="nav-reporte" onclick="showView('reporte',this)">
         <span class="nav-icon">◫</span> Reporte Mensual
       </div>
-      <div class="nav-item" onclick="showView('seguimiento',this)">
+      <div class="nav-item" id="nav-seguimiento" onclick="showView('seguimiento',this)">
         <span class="nav-icon">✔</span> Seguimiento
       </div>
-      <div class="nav-item" onclick="showView('accesos',this)">
+      <div class="nav-item" id="nav-accesos" onclick="showView('accesos',this)">
         <span class="nav-icon">🕐</span> Accesos
       </div>
       <div class="nav-item" id="nav-config" onclick="showView('config',this)">
@@ -1050,6 +1065,7 @@
         ← Cerrar sesión supervisor
       </button>
     </div>
+    <div id="sidebar-coord-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)"><button onclick="cerrarSesionCoordinador()" style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(120,91,176,0.35);background:rgba(120,91,176,0.12);color:rgba(255,255,255,0.80);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">← Cerrar sesión coordinador</button></div>
     <!-- Botones exportar/importar datos (solo Formadora) -->
     <div id="gestion-datos-panel" style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-align:center;font-family:'Montserrat',sans-serif">Gestión de datos</div>
@@ -3216,6 +3232,11 @@
           <div class="role-name">Supervisor</div>
           <div class="role-desc">Ver resultados y desempeño de mi equipo</div>
         </div>
+        <div class="role-card coordinador-role" id="card-coordinador" onclick="selectRole('coordinador')">
+          <div class="role-icon">⬡</div>
+          <div class="role-name">Coordinador</div>
+          <div class="role-desc">Dashboard, resultados e histórico del equipo</div>
+        </div>
         <div class="role-card asesor-role" id="card-asesor" onclick="selectRole('asesor')">
           <div class="role-icon">✦</div>
           <div class="role-name">Asesor</div>
@@ -3332,6 +3353,14 @@
         </div>
       </div>
       <button class="login-btn login-btn-asesor" onclick="loginAsesor()">Comenzar evaluación →</button>
+      <button class="login-btn login-btn-back" onclick="backToRoles()">← Volver</button>
+    </div>
+
+    <div class="login-step" id="step-coordinador">
+      <div style="margin-bottom:20px"><div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:4px">Acceso como</div><div style="font-weight:700;color:#a078e0;font-size:18px">⬡ Coordinador</div></div>
+      <div class="login-input-group"><label class="login-label">Selecciona tu nombre</label><select class="login-input" id="coord-select-login" style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)"><option value="">— Selecciona —</option><option value="Carolina Torres">Carolina Torres</option><option value="Fabian Vargas">Fabian Vargas</option></select></div>
+      <div class="login-input-group"><label class="login-label">Contraseña</label><input class="login-input" type="password" id="coord-pwd-login" placeholder="Ingresa tu contraseña" onkeydown="if(event.key==='Enter')loginCoordinador()"><div id="coord-login-error" style="color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">✗ Contraseña incorrecta</div></div>
+      <button onclick="loginCoordinador()" style="width:100%;background:#7855c0;color:#fff;border:none;border-radius:var(--radius-sm);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;margin-bottom:10px">Entrar como Coordinador →</button>
       <button class="login-btn login-btn-back" onclick="backToRoles()">← Volver</button>
     </div>
   </div>
@@ -5898,7 +5927,7 @@ function renderResultados() {
           <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pct}%</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓':'✗'} ${pass?'Aprobado':'Reprobado'}</span></td>
           <td style="white-space:nowrap">
-            ${!supervisorActual ? `<button onclick="eliminarEvaluacion('${e.id}')"
+            ${(!supervisorActual && !coordinadorActual) ? `<button onclick="eliminarEvaluacion('${e.id}')"
               style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.25);color:var(--fail);
                      cursor:pointer;font-size:12px;padding:4px 10px;border-radius:4px;font-family:'Montserrat',sans-serif;
                      font-weight:600;transition:background .15s"
@@ -7371,7 +7400,7 @@ function renderReporte() {
           </div>`;
       }
 
-      const btnCorregir = !supervisorActual
+      const btnCorregir = (!supervisorActual && !coordinadorActual)
         ? `<button onclick="abrirCorreccion(${e.id})"
              style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;
                     border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.35);
@@ -9478,6 +9507,7 @@ function guardarCargaManual() {
 function showView(name, el) {
   // Block restricted views for supervisor
   if (supervisorActual && ['registro','ranking','formacion-inicial','config'].includes(name)) return;
+  if (coordinadorActual && !['dashboard','resultados','historico'].includes(name)) return;
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -9580,10 +9610,11 @@ function updateAllFilters() {
 const PASSWORD_FORMADORA = '1234'; // contraseña por defecto
 let selectedRole   = null;
 let supervisorActual = null; // nombre del supervisor cuando el rol es 'supervisor'
+let coordinadorActual = null; // nombre del coordinador
 
 function selectRole(role) {
   selectedRole = role;
-  ['formadora','supervisor','asesor'].forEach(r => {
+  ['formadora','supervisor','asesor','coordinador'].forEach(r => {
     const c = document.getElementById('card-' + r);
     if (c) c.classList.remove('selected-role');
   });
@@ -9592,7 +9623,7 @@ function selectRole(role) {
   const btn = document.getElementById('btn-continuar');
   btn.style.opacity = '1';
   btn.style.pointerEvents = 'auto';
-  btn.style.background = role === 'asesor' ? 'var(--accent3)' : role === 'supervisor' ? 'var(--accent4)' : 'var(--accent)';
+  btn.style.background = role === 'asesor' ? 'var(--accent3)' : role === 'supervisor' ? 'var(--accent4)' : role === 'coordinador' ? '#7855c0' : 'var(--accent)';
   btn.style.color = '#fff';
 }
 
@@ -9612,6 +9643,12 @@ function goToStep2() {
     document.getElementById('sup-login-error').style.display = 'none';
     document.getElementById('step-supervisor').classList.add('active');
     setTimeout(() => { if (inp) inp.focus(); }, 100);
+  } else if (selectedRole === 'coordinador') {
+    document.getElementById('coord-select-login').value = '';
+    document.getElementById('coord-pwd-login').value = '';
+    document.getElementById('coord-login-error').style.display = 'none';
+    document.getElementById('step-coordinador').classList.add('active');
+    setTimeout(() => document.getElementById('coord-select-login').focus(), 100);
   } else {
     const inp = document.getElementById('asesor-search-input');
     const hid = document.getElementById('asesor-select-login');
@@ -9905,6 +9942,8 @@ function backToRoles() {
   document.getElementById('login-error').style.display = 'none';
   const supErr = document.getElementById('sup-login-error');
   if (supErr) supErr.style.display = 'none';
+  const coordErr = document.getElementById('coord-login-error');
+  if (coordErr) coordErr.style.display = 'none';
   selectedRole = null;
   const btn = document.getElementById('btn-continuar');
   if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
@@ -9915,7 +9954,7 @@ function cerrarSesionSupervisor() {
   document.querySelector('.app').style.display = 'none';
   document.getElementById('login-screen').classList.remove('hidden');
   selectedRole = null;
-  ['formadora','supervisor','asesor'].forEach(r => {
+  ['formadora','supervisor','asesor','coordinador'].forEach(r => {
     const c = document.getElementById('card-' + r);
     if (c) c.classList.remove('selected-role');
   });
@@ -9925,6 +9964,52 @@ function cerrarSesionSupervisor() {
   if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
 }
 
+const _PWDS_COORD = {"Carolina Torres":"ct7kd2mq","Fabian Vargas":"fv3pzr8n"};
+function loginCoordinador(){
+  const nom=document.getElementById('coord-select-login').value;
+  const pwd=document.getElementById('coord-pwd-login').value;
+  const e=document.getElementById('coord-login-error');
+  e.style.display='none';
+  if(!nom){alert('Selecciona tu nombre');return;}
+  if(!pwd||pwd!==_PWDS_COORD[nom]){e.style.display='block';e.textContent='✗ Contraseña incorrecta';return;}
+  coordinadorActual=nom;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.querySelector('.app').style.display='flex';
+  _aplicarModoCoordinador(nom);
+  try{updateAllFilters();}catch(x){}
+  try{renderDashboard();}catch(x){}
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-dashboard').classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((n,i)=>{if(i===0)n.classList.add('active');else n.classList.remove('active');});
+}
+function _aplicarModoCoordinador(nom){
+  const ind=document.getElementById('sidebar-coord-indicator');
+  const nameEl=document.getElementById('sidebar-coord-name');
+  const out=document.getElementById('sidebar-coord-logout');
+  if(ind)ind.style.display='block';
+  if(nameEl)nameEl.textContent=nom;
+  if(out)out.style.display='block';
+  document.body.classList.add('modo-coordinador');
+}
+function _restaurarModoCoordinador(){
+  coordinadorActual=null;
+  const ind=document.getElementById('sidebar-coord-indicator');
+  const out=document.getElementById('sidebar-coord-logout');
+  if(ind)ind.style.display='none';
+  if(out)out.style.display='none';
+  document.body.classList.remove('modo-coordinador');
+}
+function cerrarSesionCoordinador(){
+  _restaurarModoCoordinador();
+  document.querySelector('.app').style.display='none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  selectedRole=null;
+  ['formadora','supervisor','asesor','coordinador'].forEach(r=>{const c=document.getElementById('card-'+r);if(c)c.classList.remove('selected-role');});
+  document.querySelectorAll('.login-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-rol').classList.add('active');
+  const btn=document.getElementById('btn-continuar');
+  if(btn){btn.style.opacity='0.4';btn.style.pointerEvents='none';}
+}
 function loginFormadora() {
   const pwd = document.getElementById('input-password').value;
   const storedHash = localStorage.getItem('evalproPasswordHash');
