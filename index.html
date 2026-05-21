@@ -3358,7 +3358,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
 
     <div class="login-step" id="step-coordinador">
       <div style="margin-bottom:20px"><div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:4px">Acceso como</div><div style="font-weight:700;color:#a078e0;font-size:18px">⬡ Coordinador</div></div>
-      <div class="login-input-group"><label class="login-label">Selecciona tu nombre</label><select class="login-input" id="coord-select-login" style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)"><option value="">— Selecciona —</option><option value="Carolina Torres">Carolina Torres</option><option value="Fabian Vargas">Fabian Vargas</option></select></div>
+      <div class="login-input-group"><label class="login-label">Selecciona tu nombre</label><select class="login-input" id="coord-select-login" style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)"><option value="">— Selecciona —</option><option value="Carolina Torres">Carolina Torres</option><option value="Fabian Vargas">Fabian Vargas</option><option value="Jennifer Vargas">Jennifer Vargas</option></select></div>
       <div class="login-input-group"><label class="login-label">Contraseña</label><input class="login-input" type="password" id="coord-pwd-login" placeholder="Ingresa tu contraseña" onkeydown="if(event.key==='Enter')loginCoordinador()"><div id="coord-login-error" style="color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">✗ Contraseña incorrecta</div></div>
       <button onclick="loginCoordinador()" style="width:100%;background:#7855c0;color:#fff;border:none;border-radius:var(--radius-sm);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;margin-bottom:10px">Entrar como Coordinador →</button>
       <button class="login-btn login-btn-back" onclick="backToRoles()">← Volver</button>
@@ -9964,7 +9964,7 @@ function cerrarSesionSupervisor() {
   if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
 }
 
-const _PWDS_COORD = {"Carolina Torres":"ct7kd2mq","Fabian Vargas":"fv3pzr8n"};
+const _PWDS_COORD = {"Carolina Torres":"ct7kd2mq","Fabian Vargas":"fv3pzr8n","Jennifer Vargas":"jv8tm4rk"};
 function loginCoordinador(){
   const nom=document.getElementById('coord-select-login').value;
   const pwd=document.getElementById('coord-pwd-login').value;
