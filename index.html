@@ -5086,7 +5086,7 @@ function toggleDbSup(sup) {
   if (dbSupSelected.has(sup)) dbSupSelected.delete(sup);
   else dbSupSelected.add(sup);
   _updateDbSupUI();
-  renderDashboard();
+  setTimeout(() => renderDashboard(), 0);
 }
 
 function _updateDbSupUI() {
