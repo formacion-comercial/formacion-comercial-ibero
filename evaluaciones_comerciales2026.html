@@ -1048,6 +1048,24 @@
         ← Cerrar sesión supervisor
       </button>
     </div>
+    <!-- Botones exportar/importar datos -->
+    <div style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
+      <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-align:center;font-family:'Montserrat',sans-serif">Gestión de datos</div>
+      <button onclick="exportarDatos()"
+        style="width:100%;margin-bottom:5px;padding:7px 10px;border-radius:var(--radius-sm);
+               border:1px solid rgba(91,176,120,0.35);background:rgba(91,176,120,0.12);
+               color:rgba(255,255,255,0.75);font-size:11px;font-family:'Montserrat',sans-serif;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">
+        ⬇ Exportar datos
+      </button>
+      <label style="width:100%;display:block">
+        <input type="file" id="importar-input" accept=".json" onchange="importarDatos(event)" style="display:none">
+        <span style="width:100%;display:block;text-align:center;padding:7px 10px;border-radius:var(--radius-sm);
+               border:1px solid rgba(176,143,91,0.35);background:rgba(176,143,91,0.12);
+               color:rgba(255,255,255,0.75);font-size:11px;font-family:'Montserrat',sans-serif;
+               cursor:pointer">⬆ Importar datos</span>
+      </label>
+    </div>
     <div style="padding:10px 24px 0;text-align:center">
       <div style="font-size:9px;color:rgba(255,255,255,0.18);font-family:'Fira Code',monospace;letter-spacing:0.04em;line-height:1.6">
         Diseñada por<br>
@@ -13771,8 +13789,92 @@ function renderFormacionInicialResultados() {
   }
 })();
 
+// ==================== EXPORTAR / IMPORTAR DATOS ====================
+function exportarDatos() {
+  const data = localStorage.getItem('evalproState');
+  if (!data) { alert('No hay datos guardados para exportar.'); return; }
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'datos_evaluaciones_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importarDatos(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      localStorage.setItem('evalproState', JSON.stringify(parsed));
+      Object.assign(state, parsed);
+      if (window._fbDb) {
+        try {
+          const cfg = Object.assign({}, state);
+          delete cfg.evaluaciones;
+          await window._fbDb.collection('config').doc('main').set(cfg);
+          if (state.evaluaciones && state.evaluaciones.length > 0) {
+            const batch = window._fbDb.batch();
+            state.evaluaciones.forEach(ev => {
+              batch.set(window._fbDb.collection('evaluaciones').doc(String(ev.id)), ev);
+            });
+            await batch.commit();
+          }
+          alert('✅ Datos importados y sincronizados con la nube correctamente.');
+        } catch(fe) {
+          alert('✅ Datos importados localmente. (Firebase: ' + fe.message + ')');
+        }
+      } else {
+        alert('✅ Datos importados correctamente.');
+      }
+      try { updateAllFilters(); } catch(_) {}
+    } catch(err) {
+      alert('❌ Error al importar: archivo no válido.');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ==================== INIT ====================
 _fbInit();
+
+// ── Mostrar panel de exportación si hay datos en localStorage (archivo local) ──
+setTimeout(function() {
+  const data = localStorage.getItem('evalproState');
+  if (!data) return;
+  try {
+    const parsed = JSON.parse(data);
+    const numEval = (parsed.evaluaciones || []).length;
+    if (numEval === 0) return;
+    // Crear panel flotante
+    const panel = document.createElement('div');
+    panel.id = 'export-panel';
+    panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Montserrat,sans-serif';
+    panel.innerHTML = `
+      <div style="background:#1a1a2e;border:2px solid #c9a545;border-radius:16px;padding:40px;max-width:480px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.8)">
+        <div style="font-size:48px;margin-bottom:16px">📦</div>
+        <h2 style="color:#c9a545;font-size:22px;margin:0 0 12px">Exportar datos</h2>
+        <p style="color:rgba(255,255,255,0.8);font-size:15px;line-height:1.6;margin:0 0 8px">
+          Se encontraron <strong style="color:#c9a545">${numEval} evaluaciones</strong> guardadas en este dispositivo.
+        </p>
+        <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 28px">
+          Descarga el archivo con todos tus datos para importarlos en la versión web pública.
+        </p>
+        <button onclick="exportarDatos();document.getElementById('export-panel').remove();"
+          style="background:#c9a545;color:#1a1a2e;border:none;border-radius:8px;padding:14px 32px;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-bottom:12px;font-family:Montserrat,sans-serif">
+          ⬇ Descargar mis datos
+        </button>
+        <button onclick="document.getElementById('export-panel').remove();"
+          style="background:transparent;color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer;width:100%;font-family:Montserrat,sans-serif">
+          Cerrar
+        </button>
+      </div>`;
+    document.body.appendChild(panel);
+  } catch(e) {}
+}, 2000);
 </script>
 
 </body>
