@@ -1544,9 +1544,22 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       </div>
 
       <div class="filters" style="align-items:center">
-        <select id="fil-supervisor" onchange="renderResultados()">
+        <select id="fil-supervisor" onchange="renderResultados()" style="display:none">
           <option value="">Todos los supervisores</option>
         </select>
+        <div class="month-multiselect" id="res-sup-multiselect">
+          <button class="month-multiselect-btn" id="res-sup-btn" onclick="toggleResSupDropdown()">
+            <span id="res-sup-label">Todos los supervisores</span>
+            <span style="font-size:10px;opacity:0.6">▾</span>
+          </button>
+          <div class="month-multiselect-dropdown" id="res-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
+            <div class="month-ms-item" onclick="toggleResSupAll()">
+              <div class="month-ms-check" id="res-sup-check-all">✓</div>Todos los supervisores
+            </div>
+            <div id="res-sup-items"></div>
+            <div class="month-ms-footer" id="res-sup-footer">Todos seleccionados</div>
+          </div>
+        </div>
         <div class="month-multiselect" id="res-mes-multiselect">
           <button class="month-multiselect-btn" id="res-mes-btn" onclick="toggleMonthDropdown('res')">
             <span id="res-mes-label">Todos los meses</span>
@@ -5066,6 +5079,7 @@ function selectRankMes(val) {
 
 let dbAniosActivos  = [];   // up to 3 years for dashboard
 let dbSupSelected   = new Set(); // supervisores seleccionados (vacío = todos)
+let resSupSelected  = new Set(); // supervisores seleccionados en Resultados (vacío = todos)
 let dbProgramaFil   = '';   // PREGRADO | POSGRADO | EDUCACION CONTINUA | ''
 
 function toggleDbSupDropdown() {
@@ -5111,6 +5125,35 @@ function _updateDbSupUI() {
       (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === key
     ) ? '✓' : '';
   });
+}
+
+function toggleResSupDropdown() {
+  const drop = document.getElementById('res-sup-dropdown');
+  if (!drop) return;
+  const isOpen = drop.classList.contains('open');
+  document.querySelectorAll('.month-multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
+  if (!isOpen) drop.classList.add('open');
+}
+function toggleResSupAll() { resSupSelected.clear(); _updateResSupUI(); setTimeout(() => renderResultados(), 0); }
+function toggleResSup(sup) {
+  if (resSupSelected.has(sup)) resSupSelected.delete(sup); else resSupSelected.add(sup);
+  _updateResSupUI(); setTimeout(() => renderResultados(), 0);
+}
+function _updateResSupUI() {
+  const lbl=document.getElementById('res-sup-label');
+  const allChk=document.getElementById('res-sup-check-all');
+  const footer=document.getElementById('res-sup-footer');
+  if (!lbl) return;
+  if (resSupSelected.size===0) { lbl.textContent='Todos los supervisores'; if(allChk) allChk.textContent='✓'; if(footer) footer.textContent='Todos seleccionados'; }
+  else { lbl.textContent=resSupSelected.size===1?[...resSupSelected][0].split(' ').slice(0,2).join(' '):resSupSelected.size+' supervisores'; if(allChk) allChk.textContent=''; if(footer) footer.textContent=resSupSelected.size+' seleccionado'+(resSupSelected.size>1?'s':''); }
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  document.querySelectorAll('[id^="res-sup-chk-"]').forEach(el=>{ const key=el.id.replace('res-sup-chk-',''); el.textContent=[...resSupSelected].some(s=>nr(s)===key)?'✓':''; });
+}
+function _populateResSupItems() {
+  const items=document.getElementById('res-sup-items'); if(!items) return;
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const sups=[...new Set(state.supervisores||[])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
+  items.innerHTML=sups.map(s=>{ const key=nr(s); const safe=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return '<div class="month-ms-item" onclick="toggleResSup(\'' +safe+ '\')"><div class="month-ms-check" id="res-sup-chk-'+key+'">'+(resSupSelected.has(s)?'✓':'')+'<\/div>'+s+'<\/div>'; }).join('');
 }
 
 function toggleAnioDropdown(prefix) {
@@ -5866,11 +5909,11 @@ function guardarEvaluacion() {
 // ==================== RESULTADOS ====================
 function renderResultados() {
   _repararSupervisoresVacios();
-  const sup    = document.getElementById('fil-supervisor').value;
+  const supFilArr = supervisorActual ? [supervisorActual] : [...resSupSelected];
   const anioF  = (document.getElementById('fil-anio-r') || {}).value || '';
   const estado = document.getElementById('fil-estado').value;
 
-  let evs = state.evaluaciones.filter(e => !sup || e.supervisor === sup);
+  let evs = state.evaluaciones.filter(e => !supFilArr.length || supFilArr.includes(e.supervisor));
   if (resMesesActivos.length > 0) evs = evs.filter(e => resMesesActivos.includes(e.mes));
   if (anioF) evs = evs.filter(e => String(e.anio) === anioF);
 
@@ -8250,11 +8293,11 @@ async function cambiarPassword() {
 // ==================== EXCEL EXPORT — RESULTADOS ====================
 function exportarExcelResultados() {
   if (typeof XLSX === 'undefined') { alert('Librería XLSX no disponible. Recarga la página.'); return; }
-  const sup    = (document.getElementById('fil-supervisor') || {}).value || '';
+  const supFilExp = supervisorActual ? [supervisorActual] : [...resSupSelected];
   const anioF2 = (document.getElementById('fil-anio-r') || {}).value || '';
   const estado = (document.getElementById('fil-estado') || {}).value || '';
 
-  let evs = state.evaluaciones.filter(e => !sup || e.supervisor === sup);
+  let evs = state.evaluaciones.filter(e => !supFilExp.length || supFilExp.includes(e.supervisor));
   if (resMesesActivos.length > 0) evs = evs.filter(e => resMesesActivos.includes(e.mes));
   if (anioF2) evs = evs.filter(e => String(e.anio) === anioF2);
   if (estado === 'Aprobado')   evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas, e.supervisor));
@@ -9539,6 +9582,7 @@ function updateAllFilters() {
   // Resultados — supervisor only (mes filter is now a static 2026 list)
   const filSup = document.getElementById('fil-supervisor');
   filSup.innerHTML = '<option value="">Todos los supervisores</option>' + state.supervisores.map(s => `<option>${s}</option>`).join('');
+  _populateResSupItems();
 
   // Ranking — month list is static (all 12), only supervisor needs updating
   const rankSup = document.getElementById('rank-sup-filter');
@@ -9841,6 +9885,13 @@ function _lockSupSelects(nombre) {
     el.disabled = !!nombre;
     el.style.opacity = nombre ? '0.6' : '';
   });
+  // Resultados multiselect supervisor
+  const resSupBtn = document.getElementById("res-sup-btn");
+  if (resSupBtn) {
+    if (nombre) { resSupSelected = new Set([nombre]); resSupBtn.disabled=true; resSupBtn.style.opacity="0.6"; resSupBtn.style.cursor="default"; }
+    else { resSupSelected = new Set(); resSupBtn.disabled=false; resSupBtn.style.opacity=""; resSupBtn.style.cursor=""; }
+    _updateResSupUI();
+  }
   // Seguimiento — dropdown custom
   const segTrig = document.getElementById('seg-sup-trigger');
   if (segTrig) {
