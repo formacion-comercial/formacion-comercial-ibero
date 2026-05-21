@@ -1177,6 +1177,7 @@
             <div style="display:flex;align-items:center;gap:10px">
               <span id="chart-sup-badge" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
               <button onclick="abrirCargaManualResultados()"
+                id="btn-carga-manual"
                 style="font:600 11px Montserrat,sans-serif;background:var(--accent3);color:#fff;
                        border:none;border-radius:6px;padding:5px 12px;cursor:pointer;
                        display:flex;align-items:center;gap:5px">
@@ -9768,6 +9769,8 @@ function _aplicarModoSupervisor(nombre) {
   if (logout) logout.style.display = 'block';
   const gestion = document.getElementById('gestion-datos-panel');
   if (gestion) gestion.style.display = 'none';
+  const btnCarga = document.getElementById('btn-carga-manual');
+  if (btnCarga) btnCarga.style.display = 'none';
   // Pre-lock supervisor selects in all views
   _lockSupSelects(nombre);
 }
@@ -9784,6 +9787,8 @@ function _restaurarModoFormadora() {
   if (logout) logout.style.display = 'none';
   const gestion = document.getElementById('gestion-datos-panel');
   if (gestion) gestion.style.display = 'block';
+  const btnCarga = document.getElementById('btn-carga-manual');
+  if (btnCarga) btnCarga.style.display = '';
   _lockSupSelects('');
 }
 
