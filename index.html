@@ -4232,9 +4232,19 @@ async function _fbInit() {
     window._fbDb.settings({ experimentalForceLongPolling: true, merge: true });
 
     // Cargar configuración
+    const _pwdsLocales = Object.assign({}, state.supervisorPasswords || {});
     const cfgSnap = await window._fbDb.collection('config').doc('main').get();
     if (cfgSnap.exists) {
       Object.assign(state, cfgSnap.data());
+      // Restaurar contraseñas locales si Firebase las borró
+      if (!state.supervisorPasswords || Object.keys(state.supervisorPasswords).length === 0) {
+        state.supervisorPasswords = _pwdsLocales;
+      } else {
+        // Mezclar: mantener locales para supervisores sin pwd en Firebase
+        Object.keys(_pwdsLocales).forEach(s => {
+          if (!state.supervisorPasswords[s]) state.supervisorPasswords[s] = _pwdsLocales[s];
+        });
+      }
     } else {
       const cfg = Object.assign({}, state);
       delete cfg.evaluaciones;
