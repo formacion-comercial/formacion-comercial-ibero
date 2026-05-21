@@ -985,7 +985,7 @@ body.modo-coordinador #nav-registro { display: none !important; }
 body.modo-coordinador #nav-ranking { display: none !important; }
 body.modo-coordinador #nav-fi { display: none !important; }
 body.modo-coordinador #nav-reporte { display: none !important; }
-body.modo-coordinador #nav-seguimiento { display: none !important; }
+/* body.modo-coordinador #nav-seguimiento — visible para coordinador */
 body.modo-coordinador #nav-accesos { display: none !important; }
 body.modo-coordinador #nav-config { display: none !important; }
 body.modo-coordinador #btn-carga-manual { display: none !important; }
@@ -9507,7 +9507,7 @@ function guardarCargaManual() {
 function showView(name, el) {
   // Block restricted views for supervisor
   if (supervisorActual && ['registro','ranking','formacion-inicial','config'].includes(name)) return;
-  if (coordinadorActual && !['dashboard','resultados','historico'].includes(name)) return;
+  if (coordinadorActual && !['dashboard','resultados','historico','seguimiento'].includes(name)) return;
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
