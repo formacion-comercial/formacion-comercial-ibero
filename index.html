@@ -3867,12 +3867,12 @@ try {
     state.evaluaciones = state.evaluaciones.filter(ev => !MESES_EXCLUIR.includes(ev.mes));
     if (state.evaluaciones.length !== antes) changed = true;
     if (state.historicoAsesores) {
-      Object.keys(state.historicoAsesores).forEach(asesor => {
-        MESES_EXCLUIR.forEach(mes => {
-          if (state.historicoAsesores[asesor] && state.historicoAsesores[asesor][mes]) {
-            delete state.historicoAsesores[asesor][mes]; changed = true;
-          }
-        });
+      Object.keys(state.historicoAsesores).forEach(key => {
+        if (Array.isArray(state.historicoAsesores[key])) {
+          const antes = state.historicoAsesores[key].length;
+          state.historicoAsesores[key] = state.historicoAsesores[key].filter(r => !MESES_EXCLUIR.includes(r.mes));
+          if (state.historicoAsesores[key].length !== antes) changed = true;
+        }
       });
     }
     if (state.evaluacionesEnviadas) {
@@ -4270,13 +4270,15 @@ async function _fbInit() {
     // ── Limpiar Nov/Dic del histórico DESPUÉS de cargar Firebase ─────────────
     const _MESES_LIMPIAR = ['Noviembre','Diciembre'];
     let _histChanged = false;
+
+    // historicoAsesores: { "asesor||supervisor": [{mes, anio, pct,...}] }
     if (state.historicoAsesores) {
-      Object.keys(state.historicoAsesores).forEach(asesor => {
-        _MESES_LIMPIAR.forEach(mes => {
-          if (state.historicoAsesores[asesor] && state.historicoAsesores[asesor][mes]) {
-            delete state.historicoAsesores[asesor][mes]; _histChanged = true;
-          }
-        });
+      Object.keys(state.historicoAsesores).forEach(key => {
+        if (Array.isArray(state.historicoAsesores[key])) {
+          const antes = state.historicoAsesores[key].length;
+          state.historicoAsesores[key] = state.historicoAsesores[key].filter(r => !_MESES_LIMPIAR.includes(r.mes));
+          if (state.historicoAsesores[key].length !== antes) _histChanged = true;
+        }
       });
     }
     if (state.evaluacionesEnviadas) {
@@ -4291,7 +4293,6 @@ async function _fbInit() {
     }
     if (_histChanged) {
       localStorage.setItem('evalproState', JSON.stringify(state));
-      // Actualizar Firebase con datos limpios
       try {
         const cfgLimpio = Object.assign({}, state);
         delete cfgLimpio.evaluaciones;
