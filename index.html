@@ -4203,7 +4203,7 @@ async function _fbInit() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
     window._fbDb = firebase.firestore();
-    window._fbDb.settings({ experimentalForceLongPolling: true, merge: true });
+    window._fbDb.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
     // Cargar configuración
     const cfgSnap = await window._fbDb.collection('config').doc('main').get();
