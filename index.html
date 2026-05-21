@@ -4267,6 +4267,38 @@ async function _fbInit() {
       if (!state[k]) state[k] = {};
     });
 
+    // ── Limpiar Nov/Dic del histórico DESPUÉS de cargar Firebase ─────────────
+    const _MESES_LIMPIAR = ['Noviembre','Diciembre'];
+    let _histChanged = false;
+    if (state.historicoAsesores) {
+      Object.keys(state.historicoAsesores).forEach(asesor => {
+        _MESES_LIMPIAR.forEach(mes => {
+          if (state.historicoAsesores[asesor] && state.historicoAsesores[asesor][mes]) {
+            delete state.historicoAsesores[asesor][mes]; _histChanged = true;
+          }
+        });
+      });
+    }
+    if (state.evaluacionesEnviadas) {
+      Object.keys(state.evaluacionesEnviadas).forEach(key => {
+        if (_MESES_LIMPIAR.some(m => key.includes(m))) { delete state.evaluacionesEnviadas[key]; _histChanged = true; }
+      });
+    }
+    if (state.preguntasPorSupMes) {
+      Object.keys(state.preguntasPorSupMes).forEach(key => {
+        if (_MESES_LIMPIAR.some(m => key.includes(m))) { delete state.preguntasPorSupMes[key]; _histChanged = true; }
+      });
+    }
+    if (_histChanged) {
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      // Actualizar Firebase con datos limpios
+      try {
+        const cfgLimpio = Object.assign({}, state);
+        delete cfgLimpio.evaluaciones;
+        await window._fbDb.collection('config').doc('main').set(cfgLimpio);
+      } catch(e) {}
+    }
+
     // Cargar evaluaciones
     const _MESES_EXCLUIR = ['Noviembre', 'Diciembre'];
     const evSnap = await window._fbDb.collection('evaluaciones').get();
