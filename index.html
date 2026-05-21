@@ -3866,6 +3866,15 @@ try {
   })();
 } catch(e) { /* silent */ }
 
+// ── Eliminar evaluaciones de Diciembre ──────────────────────────────────────
+try {
+  (function eliminarDiciembre() {
+    const countBefore = state.evaluaciones.length;
+    state.evaluaciones = state.evaluaciones.filter(ev => ev.mes !== 'Diciembre');
+    if (state.evaluaciones.length !== countBefore) localStorage.setItem('evalproState', JSON.stringify(state));
+  })();
+} catch(e) { /* silent */ }
+
 // ── Limpiar datos de demostración si aún están en localStorage ──────────────
 try {
   (function purgeDemoData() {
@@ -5802,13 +5811,13 @@ function renderResultados() {
           <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pct}%</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓':'✗'} ${pass?'Aprobado':'Reprobado'}</span></td>
           <td style="white-space:nowrap">
-            <button onclick="eliminarEvaluacion('${e.id}')"
+            ${!supervisorActual ? `<button onclick="eliminarEvaluacion('${e.id}')"
               style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.25);color:var(--fail);
                      cursor:pointer;font-size:12px;padding:4px 10px;border-radius:4px;font-family:'Montserrat',sans-serif;
                      font-weight:600;transition:background .15s"
               onmouseover="this.style.background='rgba(184,80,80,0.22)'"
               onmouseout="this.style.background='rgba(184,80,80,0.08)'"
-              title="Eliminar evaluación">✕ Eliminar</button>
+              title="Eliminar evaluación">✕ Eliminar</button>` : ''}
           </td>
         </tr>`;
       }).join('')}
