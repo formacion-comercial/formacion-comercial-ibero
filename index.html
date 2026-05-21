@@ -1701,9 +1701,22 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </button>
       </div>
       <div class="filters" style="margin-bottom:12px">
-        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="min-width:180px">
+        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="display:none">
           <option value="">Todos los supervisores</option>
         </select>
+        <div class="month-multiselect" id="hist-sup-multiselect">
+          <button class="month-multiselect-btn" id="hist-sup-btn" onclick="toggleHistSupDropdown()">
+            <span id="hist-sup-label">Todos los supervisores</span>
+            <span style="font-size:10px;opacity:0.6">▾</span>
+          </button>
+          <div class="month-multiselect-dropdown" id="hist-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
+            <div class="month-ms-item" onclick="toggleHistSupAll()">
+              <div class="month-ms-check" id="hist-sup-check-all">✓</div>Todos los supervisores
+            </div>
+            <div id="hist-sup-items"></div>
+            <div class="month-ms-footer" id="hist-sup-footer">Todos seleccionados</div>
+          </div>
+        </div>
         <select id="hist-asesor" onchange="renderHistorico()" style="min-width:200px">
           <option value="">Todos los asesores</option>
         </select>
@@ -5080,6 +5093,7 @@ function selectRankMes(val) {
 let dbAniosActivos  = [];   // up to 3 years for dashboard
 let dbSupSelected   = new Set(); // supervisores seleccionados (vacío = todos)
 let resSupSelected  = new Set(); // supervisores seleccionados en Resultados (vacío = todos)
+let histSupSelected = new Set(); // supervisores seleccionados en Histórico (vacío = todos)
 let dbProgramaFil   = '';   // PREGRADO | POSGRADO | EDUCACION CONTINUA | ''
 
 function toggleDbSupDropdown() {
@@ -9595,6 +9609,7 @@ function updateAllFilters() {
     histSup.innerHTML = '<option value="">Todos los supervisores</option>' + state.supervisores.map(s => `<option>${s}</option>`).join('');
     if (state.supervisores.includes(prevHistSup)) histSup.value = prevHistSup;
   }
+  _populateHistSupItems();
 
   // Formación Inicial — supervisor filter
   const fiSup = document.getElementById('fi-fil-supervisor');
@@ -9891,6 +9906,13 @@ function _lockSupSelects(nombre) {
     if (nombre) { resSupSelected = new Set([nombre]); resSupBtn.disabled=true; resSupBtn.style.opacity="0.6"; resSupBtn.style.cursor="default"; }
     else { resSupSelected = new Set(); resSupBtn.disabled=false; resSupBtn.style.opacity=""; resSupBtn.style.cursor=""; }
     _updateResSupUI();
+  }
+  // Histórico — custom multiselect
+  const histSupBtn = document.getElementById("hist-sup-btn");
+  if (histSupBtn) {
+    if (nombre) { histSupSelected = new Set([nombre]); histSupBtn.disabled=true; histSupBtn.style.opacity="0.6"; histSupBtn.style.cursor="default"; }
+    else { histSupSelected = new Set(); histSupBtn.disabled=false; histSupBtn.style.opacity=""; histSupBtn.style.cursor=""; }
+    _updateHistSupUI();
   }
   // Seguimiento — dropdown custom
   const segTrig = document.getElementById('seg-sup-trigger');
@@ -13128,12 +13150,39 @@ document.addEventListener('click', function(e) {
   }
 });
 
+function toggleHistSupDropdown() {
+  const drop = document.getElementById('hist-sup-dropdown');
+  if (!drop) return;
+  const isOpen = drop.classList.contains('open');
+  document.querySelectorAll('.month-multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
+  if (!isOpen) drop.classList.add('open');
+}
+function toggleHistSupAll() { histSupSelected.clear(); _updateHistSupUI(); setTimeout(() => filtrarAsesoresHistorico(), 0); }
+function toggleHistSup(sup) {
+  if (histSupSelected.has(sup)) histSupSelected.delete(sup); else histSupSelected.add(sup);
+  _updateHistSupUI(); setTimeout(() => filtrarAsesoresHistorico(), 0);
+}
+function _updateHistSupUI() {
+  const lbl=document.getElementById('hist-sup-label'), allChk=document.getElementById('hist-sup-check-all'), footer=document.getElementById('hist-sup-footer');
+  if (!lbl) return;
+  if (histSupSelected.size===0) { lbl.textContent='Todos los supervisores'; if(allChk) allChk.textContent='✓'; if(footer) footer.textContent='Todos seleccionados'; }
+  else { lbl.textContent=histSupSelected.size===1?[...histSupSelected][0].split(' ').slice(0,2).join(' '):histSupSelected.size+' supervisores'; if(allChk) allChk.textContent=''; if(footer) footer.textContent=histSupSelected.size+' seleccionado'+(histSupSelected.size>1?'s':''); }
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  document.querySelectorAll('[id^="hist-sup-chk-"]').forEach(el=>{ const key=el.id.replace('hist-sup-chk-',''); el.textContent=[...histSupSelected].some(s=>nr(s)===key)?'✓':''; });
+}
+function _populateHistSupItems() {
+  const items=document.getElementById('hist-sup-items'); if(!items) return;
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const sups=[...new Set(state.supervisores||[])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
+  items.innerHTML=sups.map(s=>{ const key=nr(s); const safe=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return '<div class="month-ms-item" onclick="toggleHistSup(\'' +safe+ '\')"><div class="month-ms-check" id="hist-sup-chk-'+key+'">'+(histSupSelected.has(s)?'✓':'')+'<\/div>'+s+'<\/div>'; }).join('');
+}
+
 function filtrarAsesoresHistorico() {
-  const supFil = document.getElementById('hist-supervisor').value;
+    const supFilArr = supervisorActual ? [supervisorActual] : [...histSupSelected];
   const sel = document.getElementById('hist-asesor');
   const current = sel.value;
   sel.innerHTML = '<option value="">Todos los asesores</option>';
-  const asesores = state.asesores.filter(a => !supFil || a.supervisor === supFil);
+    const asesores = state.asesores.filter(a => !supFilArr.length || supFilArr.includes(a.supervisor));
   asesores.forEach(a => {
     sel.innerHTML += `<option value="${a.nombre}">${a.nombre}</option>`;
   });
@@ -13164,10 +13213,10 @@ function _histDataForAsesor(asesorNombre) {
 function exportHistoricoExcel() {
   const PASS      = 95;
   const MESES_ORD = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre'];
-  const supFil    = document.getElementById('hist-supervisor').value;
+  const histSupFilExp = supervisorActual ? [supervisorActual] : [...histSupSelected];
   const asesorFil = document.getElementById('hist-asesor').value;
   const lista     = state.asesores
-    .filter(a => !supFil    || a.supervisor === supFil)
+    .filter(a => !histSupFilExp.length || histSupFilExp.includes(a.supervisor))
     .filter(a => !asesorFil || a.nombre     === asesorFil)
     .sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
 
@@ -13300,12 +13349,12 @@ function exportHistoricoExcel() {
 function renderHistorico() {
   const PASS = 95;
   const asesorNombre = document.getElementById('hist-asesor').value;
-  const supFil = document.getElementById('hist-supervisor').value;
+  const histSupFilArr = supervisorActual ? [supervisorActual] : [...histSupSelected];
   const el = document.getElementById('hist-content');
 
   // ── Vista: TODOS los asesores ──────────────────────────────────────────────
   if (!asesorNombre) {
-    const lista = state.asesores.filter(a => !supFil || a.supervisor === supFil);
+    const lista = state.asesores.filter(a => !histSupFilArr.length || histSupFilArr.includes(a.supervisor));
     if (!lista.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">📈</div><div>No hay asesores registrados</div></div>';
       return;
