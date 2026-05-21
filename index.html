@@ -1048,8 +1048,8 @@
         ← Cerrar sesión supervisor
       </button>
     </div>
-    <!-- Botones exportar/importar datos -->
-    <div style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
+    <!-- Botones exportar/importar datos (solo Formadora) -->
+    <div id="gestion-datos-panel" style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-align:center;font-family:'Montserrat',sans-serif">Gestión de datos</div>
       <button onclick="exportarDatos()"
         style="width:100%;margin-bottom:5px;padding:7px 10px;border-radius:var(--radius-sm);
@@ -4246,11 +4246,22 @@ async function _fbInit() {
     });
 
     // Cargar evaluaciones
+    const _MESES_EXCLUIR = ['Noviembre', 'Diciembre'];
     const evSnap = await window._fbDb.collection('evaluaciones').get();
     if (!evSnap.empty) {
-      state.evaluaciones = evSnap.docs.map(d => d.data());
+      // Eliminar de Firestore los docs de Nov/Dic
+      const docsAEliminar = evSnap.docs.filter(d => _MESES_EXCLUIR.includes(d.data().mes));
+      if (docsAEliminar.length > 0) {
+        for (let i = 0; i < docsAEliminar.length; i += 400) {
+          const batchDel = window._fbDb.batch();
+          docsAEliminar.slice(i, i + 400).forEach(d => batchDel.delete(d.ref));
+          await batchDel.commit();
+        }
+      }
+      state.evaluaciones = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
     } else if (state.evaluaciones && state.evaluaciones.length > 0) {
-      const evs = state.evaluaciones;
+      const evs = state.evaluaciones.filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+      state.evaluaciones = evs;
       for (let i = 0; i < evs.length; i += 400) {
         const batch = window._fbDb.batch();
         evs.slice(i, i + 400).forEach(ev => {
@@ -4261,13 +4272,12 @@ async function _fbInit() {
     }
 
     localStorage.setItem('evalproState', JSON.stringify(state));
-    // Refrescar UI con datos de Firestore
     try { updateAllFilters(); } catch(_) {}
     setTimeout(() => updateSyncIndicator('Sincronizado', false), 300);
 
     // Listener en tiempo real
     window._fbDb.collection('evaluaciones').onSnapshot(snap => {
-      state.evaluaciones = snap.docs.map(d => d.data());
+      state.evaluaciones = snap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
       localStorage.setItem('evalproState', JSON.stringify(state));
       clearTimeout(window._fbRefreshTimer);
       window._fbRefreshTimer = setTimeout(() => { try { updateAllFilters(); } catch(_) {} }, 600);
@@ -9666,6 +9676,8 @@ function _aplicarModoSupervisor(nombre) {
   if (ind)    ind.style.display    = 'block';
   if (nameEl) nameEl.textContent   = nombre;
   if (logout) logout.style.display = 'block';
+  const gestion = document.getElementById('gestion-datos-panel');
+  if (gestion) gestion.style.display = 'none';
   // Pre-lock supervisor selects in all views
   _lockSupSelects(nombre);
 }
@@ -9680,6 +9692,8 @@ function _restaurarModoFormadora() {
   const logout = document.getElementById('sidebar-sup-logout');
   if (ind)    ind.style.display    = 'none';
   if (logout) logout.style.display = 'none';
+  const gestion = document.getElementById('gestion-datos-panel');
+  if (gestion) gestion.style.display = 'block';
   _lockSupSelects('');
 }
 
