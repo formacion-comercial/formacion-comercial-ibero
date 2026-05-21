@@ -13191,11 +13191,13 @@ function filtrarAsesoresHistorico() {
 }
 
 function _histDataForAsesor(asesorNombre) {
-  const asesor = state.asesores.find(a => a.nombre === asesorNombre);
+  const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const normNombre = _nr(asesorNombre);
+  const asesor = state.asesores.find(a => _nr(a.nombre) === normNombre);
   const supervisor = asesor ? asesor.supervisor : '';
   const registros = (state.historicoAsesores || {})[asesorNombre + '||' + supervisor] || [];
   const map = {};
-  state.evaluaciones.filter(e => e.asesor === asesorNombre).forEach(e => {
+  state.evaluaciones.filter(e => _nr(e.asesor) === normNombre).forEach(e => {
     const k = e.mes + '||' + (e.anio || '2026');
     if (!map[k]) {
       const t = e.totalPreguntas || (e.respuestas && e.respuestas.length) || 20;
@@ -13354,7 +13356,17 @@ function renderHistorico() {
 
   // ── Vista: TODOS los asesores ──────────────────────────────────────────────
   if (!asesorNombre) {
-    const lista = state.asesores.filter(a => !histSupFilArr.length || histSupFilArr.includes(a.supervisor));
+    const _nr2 = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const registeredNames = new Set(state.asesores.map(a => _nr2(a.nombre)));
+    const extraAsesores = [];
+    state.evaluaciones.forEach(e => {
+      if (e.asesor && !registeredNames.has(_nr2(e.asesor))) {
+        registeredNames.add(_nr2(e.asesor));
+        extraAsesores.push({ nombre: e.asesor, supervisor: e.supervisor || '' });
+      }
+    });
+    const todosAsesores = [...state.asesores, ...extraAsesores];
+    const lista = todosAsesores.filter(a => !histSupFilArr.length || histSupFilArr.includes(a.supervisor));
     if (!lista.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">📈</div><div>No hay asesores registrados</div></div>';
       return;
