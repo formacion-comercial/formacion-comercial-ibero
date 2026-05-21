@@ -3890,7 +3890,19 @@ try {
         if (MESES_EXCLUIR.some(m => key.includes(m))) { delete state.preguntasPorSupMesInicial[key]; changed = true; }
       });
     }
-    if (changed) localStorage.setItem('evalproState', JSON.stringify(state));
+    if (changed) {
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      // Limpiar también en Firebase
+      setTimeout(async function() {
+        try {
+          if (window._fbDb) {
+            const cfg = Object.assign({}, state);
+            delete cfg.evaluaciones;
+            await window._fbDb.collection('config').doc('main').set(cfg);
+          }
+        } catch(e) {}
+      }, 3000);
+    }
   })();
 } catch(e) { /* silent */ }
 
@@ -4229,7 +4241,7 @@ async function _fbInit() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
     window._fbDb = firebase.firestore();
-    window._fbDb.settings({ experimentalForceLongPolling: true, merge: true });
+    window._fbDb.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
     // Cargar configuración
     const _pwdsLocales = Object.assign({}, state.supervisorPasswords || {});
@@ -9634,10 +9646,27 @@ function navSupervisoresLogin(e) {
 // ── Contraseñas de supervisores ──
 function _ensureSupervisorPasswords() {
   if (!state.supervisorPasswords) state.supervisorPasswords = {};
+  // Contraseñas fijas — no se sobreescriben
+  const _PWDS_FIJAS = {
+    "Nelson Javier Morera Rincon": "fxntu49t",
+    "Fabian Vargas": "f2y7p8q2",
+    "Heidy Lorena Prieto Ahumada": "k5jmq4hh",
+    "Gina Paola Medina Florez": "6bxkae6u",
+    "Paola Andrea Calderon Cetina": "b72ehx5z",
+    "Catalina Pacheco Burgos": "wfh57adv",
+    "Ivonne Rodriguez": "p42pgchs",
+    "Fabian Concha": "5v4pwnjk",
+    "Marshia Milena Jiménez Gómez": "h6cgh35k",
+    "Johan Sebastián Pardeyn Aguilar": "7eae875x",
+    "Jovanny Alexander Benavides Apraez": "8nrz5qhb",
+    "Jeisson Fabian Molina Ciro": "7nkzng49",
+    "Javier Orlando Hernandez Rivera": "mckpbabs"
+  };
   let changed = false;
   state.supervisores.forEach(s => {
-    if (!state.supervisorPasswords[s]) {
-      state.supervisorPasswords[s] = _generarPassword();
+    const pwd = _PWDS_FIJAS[s] || state.supervisorPasswords[s] || _generarPassword();
+    if (state.supervisorPasswords[s] !== pwd) {
+      state.supervisorPasswords[s] = pwd;
       changed = true;
     }
   });
