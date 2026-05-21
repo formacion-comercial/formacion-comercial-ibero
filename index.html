@@ -13841,8 +13841,9 @@ function importarDatos(event) {
 // ==================== INIT ====================
 _fbInit();
 
-// ── Mostrar panel de exportación si hay datos en localStorage (archivo local) ──
+// ── Mostrar panel de exportación solo en archivo local (no en web) ──
 setTimeout(function() {
+  if (window.location.protocol !== 'file:') return;
   const data = localStorage.getItem('evalproState');
   if (!data) return;
   try {
