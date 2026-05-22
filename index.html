@@ -1185,6 +1185,18 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </div>
       </div>
 
+      <!-- ── Bienvenida personalizada ── -->
+      <div id="db-bienvenida" style="display:flex;align-items:center;gap:16px;margin-bottom:16px;
+           padding:14px 20px;background:linear-gradient(135deg,rgba(201,165,69,0.07),rgba(201,165,69,0.02));
+           border:1px solid rgba(201,165,69,0.22);border-radius:var(--radius)">
+        <div id="db-bienvenida-emoji" style="font-size:26px;line-height:1;flex-shrink:0">☀️</div>
+        <div>
+          <div id="db-bienvenida-saludo" style="font-size:17px;font-weight:700;color:var(--text);line-height:1.25"></div>
+          <div id="db-bienvenida-rol" style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;
+               margin-top:3px;text-transform:uppercase;letter-spacing:0.07em"></div>
+        </div>
+      </div>
+
       <!-- ── Hero strip KPI ── -->
       <div id="db-hero-strip"
         style="background:#FFFFFF;border:2px solid #C9A545;
@@ -1615,13 +1627,15 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <div id="view-ranking" class="view">
       <div class="page-header">
         <div>
-          <div class="page-title">Ranking</div>
-          <div class="page-sub">Desempeño por supervisor y asesor</div>
-        </div>
-      </div>
-
-      <!-- Filtros globales: mes + año + tipo -->
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:24px">
+          <        <select id="fil-estado" onchange="renderResultados()">
+          <option value="">Todos</option>
+          <option value="Aprobado">Solo Aprobados</option>
+          <option value="Reprobado">Solo Reprobados</option>
+        </select>
+        <input id="fil-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderResultados()"
+          style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                 background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none">
+      </div>:wrap;margin-bottom:24px">
           <div class="month-multiselect" id="rank-mes-multiselect">
             <button class="month-multiselect-btn" id="rank-mes-btn" onclick="toggleMonthDropdown('rank')">
               <span id="rank-mes-label">Todos los meses</span>
@@ -1708,8 +1722,17 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </button>
       </div>
       <div class="filters" style="margin-bottom:12px">
-        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="display:none">
-          <option value="">Todos los supervisores</option>
+        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico        <div style="margin-bottom:14px">
+          <input id="rank-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderRankingAsesores()"
+            style="width:100%;padding:9px 14px;font-size:13px;border-radius:var(--radius-sm);
+                   border:1px solid var(--border);background:var(--surface2);color:var(--text);
+                   font-family:'Montserrat',sans-serif;outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div id="rank-asesores"></div>
+      </div>
+
+      <!-- Insights cardoption>
         </select>
         <div class="month-multiselect" id="hist-sup-multiselect">
           <button class="month-multiselect-btn" id="hist-sup-btn" onclick="toggleHistSupDropdown()">
@@ -5290,8 +5313,27 @@ function renderDashboard() {
         ...state.evaluaciones.map(e => e.supervisor).filter(Boolean)
       ])].sort((a,b) => a.localeCompare(b,'es'));
       const seenS = new Set();
-      const uniqSups = allSups.filter(s => { const n=_norm(s); if(seenS.has(n)) return false; seenS.add(n); return true; });
-      if (supItems) {
+      const uniqSups = allSups.filter(s => { const n=_norm(s); function renderBienvenida() {
+  const saludoEl = document.getElementById('db-bienvenida-saludo');
+  const rolEl    = document.getElementById('db-bienvenida-rol');
+  const emojiEl  = document.getElementById('db-bienvenida-emoji');
+  if (!saludoEl) return;
+  const h = new Date().getHours();
+  const saludo = h >= 5 && h < 12 ? 'Buenos días' : h >= 12 && h < 18 ? 'Buenas tardes' : 'Buenas noches';
+  const emoji  = h >= 5 && h < 12 ? '☀️' : h >= 12 && h < 18 ? '🌤️' : '🌙';
+  let nombre = 'Yina Ovalle';
+  let rol    = 'Administrador · Formadora';
+  if (supervisorActual)  { nombre = supervisorActual;  rol = 'Supervisor'; }
+  if (coordinadorActual) { nombre = coordinadorActual; rol = 'Coordinador'; }
+  saludoEl.textContent = saludo + ', ' + nombre;
+  rolEl.textContent    = rol;
+  if (emojiEl) emojiEl.textContent = emoji;
+}
+
+function renderDashboard() {
+  _repararSupervisoresVacios();
+  _ensurePasswords();
+  renderBienvenida();{
         supItems.innerHTML = uniqSups.map(s => {
           const key   = _norm(s);
           const chk   = dbSupSelected.has(s) ? '✓' : '';
@@ -5989,11 +6031,11 @@ function renderResultados() {
         const pct  = calcPct(e.respuestas, t, e.supervisor);
         const pass = isPaso(e.respuestas, t, e.supervisor);
         const fecha = e.fechaRegistro
-          ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})
-          : '—';
-        return `<tr>
-          <td style="color:var(--text);font-weight:500;cursor:pointer" onclick="mostrarPerfilAsesor('${e.asesor.replace(/'/g,"\\'")}')">
-            <span style="text-decoration:underline dotted;text-underline-offset:3px">${e.asesor}</span>
+          ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'n  if (estado === 'Aprobado')  evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
+  if (estado === 'Reprobado') evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
+
+  const busqAsesor = ((document.getElementById('fil-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if (busqAsesor) evs = evs.filter(e => (e.asesor||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(busqAsesor));fset:3px">${e.asesor}</span>
           </td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})">${e.supervisor || (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(e.asesor))?.supervisor) || '—'}</td>
           <td style="font-family:'Fira Code',monospace;font-size:12px;cursor:pointer" onclick="showDetalle(${e.id})">${e.mes} ${e.anio}</td>
@@ -6271,17 +6313,20 @@ function renderRankingAsesores() {
     }
   }
 
-  countEl.textContent = asesorRank.length ? `${asesorRank.length} asesor${asesorRank.length!==1?'es':''}` : '';
+  countEl.textContent = asesorRankFil.length ? `${asesorRankFil.length} asesor${asesorRankFil.length!==1?'es':''}` : '';
 
   const cont = document.getElementById('rank-asesores');
-  if (!asesorRank.length) {
-    cont.innerHTML = summaryHtml + (supFil
-      ? `<div class="empty" style="padding:32px"><div class="empty-icon">◉</div><div>No hay evaluaciones registradas para <strong>${supFil}</strong> en el período seleccionado</div></div>`
-      : `<div class="empty" style="padding:32px"><div class="empty-icon">▲</div><div>Selecciona un supervisor arriba para ver el ranking de sus asesores</div></div>`);
-    return;
-  }
+  if (!as  const busqRank = ((document.getElementById('rank-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const asesorRankFil = busqRank ? asesorRank.filter(a => _normR(a.nombre).includes(busqRank)) : asesorRank;
 
-  // ── Tiers por puntaje ──
+  if (!asesorRankFil.length) {
+    cont.innerHTML = summaryHtml + (busqRank
+      ? `<div class="empty" style="padding:32px"><div class="empty-icon">🔍</div><div>Sin asesores que coincidan con "<strong>${busqRank}</strong>"</div></div>`
+      : supFil
+        ? `<div class="empty" style="padding:32px"><div class="empty-icon">◉</div><div>No hay evaluaciones registradas para <strong>${supFil}</strong> en el período seleccionado</div></div>`
+        : `<div class="empty" style="padding:32px"><div class="empty-icon">▲</div><div>Selecciona un supervisor arriba para ver el ranking de sus asesores</div></div>`);
+    return;
+  } Tiers por puntaje ──
   const cOfA  = v => v >= 95 ? '#4E8A72' : v >= 90 ? '#C9A545' : '#E05050';
   const bgOfA = v => v >= 95 ? 'rgba(78,138,114,0.10)' : v >= 90 ? 'rgba(201,165,69,0.10)' : 'rgba(224,80,80,0.10)';
 
@@ -6293,10 +6338,10 @@ function renderRankingAsesores() {
 
   // Tarjeta de podio para asesor
   const asesorCard = (a, emoji, borderColor, glowColor, bgColor) => {
-    const pct    = a.total ? Math.round((a.pass/a.total)*100) : 0;
-    const c      = cOfA(a.avg);
-    const ini    = initials(a.nombre);
-    const name   = a.nombre.split(' ').slice(0,2).join(' ');
+    const pct    = a.total ? Math.round((a.pass/a.total)*100) :     .filter(a =const goldA   = asesorRankFil.filter(b.avg - a.avg || a.nombre.lconst silverA = asesorRankFil.filter(busqRank = ((document.getElementById('ranconst restA   = asesorRankFil.filter('').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const asesorRankFil = busqRank ? asesorRank.filter(a => _normR(a.nombre).includes(busqRank)) : asesorRank;
+
+  // Build submitted).join(' ');
     const safeN  = a.nombre.replace(/'/g,"\\'");
     let statusBadge = '';
     if (mes1) {
