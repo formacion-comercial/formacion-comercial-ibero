@@ -1057,6 +1057,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <!-- Live sync indicator -->
     <!-- Botón salir supervisor (solo visible en modo supervisor) -->
     <div id="sidebar-sup-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)">
+      <button onclick="abrirCambiarPassword('supervisor')"
+        style="width:100%;margin-bottom:6px;padding:7px 14px;border-radius:var(--radius-sm);
+               border:1px solid rgba(201,165,69,0.40);background:rgba(201,165,69,0.10);
+               color:rgba(255,255,255,0.75);font-size:12px;font-family:'Montserrat',sans-serif;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        🔑 Cambiar contraseña
+      </button>
       <button onclick="cerrarSesionSupervisor()"
         style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);
                border:1px solid rgba(91,143,176,0.35);background:rgba(91,143,176,0.12);
@@ -1065,7 +1072,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         ← Cerrar sesión supervisor
       </button>
     </div>
-    <div id="sidebar-coord-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)"><button onclick="cerrarSesionCoordinador()" style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(120,91,176,0.35);background:rgba(120,91,176,0.12);color:rgba(255,255,255,0.80);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">← Cerrar sesión coordinador</button></div>
+    <div id="sidebar-coord-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)"><button onclick="abrirCambiarPassword('coordinador')" style="width:100%;margin-bottom:6px;padding:7px 14px;border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.40);background:rgba(201,165,69,0.10);color:rgba(255,255,255,0.75);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">🔑 Cambiar contraseña</button><button onclick="cerrarSesionCoordinador()" style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(120,91,176,0.35);background:rgba(120,91,176,0.12);color:rgba(255,255,255,0.80);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">← Cerrar sesión coordinador</button></div>
     <!-- Botones exportar/importar datos (solo Formadora) -->
     <div id="gestion-datos-panel" style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-align:center;font-family:'Montserrat',sans-serif">Gestión de datos</div>
@@ -3772,6 +3779,18 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 </div>
 
+
+<!-- MODAL CAMBIAR CONTRASEÑA -->
+<div class="modal-overlay" id="modal-cambiar-pwd-overlay" onclick="if(event.target===this)cerrarCambiarPassword()" style="display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);width:min(400px,96vw);padding:32px;box-shadow:0 8px 48px rgba(0,0,0,0.25)">
+    <h3 style="margin-bottom:20px;font-size:17px;font-weight:700">🔑 Cambiar contraseña</h3>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Nueva contraseña</label><input id="pwd-nueva" type="password" placeholder="Nueva contraseña" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)" oninput="document.getElementById('pwd-cambiar-error').style.display='none'"></div>
+    <div style="margin-bottom:20px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Confirmar contraseña</label><input id="pwd-confirmar" type="password" placeholder="Repite la nueva contraseña" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)" onkeydown="if(event.key==='Enter')guardarNuevaPassword()"></div>
+    <div id="pwd-cambiar-error" style="display:none;color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px"><button onclick="guardarNuevaPassword()" style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif">Guardar</button><button onclick="cerrarCambiarPassword()" style="padding:11px 18px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:'Montserrat',sans-serif">Cancelar</button></div>
+  </div>
+</div>
+
 <!-- MODAL CORREGIR RESPUESTAS -->
 <div class="modal-overlay" id="modal-corregir-overlay" onclick="if(event.target===this)cerrarCorreccion()"
   style="display:none;align-items:center;justify-content:center">
@@ -3894,6 +3913,7 @@ if (!state.evaluacionesEnviadas)      state.evaluacionesEnviadas = {};
 if (!state.historicoAsesores)         state.historicoAsesores = {};
 if (!state.plazos)                    state.plazos = {};
 if (!state.supervisorPasswords)       state.supervisorPasswords = {};
+if (!state.coordinadorPasswords)      state.coordinadorPasswords = {};
 if (!state.preguntasPorSupMesInicial) state.preguntasPorSupMesInicial = {};
 if (!state.ultimosAccesos)            state.ultimosAccesos = {};
 if (!state.programaPorSupervisor)     state.programaPorSupervisor = {};
@@ -4320,7 +4340,7 @@ async function _fbInit() {
       delete cfg.evaluaciones;
       await window._fbDb.collection('config').doc('main').set(cfg);
     }
-    ['evaluacionesEnviadas','historicoAsesores','plazos','supervisorPasswords',
+    ['evaluacionesEnviadas','historicoAsesores','plazos','supervisorPasswords','coordinadorPasswords',
      'preguntasPorSupMesInicial','ultimosAccesos','programaPorSupervisor'].forEach(k => {
       if (!state[k]) state[k] = {};
     });
@@ -4419,6 +4439,8 @@ function reloadState() {
     state.historicoAsesores           = fresh.historicoAsesores           || {};
     state.plazos                      = fresh.plazos                      || {};
     state.supervisorPasswords         = fresh.supervisorPasswords         || {};
+    state.coordinadorPasswords        = fresh.coordinadorPasswords        || {};
+    state.pwdsMigradosV2              = fresh.pwdsMigradosV2              || false;
     state.programaPorSupervisor       = fresh.programaPorSupervisor       || {};
   }
 }
@@ -9199,7 +9221,7 @@ function guardarNuevoSupCred() {
   }
   state.supervisores.push(nombre);
   if (!state.supervisorPasswords) state.supervisorPasswords = {};
-  state.supervisorPasswords[nombre] = _generarPassword();
+  state.supervisorPasswords[nombre] = '123';
   save(); updateAllFilters(); renderConfig(); initRegistro();
   document.getElementById('nuevo-sup-cred-form').style.display = 'none';
 }
@@ -9214,9 +9236,10 @@ function eliminarSupCred(nombre) {
 
 function resetSupPassword(nombreSup) {
   if (!state.supervisorPasswords) state.supervisorPasswords = {};
-  state.supervisorPasswords[nombreSup] = _generarPassword();
+  state.supervisorPasswords[nombreSup] = '123';
   save();
   renderConfig();
+  alert('Contraseña de ' + nombreSup + ' restablecida a: 123');
 }
 
 function agregarSupervisor() {
@@ -9778,29 +9801,16 @@ function navSupervisoresLogin(e) {
 // ── Contraseñas de supervisores ──
 function _ensureSupervisorPasswords() {
   if (!state.supervisorPasswords) state.supervisorPasswords = {};
-  // Contraseñas fijas — no se sobreescriben
-  const _PWDS_FIJAS = {
-    "Nelson Javier Morera Rincon": "fxntu49t",
-    "Fabian Vargas": "f2y7p8q2",
-    "Heidy Lorena Prieto Ahumada": "k5jmq4hh",
-    "Gina Paola Medina Florez": "6bxkae6u",
-    "Paola Andrea Calderon Cetina": "b72ehx5z",
-    "Catalina Pacheco Burgos": "wfh57adv",
-    "Ivonne Rodriguez": "p42pgchs",
-    "Fabian Concha": "5v4pwnjk",
-    "Marshia Milena Jiménez Gómez": "h6cgh35k",
-    "Johan Sebastián Pardeyn Aguilar": "7eae875x",
-    "Jovanny Alexander Benavides Apraez": "8nrz5qhb",
-    "Jeisson Fabian Molina Ciro": "7nkzng49",
-    "Javier Orlando Hernandez Rivera": "mckpbabs"
-  };
   let changed = false;
+  if (!state.pwdsMigradosV2) {
+    state.supervisores.forEach(s => { state.supervisorPasswords[s] = '123'; });
+    if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
+    ["Carolina Torres","Fabian Vargas","Jennifer Vargas"].forEach(c => { state.coordinadorPasswords[c] = '123'; });
+    state.pwdsMigradosV2 = true;
+    changed = true;
+  }
   state.supervisores.forEach(s => {
-    const pwd = _PWDS_FIJAS[s] || state.supervisorPasswords[s] || _generarPassword();
-    if (state.supervisorPasswords[s] !== pwd) {
-      state.supervisorPasswords[s] = pwd;
-      changed = true;
-    }
+    if (!state.supervisorPasswords[s]) { state.supervisorPasswords[s] = '123'; changed = true; }
   });
   if (changed) save();
 }
@@ -9814,30 +9824,13 @@ function loginSupervisor() {
   if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
   if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
 
-  // Verificar siempre contra contraseñas fijas primero
-  const _PWDS_FIJAS = {
-    "Nelson Javier Morera Rincon": "fxntu49t",
-    "Fabian Vargas": "f2y7p8q2",
-    "Heidy Lorena Prieto Ahumada": "k5jmq4hh",
-    "Gina Paola Medina Florez": "6bxkae6u",
-    "Paola Andrea Calderon Cetina": "b72ehx5z",
-    "Catalina Pacheco Burgos": "wfh57adv",
-    "Ivonne Rodriguez": "p42pgchs",
-    "Fabian Concha": "5v4pwnjk",
-    "Marshia Milena Jiménez Gómez": "h6cgh35k",
-    "Johan Sebastián Pardeyn Aguilar": "7eae875x",
-    "Jovanny Alexander Benavides Apraez": "8nrz5qhb",
-    "Jeisson Fabian Molina Ciro": "7nkzng49",
-    "Javier Orlando Hernandez Rivera": "mckpbabs"
-  };
-
   reloadState();
   _ensureSupervisorPasswords();
 
   if (!state.supervisores.includes(nombre)) {
     errEl.style.display = 'block'; errEl.textContent = '✗ Supervisor no encontrado'; return;
   }
-  const pwdCorrecta = _PWDS_FIJAS[nombre] || state.supervisorPasswords[nombre];
+  const pwdCorrecta = state.supervisorPasswords[nombre];
   if (pwd !== pwdCorrecta) {
     errEl.style.display = 'block'; errEl.textContent = '✗ Contraseña incorrecta'; return;
   }
@@ -10037,14 +10030,25 @@ function cerrarSesionSupervisor() {
   if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
 }
 
-const _PWDS_COORD = {"Carolina Torres":"ct7kd2mq","Fabian Vargas":"fv3pzr8n","Jennifer Vargas":"jv8tm4rk"};
+const _COORD_NOMBRES = ["Carolina Torres","Fabian Vargas","Jennifer Vargas"];
+
+function _ensureCoordinadorPasswords() {
+  if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
+  let changed = false;
+  _COORD_NOMBRES.forEach(c => {
+    if (!state.coordinadorPasswords[c]) { state.coordinadorPasswords[c] = '123'; changed = true; }
+  });
+  if (changed) save();
+}
 function loginCoordinador(){
   const nom=document.getElementById('coord-select-login').value;
   const pwd=document.getElementById('coord-pwd-login').value;
   const e=document.getElementById('coord-login-error');
   e.style.display='none';
   if(!nom){alert('Selecciona tu nombre');return;}
-  if(!pwd||pwd!==_PWDS_COORD[nom]){e.style.display='block';e.textContent='✗ Contraseña incorrecta';return;}
+  reloadState();
+  _ensureCoordinadorPasswords();
+  if(!pwd||pwd!==state.coordinadorPasswords[nom]){e.style.display='block';e.textContent='✗ Contraseña incorrecta';return;}
   coordinadorActual=nom;
   document.getElementById('login-screen').classList.add('hidden');
   document.querySelector('.app').style.display='flex';
@@ -10072,6 +10076,38 @@ function _restaurarModoCoordinador(){
   if(out)out.style.display='none';
   document.body.classList.remove('modo-coordinador');
 }
+let _pwdChangeRole = null;
+
+function abrirCambiarPassword(role) {
+  _pwdChangeRole = role;
+  document.getElementById('pwd-nueva').value = '';
+  document.getElementById('pwd-confirmar').value = '';
+  document.getElementById('pwd-cambiar-error').style.display = 'none';
+  document.getElementById('modal-cambiar-pwd-overlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('pwd-nueva').focus(), 50);
+}
+function cerrarCambiarPassword() {
+  document.getElementById('modal-cambiar-pwd-overlay').style.display = 'none';
+  _pwdChangeRole = null;
+}
+function guardarNuevaPassword() {
+  const nueva = document.getElementById('pwd-nueva').value;
+  const conf = document.getElementById('pwd-confirmar').value;
+  const errEl = document.getElementById('pwd-cambiar-error');
+  if (!nueva) { errEl.textContent = '✗ Ingresa la nueva contraseña'; errEl.style.display = 'block'; return; }
+  if (nueva.length < 3) { errEl.textContent = '✗ Mínimo 3 caracteres'; errEl.style.display = 'block'; return; }
+  if (nueva !== conf) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
+  if (_pwdChangeRole === 'supervisor' && supervisorActual) {
+    if (!state.supervisorPasswords) state.supervisorPasswords = {};
+    state.supervisorPasswords[supervisorActual] = nueva;
+    save(); cerrarCambiarPassword(); alert('✓ Contraseña actualizada');
+  } else if (_pwdChangeRole === 'coordinador' && coordinadorActual) {
+    if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
+    state.coordinadorPasswords[coordinadorActual] = nueva;
+    save(); cerrarCambiarPassword(); alert('✓ Contraseña actualizada');
+  }
+}
+
 function cerrarSesionCoordinador(){
   _restaurarModoCoordinador();
   document.querySelector('.app').style.display='none';
@@ -13241,10 +13277,10 @@ function exportHistoricoExcel() {
   // ── Fecha y metadatos ──
   const fechaHoy  = new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
   const periodoLb = histAniosActivos.length ? histAniosActivos.join(', ') : 'Todos los períodos';
-  const filtroLb  = supFil ? `Supervisor: ${supFil}` : 'Todos los supervisores';
+  const filtroLb  = histSupFilExp.length===1 ? `Supervisor: ${histSupFilExp[0]}` : histSupFilExp.length>1 ? `${histSupFilExp.length} supervisores` : 'Todos los supervisores';
   const asesorLb  = asesorFil ? ` • Asesor: ${asesorFil}` : '';
   const instNom   = (state.config && state.config.institucion) ? state.config.institucion : 'Área Comercial';
-  const supLabel  = supFil    ? '_'+supFil.split(' ')[0]    : '';
+  const supLabel  = histSupFilExp.length===1 ? '_'+histSupFilExp[0].split(' ')[0] : '';
   const aseLabel  = asesorFil ? '_'+asesorFil.split(' ')[0] : '';
   const fecha     = new Date().toISOString().slice(0,10);
 
