@@ -5297,6 +5297,7 @@ function setDbPrograma(prog) {
 function renderDashboard() {
   _repararSupervisoresVacios();
   _ensurePasswords();
+  renderBienvenida();
 
   const _norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
