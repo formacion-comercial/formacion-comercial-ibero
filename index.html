@@ -5295,6 +5295,23 @@ function setDbPrograma(prog) {
   renderDashboard();
 }
 
+function renderBienvenida() {
+  const saludoEl = document.getElementById('db-bienvenida-saludo');
+  const rolEl    = document.getElementById('db-bienvenida-rol');
+  const emojiEl  = document.getElementById('db-bienvenida-emoji');
+  if (!saludoEl) return;
+  const h = new Date().getHours();
+  const saludo = h >= 5 && h < 12 ? 'Buenos días' : h >= 12 && h < 18 ? 'Buenas tardes' : 'Buenas noches';
+  const emoji  = h >= 5 && h < 12 ? '☀️' : h >= 12 && h < 18 ? '🌤️' : '🌙';
+  let nombre = 'Yina Ovalle';
+  let rol    = 'Administrador · Formadora';
+  if (supervisorActual)  { nombre = supervisorActual;  rol = 'Supervisor'; }
+  if (coordinadorActual) { nombre = coordinadorActual; rol = 'Coordinador'; }
+  saludoEl.textContent = saludo + ', ' + nombre;
+  rolEl.textContent    = rol;
+  if (emojiEl) emojiEl.textContent = emoji;
+}
+
 function renderDashboard() {
   _repararSupervisoresVacios();
   _ensurePasswords();
@@ -5315,27 +5332,8 @@ function renderDashboard() {
         ...state.evaluaciones.map(e => e.supervisor).filter(Boolean)
       ])].sort((a,b) => a.localeCompare(b,'es'));
       const seenS = new Set();
-      const uniqSups = allSups.filter(s => { const n=_norm(s); function renderBienvenida() {
-  const saludoEl = document.getElementById('db-bienvenida-saludo');
-  const rolEl    = document.getElementById('db-bienvenida-rol');
-  const emojiEl  = document.getElementById('db-bienvenida-emoji');
-  if (!saludoEl) return;
-  const h = new Date().getHours();
-  const saludo = h >= 5 && h < 12 ? 'Buenos días' : h >= 12 && h < 18 ? 'Buenas tardes' : 'Buenas noches';
-  const emoji  = h >= 5 && h < 12 ? '☀️' : h >= 12 && h < 18 ? '🌤️' : '🌙';
-  let nombre = 'Yina Ovalle';
-  let rol    = 'Administrador · Formadora';
-  if (supervisorActual)  { nombre = supervisorActual;  rol = 'Supervisor'; }
-  if (coordinadorActual) { nombre = coordinadorActual; rol = 'Coordinador'; }
-  saludoEl.textContent = saludo + ', ' + nombre;
-  rolEl.textContent    = rol;
-  if (emojiEl) emojiEl.textContent = emoji;
-}
-
-function renderDashboard() {
-  _repararSupervisoresVacios();
-  _ensurePasswords();
-  renderBienvenida();{
+      const uniqSups = allSups.filter(s => { const n=_norm(s); if(seenS.has(n)) return false; seenS.add(n); return true; });
+      if (supItems) {
         supItems.innerHTML = uniqSups.map(s => {
           const key   = _norm(s);
           const chk   = dbSupSelected.has(s) ? '✓' : '';
