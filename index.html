@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formación Comercial — Gestión de Evaluaciones</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/lhibs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1628,15 +1628,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <div id="view-ranking" class="view">
       <div class="page-header">
         <div>
-          <        <select id="fil-estado" onchange="renderResultados()">
-          <option value="">Todos</option>
-          <option value="Aprobado">Solo Aprobados</option>
-          <option value="Reprobado">Solo Reprobados</option>
-        </select>
-        <input id="fil-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderResultados()"
-          style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
-                 background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none">
-      </div>:wrap;margin-bottom:24px">
+          <div class="page-title">Ranking</div>
+          <div class="page-sub">Desempeño por supervisor y asesor</div>
+        </div>
+      </div>
+
+      <!-- Filtros globales: mes + año + tipo -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:24px">
           <div class="month-multiselect" id="rank-mes-multiselect">
             <button class="month-multiselect-btn" id="rank-mes-btn" onclick="toggleMonthDropdown('rank')">
               <span id="rank-mes-label">Todos los meses</span>
@@ -1699,6 +1697,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             <div id="rank-asesores-count" style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3)"></div>
           </div>
         </div>
+        <div style="margin-bottom:14px">
+          <input id="rank-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderRankingAsesores()"
+            style="width:100%;padding:9px 14px;font-size:13px;border-radius:var(--radius-sm);
+                   border:1px solid var(--border);background:var(--surface2);color:var(--text);
+                   font-family:'Montserrat',sans-serif;outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
         <div id="rank-asesores"></div>
       </div>
 
@@ -1723,17 +1728,8 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </button>
       </div>
       <div class="filters" style="margin-bottom:12px">
-        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico        <div style="margin-bottom:14px">
-          <input id="rank-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderRankingAsesores()"
-            style="width:100%;padding:9px 14px;font-size:13px;border-radius:var(--radius-sm);
-                   border:1px solid var(--border);background:var(--surface2);color:var(--text);
-                   font-family:'Montserrat',sans-serif;outline:none;transition:border .15s"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-        </div>
-        <div id="rank-asesores"></div>
-      </div>
-
-      <!-- Insights cardoption>
+        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="display:none">
+          <option value="">Todos los supervisores</option>
         </select>
         <div class="month-multiselect" id="hist-sup-multiselect">
           <button class="month-multiselect-btn" id="hist-sup-btn" onclick="toggleHistSupDropdown()">
@@ -6031,11 +6027,11 @@ function renderResultados() {
         const pct  = calcPct(e.respuestas, t, e.supervisor);
         const pass = isPaso(e.respuestas, t, e.supervisor);
         const fecha = e.fechaRegistro
-          ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'n  if (estado === 'Aprobado')  evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
-  if (estado === 'Reprobado') evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
-
-  const busqAsesor = ((document.getElementById('fil-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  if (busqAsesor) evs = evs.filter(e => (e.asesor||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(busqAsesor));fset:3px">${e.asesor}</span>
+          ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})
+          : '—';
+        return `<tr>
+          <td style="color:var(--text);font-weight:500;cursor:pointer" onclick="mostrarPerfilAsesor('${e.asesor.replace(/'/g,"\\'")}')">
+            <span style="text-decoration:underline dotted;text-underline-offset:3px">${e.asesor}</span>
           </td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})">${e.supervisor || (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(e.asesor))?.supervisor) || '—'}</td>
           <td style="font-family:'Fira Code',monospace;font-size:12px;cursor:pointer" onclick="showDetalle(${e.id})">${e.mes} ${e.anio}</td>
