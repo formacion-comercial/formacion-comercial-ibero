@@ -1,11 +1,9 @@
 ﻿<!DOCTYPE html>
-<!-- v5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formación Comercial — Gestión de Evaluaciones</title>
-<!-- build: 2026-05-23 -->
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -981,8 +979,10 @@
     width: 80px; height: 4px; background: var(--surface3);
     border-radius: 100px; overflow: hidden;
   }
-  body.modo-supervisor #btn-carga-manual { display: none !important; }
-  body.modo-supervisor #gestion-datos-panel { display: none !important; }
+/* Ocultar elementos solo para formadora cuando está en modo supervisor */
+body.modo-supervisor #btn-carga-manual { display: none !important; }
+body.modo-supervisor #gestion-datos-panel { display: none !important; }
+/* Modo coordinador: solo Dashboard, Resultados e Histórico visibles */
 body.modo-coordinador #nav-registro { display: none !important; }
 body.modo-coordinador #nav-ranking { display: none !important; }
 body.modo-coordinador #nav-fi { display: none !important; }
@@ -1022,7 +1022,15 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <div id="sidebar-sup-name" style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;
                                         overflow:hidden;text-overflow:ellipsis"></div>
     </div>
-    <div id="sidebar-coord-indicator" style="display:none;margin:12px 16px 0;padding:10px 14px;background:rgba(120,91,176,0.15);border:1px solid rgba(120,91,176,0.30);border-radius:var(--radius-sm)"><div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:rgba(140,110,200,0.90);margin-bottom:3px">Sesión coordinador</div><div id="sidebar-coord-name" style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div></div>
+    <!-- Indicador de coordinador activo -->
+    <div id="sidebar-coord-indicator" style="display:none;margin:12px 16px 0;padding:10px 14px;
+      background:rgba(120,91,176,0.15);border:1px solid rgba(120,91,176,0.30);
+      border-radius:var(--radius-sm)">
+      <div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                  letter-spacing:0.08em;color:rgba(140,110,200,0.90);margin-bottom:3px">Sesión coordinador</div>
+      <div id="sidebar-coord-name" style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;
+                                          overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
     <nav class="nav">
       <div class="nav-item active" onclick="showView('dashboard',this)">
         <span class="nav-icon">◈</span> Dashboard
@@ -1074,7 +1082,23 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         ← Cerrar sesión supervisor
       </button>
     </div>
-    <div id="sidebar-coord-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)"><button onclick="abrirCambiarPassword('coordinador')" style="width:100%;margin-bottom:6px;padding:7px 14px;border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.40);background:rgba(201,165,69,0.10);color:rgba(255,255,255,0.75);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">🔑 Cambiar contraseña</button><button onclick="cerrarSesionCoordinador()" style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid rgba(120,91,176,0.35);background:rgba(120,91,176,0.12);color:rgba(255,255,255,0.80);font-size:12px;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">← Cerrar sesión coordinador</button></div>
+    <!-- Botón salir coordinador (solo visible en modo coordinador) -->
+    <div id="sidebar-coord-logout" style="display:none;padding:12px 16px;border-top:1px solid var(--sidebar-border)">
+      <button onclick="abrirCambiarPassword('coordinador')"
+        style="width:100%;margin-bottom:6px;padding:7px 14px;border-radius:var(--radius-sm);
+               border:1px solid rgba(201,165,69,0.40);background:rgba(201,165,69,0.10);
+               color:rgba(255,255,255,0.75);font-size:12px;font-family:'Montserrat',sans-serif;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        🔑 Cambiar contraseña
+      </button>
+      <button onclick="cerrarSesionCoordinador()"
+        style="width:100%;padding:8px 14px;border-radius:var(--radius-sm);
+               border:1px solid rgba(120,91,176,0.35);background:rgba(120,91,176,0.12);
+               color:rgba(255,255,255,0.80);font-size:12px;font-family:'Montserrat',sans-serif;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        ← Cerrar sesión coordinador
+      </button>
+    </div>
     <!-- Botones exportar/importar datos (solo Formadora) -->
     <div id="gestion-datos-panel" style="padding:10px 16px;border-top:1px solid var(--sidebar-border)">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-align:center;font-family:'Montserrat',sans-serif">Gestión de datos</div>
@@ -1613,6 +1637,9 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <option value="Aprobado">Solo Aprobados</option>
           <option value="Reprobado">Solo Reprobados</option>
         </select>
+        <input id="fil-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderResultados()"
+          style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                 background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none">
       </div>
 
       <!-- Gauges KPI Resultados -->
@@ -3410,11 +3437,35 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <button class="login-btn login-btn-back" onclick="backToRoles()">← Volver</button>
     </div>
 
+    <!-- Step 2 coordinador: identificación y contraseña -->
     <div class="login-step" id="step-coordinador">
-      <div style="margin-bottom:20px"><div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:4px">Acceso como</div><div style="font-weight:700;color:#a078e0;font-size:18px">⬡ Coordinador</div></div>
-      <div class="login-input-group"><label class="login-label">Selecciona tu nombre</label><select class="login-input" id="coord-select-login" style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)"><option value="">— Selecciona —</option><option value="Carolina Torres">Carolina Torres</option><option value="Fabian Vargas">Fabian Vargas</option><option value="Jennifer Vargas">Jennifer Vargas</option></select></div>
-      <div class="login-input-group"><label class="login-label">Contraseña</label><input class="login-input" type="password" id="coord-pwd-login" placeholder="Ingresa tu contraseña" onkeydown="if(event.key==='Enter')loginCoordinador()"><div id="coord-login-error" style="color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">✗ Contraseña incorrecta</div></div>
-      <button onclick="loginCoordinador()" style="width:100%;background:#7855c0;color:#fff;border:none;border-radius:var(--radius-sm);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;margin-bottom:10px">Entrar como Coordinador →</button>
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:4px">Acceso como</div>
+        <div style="font-weight:700;color:#a078e0;font-size:18px">⬡ Coordinador</div>
+      </div>
+      <div class="login-input-group">
+        <label class="login-label">Selecciona tu nombre</label>
+        <select class="login-input" id="coord-select-login"
+          style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)">
+          <option value="">— Selecciona —</option>
+          <option value="Carolina Torres">Carolina Torres</option>
+          <option value="Fabian Vargas">Fabian Vargas</option>
+          <option value="Jennifer Vargas">Jennifer Vargas</option>
+        </select>
+      </div>
+      <div class="login-input-group">
+        <label class="login-label">Contraseña</label>
+        <input class="login-input" type="password" id="coord-pwd-login" placeholder="Ingresa tu contraseña"
+          onkeydown="if(event.key==='Enter')loginCoordinador()">
+        <div id="coord-login-error" style="color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">
+          ✗ Contraseña incorrecta
+        </div>
+      </div>
+      <button onclick="loginCoordinador()"
+        style="width:100%;background:#7855c0;color:#fff;border:none;border-radius:var(--radius-sm);
+               padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;margin-bottom:10px">
+        Entrar como Coordinador →
+      </button>
       <button class="login-btn login-btn-back" onclick="backToRoles()">← Volver</button>
     </div>
   </div>
@@ -3800,15 +3851,41 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 </div>
 
-
 <!-- MODAL CAMBIAR CONTRASEÑA -->
-<div class="modal-overlay" id="modal-cambiar-pwd-overlay" onclick="if(event.target===this)cerrarCambiarPassword()" style="display:none;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border-radius:var(--radius);width:min(400px,96vw);padding:32px;box-shadow:0 8px 48px rgba(0,0,0,0.25)">
+<div class="modal-overlay" id="modal-cambiar-pwd-overlay" onclick="if(event.target===this)cerrarCambiarPassword()"
+  style="display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);width:min(400px,96vw);
+              padding:32px;box-shadow:0 8px 48px rgba(0,0,0,0.25)">
     <h3 style="margin-bottom:20px;font-size:17px;font-weight:700">🔑 Cambiar contraseña</h3>
-    <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Nueva contraseña</label><input id="pwd-nueva" type="password" placeholder="Nueva contraseña" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)" oninput="document.getElementById('pwd-cambiar-error').style.display='none'"></div>
-    <div style="margin-bottom:20px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Confirmar contraseña</label><input id="pwd-confirmar" type="password" placeholder="Repite la nueva contraseña" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)" onkeydown="if(event.key==='Enter')guardarNuevaPassword()"></div>
-    <div id="pwd-cambiar-error" style="display:none;color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-bottom:12px"></div>
-    <div style="display:flex;gap:10px"><button onclick="guardarNuevaPassword()" style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif">Guardar</button><button onclick="cerrarCambiarPassword()" style="padding:11px 18px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:'Montserrat',sans-serif">Cancelar</button></div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Nueva contraseña</label>
+      <input id="pwd-nueva" type="password" placeholder="Nueva contraseña"
+        style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
+               font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)"
+        oninput="document.getElementById('pwd-cambiar-error').style.display='none'">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Confirmar contraseña</label>
+      <input id="pwd-confirmar" type="password" placeholder="Repite la nueva contraseña"
+        style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
+               font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)"
+        onkeydown="if(event.key==='Enter')guardarNuevaPassword()">
+    </div>
+    <div id="pwd-cambiar-error" style="display:none;color:var(--fail);font-size:12px;
+         font-family:'Fira Code',monospace;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="guardarNuevaPassword()"
+        style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;
+               border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;
+               font-family:'Montserrat',sans-serif">
+        Guardar
+      </button>
+      <button onclick="cerrarCambiarPassword()"
+        style="padding:11px 18px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);
+               border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:'Montserrat',sans-serif">
+        Cancelar
+      </button>
+    </div>
   </div>
 </div>
 
@@ -5191,26 +5268,49 @@ function toggleResSupDropdown() {
   document.querySelectorAll('.month-multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
   if (!isOpen) drop.classList.add('open');
 }
-function toggleResSupAll() { resSupSelected.clear(); _updateResSupUI(); setTimeout(() => renderResultados(), 0); }
+function toggleResSupAll() {
+  resSupSelected.clear();
+  _updateResSupUI();
+  setTimeout(() => renderResultados(), 0);
+}
 function toggleResSup(sup) {
-  if (resSupSelected.has(sup)) resSupSelected.delete(sup); else resSupSelected.add(sup);
-  _updateResSupUI(); setTimeout(() => renderResultados(), 0);
+  if (resSupSelected.has(sup)) resSupSelected.delete(sup);
+  else resSupSelected.add(sup);
+  _updateResSupUI();
+  setTimeout(() => renderResultados(), 0);
 }
 function _updateResSupUI() {
-  const lbl=document.getElementById('res-sup-label');
-  const allChk=document.getElementById('res-sup-check-all');
-  const footer=document.getElementById('res-sup-footer');
+  const lbl    = document.getElementById('res-sup-label');
+  const allChk = document.getElementById('res-sup-check-all');
+  const footer = document.getElementById('res-sup-footer');
   if (!lbl) return;
-  if (resSupSelected.size===0) { lbl.textContent='Todos los supervisores'; if(allChk) allChk.textContent='✓'; if(footer) footer.textContent='Todos seleccionados'; }
-  else { lbl.textContent=resSupSelected.size===1?[...resSupSelected][0].split(' ').slice(0,2).join(' '):resSupSelected.size+' supervisores'; if(allChk) allChk.textContent=''; if(footer) footer.textContent=resSupSelected.size+' seleccionado'+(resSupSelected.size>1?'s':''); }
-  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  document.querySelectorAll('[id^="res-sup-chk-"]').forEach(el=>{ const key=el.id.replace('res-sup-chk-',''); el.textContent=[...resSupSelected].some(s=>nr(s)===key)?'✓':''; });
+  if (resSupSelected.size === 0) {
+    lbl.textContent = 'Todos los supervisores';
+    if (allChk) allChk.textContent = '✓';
+    if (footer) footer.textContent = 'Todos seleccionados';
+  } else {
+    lbl.textContent = resSupSelected.size === 1
+      ? [...resSupSelected][0].split(' ').slice(0,2).join(' ')
+      : resSupSelected.size + ' supervisores';
+    if (allChk) allChk.textContent = '';
+    if (footer) footer.textContent = resSupSelected.size + ' seleccionado' + (resSupSelected.size > 1 ? 's' : '');
+  }
+  const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  document.querySelectorAll('[id^="res-sup-chk-"]').forEach(el => {
+    const key = el.id.replace('res-sup-chk-','');
+    el.textContent = [...resSupSelected].some(s => norm(s) === key) ? '✓' : '';
+  });
 }
 function _populateResSupItems() {
-  const items=document.getElementById('res-sup-items'); if(!items) return;
-  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const sups=[...new Set(state.supervisores||[])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
-  items.innerHTML=sups.map(s=>{ const key=nr(s); const safe=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return '<div class="month-ms-item" onclick="toggleResSup(\'' +safe+ '\')"><div class="month-ms-check" id="res-sup-chk-'+key+'">'+(resSupSelected.has(s)?'✓':'')+'<\/div>'+s+'<\/div>'; }).join('');
+  const items = document.getElementById('res-sup-items');
+  if (!items) return;
+  const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const sups = [...new Set(state.supervisores||[])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
+  items.innerHTML = sups.map(s => {
+    const key  = norm(s);
+    const safe = s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="month-ms-item" onclick="toggleResSup('${safe}')"><div class="month-ms-check" id="res-sup-chk-${key}">${resSupSelected.has(s)?'✓':''}</div>${s}</div>`;
+  }).join('');
 }
 
 function toggleAnioDropdown(prefix) {
@@ -5995,6 +6095,9 @@ function renderResultados() {
   if (estado === 'Aprobado')  evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
   if (estado === 'Reprobado') evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
 
+  const busqAsesor = ((document.getElementById('fil-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if (busqAsesor) evs = evs.filter(e => (e.asesor||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(busqAsesor));
+
   // Indicadores clave — mini donuts
   const resGaugeEl = document.getElementById('res-gauge-row');
   if (resGaugeEl) {
@@ -6286,6 +6389,8 @@ function renderRankingAsesores() {
     .filter(a => a.total > 0)
     .sort((a,b) => b.avg - a.avg || a.nombre.localeCompare(b.nombre));
 
+  const busqRank = ((document.getElementById('rank-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const asesorRankFil = busqRank ? asesorRank.filter(a => _normR(a.nombre).includes(busqRank)) : asesorRank;
   // Build submitted/pending summary when a supervisor is selected
   const mes1 = rankMesesActivos.length === 1 ? rankMesesActivos[0] : (rankMesesActivos.length > 1 ? rankMesesActivos[0] : '');
   const anio1 = (document.getElementById('rank-anio') || {}).value || String(new Date().getFullYear());
@@ -6313,31 +6418,31 @@ function renderRankingAsesores() {
   countEl.textContent = asesorRankFil.length ? `${asesorRankFil.length} asesor${asesorRankFil.length!==1?'es':''}` : '';
 
   const cont = document.getElementById('rank-asesores');
-  if (!as  const busqRank = ((document.getElementById('rank-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const asesorRankFil = busqRank ? asesorRank.filter(a => _normR(a.nombre).includes(busqRank)) : asesorRank;
-
   if (!asesorRankFil.length) {
     cont.innerHTML = summaryHtml + (busqRank
-      ? `<div class="empty" style="padding:32px"><div class="empty-icon">🔍</div><div>Sin asesores que coincidan con "<strong>${busqRank}</strong>"</div></div>`
+      ? `<div class="empty" style="padding:32px"><div class="empty-icon">🔍</div><div>No hay asesores que coincidan con "<strong>${busqRank}</strong>"</div></div>`
       : supFil
         ? `<div class="empty" style="padding:32px"><div class="empty-icon">◉</div><div>No hay evaluaciones registradas para <strong>${supFil}</strong> en el período seleccionado</div></div>`
         : `<div class="empty" style="padding:32px"><div class="empty-icon">▲</div><div>Selecciona un supervisor arriba para ver el ranking de sus asesores</div></div>`);
     return;
-  } Tiers por puntaje ──
+  }
+
+  // ── Tiers por puntaje ──
   const cOfA  = v => v >= 95 ? '#4E8A72' : v >= 90 ? '#C9A545' : '#E05050';
   const bgOfA = v => v >= 95 ? 'rgba(78,138,114,0.10)' : v >= 90 ? 'rgba(201,165,69,0.10)' : 'rgba(224,80,80,0.10)';
 
-  const goldA   = asesorRank.filter(a => a.avg >= 99.95);
-  const silverA = asesorRank.filter(a => a.avg >= 95 && a.avg < 99.95);
-  const restA   = asesorRank.filter(a => a.avg < 95);
+  const goldA   = asesorRankFil.filter(a => a.avg >= 99.95);
+  const silverA = asesorRankFil.filter(a => a.avg >= 95 && a.avg < 99.95);
+  const restA   = asesorRankFil.filter(a => a.avg < 95);
 
   const initials = n => n.trim().split(/\s+/).slice(0,2).map(w=>w[0].toUpperCase()).join('');
 
   // Tarjeta de podio para asesor
   const asesorCard = (a, emoji, borderColor, glowColor, bgColor) => {
-    const pct    = a.total ? Math.round((a.pass/a.total)*100) :     .filter(a =const goldA   = asesorRankFil.filter(b.avg - a.avg || a.nombre.lconst silverA = asesorRankFil.filter(busqRank = ((document.getElementById('ranconst restA   = asesorRankFil.filter('').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-
-  // Build submitted).join(' ');
+    const pct    = a.total ? Math.round((a.pass/a.total)*100) : 0;
+    const c      = cOfA(a.avg);
+    const ini    = initials(a.nombre);
+    const name   = a.nombre.split(' ').slice(0,2).join(' ');
     const safeN  = a.nombre.replace(/'/g,"\\'");
     let statusBadge = '';
     if (mes1) {
@@ -9628,6 +9733,7 @@ function guardarCargaManual() {
 function showView(name, el) {
   // Block restricted views for supervisor
   if (supervisorActual && ['registro','ranking','formacion-inicial','config'].includes(name)) return;
+  // Block restricted views for coordinador (solo dashboard, resultados, historico)
   if (coordinadorActual && !['dashboard','resultados','historico','seguimiento'].includes(name)) return;
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -9733,7 +9839,7 @@ function updateAllFilters() {
 const PASSWORD_FORMADORA = 'Fc2025*'; // contraseña por defecto
 let selectedRole   = null;
 let supervisorActual = null; // nombre del supervisor cuando el rol es 'supervisor'
-let coordinadorActual = null; // nombre del coordinador
+let coordinadorActual = null; // nombre del coordinador cuando el rol es 'coordinador'
 
 function selectRole(role) {
   selectedRole = role;
@@ -9843,6 +9949,7 @@ function navSupervisoresLogin(e) {
 function _ensureSupervisorPasswords() {
   if (!state.supervisorPasswords) state.supervisorPasswords = {};
   let changed = false;
+  // Migración v2: restablecer todas las contraseñas a '123' una sola vez
   if (!state.pwdsMigradosV2) {
     state.supervisores.forEach(s => { state.supervisorPasswords[s] = '123'; });
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
@@ -9850,8 +9957,12 @@ function _ensureSupervisorPasswords() {
     state.pwdsMigradosV2 = true;
     changed = true;
   }
+  // Nuevos supervisores que no tengan contraseña aún
   state.supervisores.forEach(s => {
-    if (!state.supervisorPasswords[s]) { state.supervisorPasswords[s] = '123'; changed = true; }
+    if (!state.supervisorPasswords[s]) {
+      state.supervisorPasswords[s] = '123';
+      changed = true;
+    }
   });
   if (changed) save();
 }
@@ -9899,10 +10010,7 @@ function _aplicarModoSupervisor(nombre) {
   if (ind)    ind.style.display    = 'block';
   if (nameEl) nameEl.textContent   = nombre;
   if (logout) logout.style.display = 'block';
-  const gestion = document.getElementById('gestion-datos-panel');
-  if (gestion) gestion.style.display = 'none';
-  const btnCarga = document.getElementById('btn-carga-manual');
-  if (btnCarga) btnCarga.style.display = 'none';
+  document.body.classList.add('modo-supervisor');
   // Pre-lock supervisor selects in all views
   _lockSupSelects(nombre);
 }
@@ -9917,10 +10025,7 @@ function _restaurarModoFormadora() {
   const logout = document.getElementById('sidebar-sup-logout');
   if (ind)    ind.style.display    = 'none';
   if (logout) logout.style.display = 'none';
-  const gestion = document.getElementById('gestion-datos-panel');
-  if (gestion) gestion.style.display = 'block';
-  const btnCarga = document.getElementById('btn-carga-manual');
-  if (btnCarga) btnCarga.style.display = '';
+  document.body.classList.remove('modo-supervisor');
   _lockSupSelects('');
 }
 
@@ -9934,19 +10039,24 @@ function _lockSupSelects(nombre) {
     el.disabled = !!nombre;
     el.style.opacity = nombre ? '0.6' : '';
   });
-  // Resultados multiselect supervisor
-  const resSupBtn = document.getElementById("res-sup-btn");
-  if (resSupBtn) {
-    if (nombre) { resSupSelected = new Set([nombre]); resSupBtn.disabled=true; resSupBtn.style.opacity="0.6"; resSupBtn.style.cursor="default"; }
-    else { resSupSelected = new Set(); resSupBtn.disabled=false; resSupBtn.style.opacity=""; resSupBtn.style.cursor=""; }
-    _updateResSupUI();
-  }
   // Histórico — custom multiselect
-  const histSupBtn = document.getElementById("hist-sup-btn");
+  const histSupBtn = document.getElementById('hist-sup-btn');
   if (histSupBtn) {
-    if (nombre) { histSupSelected = new Set([nombre]); histSupBtn.disabled=true; histSupBtn.style.opacity="0.6"; histSupBtn.style.cursor="default"; }
-    else { histSupSelected = new Set(); histSupBtn.disabled=false; histSupBtn.style.opacity=""; histSupBtn.style.cursor=""; }
+    if (nombre) { histSupSelected = new Set([nombre]); histSupBtn.disabled=true; histSupBtn.style.opacity='0.6'; histSupBtn.style.cursor='default'; }
+    else { histSupSelected = new Set(); histSupBtn.disabled=false; histSupBtn.style.opacity=''; histSupBtn.style.cursor=''; }
     _updateHistSupUI();
+  }
+  // Resultados — custom multiselect
+  const resSupBtn = document.getElementById('res-sup-btn');
+  if (resSupBtn) {
+    if (nombre) {
+      resSupSelected = new Set([nombre]);
+      resSupBtn.disabled = true; resSupBtn.style.opacity = '0.6'; resSupBtn.style.cursor = 'default';
+    } else {
+      resSupSelected = new Set();
+      resSupBtn.disabled = false; resSupBtn.style.opacity = ''; resSupBtn.style.cursor = '';
+    }
+    _updateResSupUI();
   }
   // Seguimiento — dropdown custom
   const segTrig = document.getElementById('seg-sup-trigger');
@@ -10071,53 +10181,68 @@ function cerrarSesionSupervisor() {
   if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
 }
 
-const _COORD_NOMBRES = ["Carolina Torres","Fabian Vargas","Jennifer Vargas"];
+// ── Coordinador login y sesión ──
+const _COORD_NOMBRES = ["Carolina Torres", "Fabian Vargas", "Jennifer Vargas"];
 
 function _ensureCoordinadorPasswords() {
   if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
   let changed = false;
   _COORD_NOMBRES.forEach(c => {
-    if (!state.coordinadorPasswords[c]) { state.coordinadorPasswords[c] = '123'; changed = true; }
+    if (!state.coordinadorPasswords[c]) {
+      state.coordinadorPasswords[c] = '123';
+      changed = true;
+    }
   });
   if (changed) save();
 }
-function loginCoordinador(){
-  const nom=document.getElementById('coord-select-login').value;
-  const pwd=document.getElementById('coord-pwd-login').value;
-  const e=document.getElementById('coord-login-error');
-  e.style.display='none';
-  if(!nom){alert('Selecciona tu nombre');return;}
+
+
+function loginCoordinador() {
+  const nombre = document.getElementById('coord-select-login').value;
+  const pwd    = document.getElementById('coord-pwd-login').value;
+  const errEl  = document.getElementById('coord-login-error');
+  errEl.style.display = 'none';
+  if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
+  if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
   reloadState();
   _ensureCoordinadorPasswords();
-  if(!pwd||pwd!==state.coordinadorPasswords[nom]){e.style.display='block';e.textContent='✗ Contraseña incorrecta';return;}
-  coordinadorActual=nom;
+  const pwdCorrecta = state.coordinadorPasswords[nombre];
+  if (!pwdCorrecta || pwd !== pwdCorrecta) {
+    errEl.style.display = 'block'; errEl.textContent = '✗ Contraseña incorrecta'; return;
+  }
+  // Login OK
+  coordinadorActual = nombre;
   document.getElementById('login-screen').classList.add('hidden');
-  document.querySelector('.app').style.display='flex';
-  _aplicarModoCoordinador(nom);
-  try{updateAllFilters();}catch(x){}
-  try{renderDashboard();}catch(x){}
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelector('.app').style.display = 'flex';
+  _aplicarModoCoordinador(nombre);
+  try { updateAllFilters(); } catch(e) {}
+  try { renderDashboard(); }  catch(e) {}
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-dashboard').classList.add('active');
-  document.querySelectorAll('.nav-item').forEach((n,i)=>{if(i===0)n.classList.add('active');else n.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach((n,i) => { if(i===0) n.classList.add('active'); else n.classList.remove('active'); });
 }
-function _aplicarModoCoordinador(nom){
-  const ind=document.getElementById('sidebar-coord-indicator');
-  const nameEl=document.getElementById('sidebar-coord-name');
-  const out=document.getElementById('sidebar-coord-logout');
-  if(ind)ind.style.display='block';
-  if(nameEl)nameEl.textContent=nom;
-  if(out)out.style.display='block';
+
+function _aplicarModoCoordinador(nombre) {
+  const ind    = document.getElementById('sidebar-coord-indicator');
+  const nameEl = document.getElementById('sidebar-coord-name');
+  const logout = document.getElementById('sidebar-coord-logout');
+  if (ind)    ind.style.display    = 'block';
+  if (nameEl) nameEl.textContent   = nombre;
+  if (logout) logout.style.display = 'block';
   document.body.classList.add('modo-coordinador');
 }
-function _restaurarModoCoordinador(){
-  coordinadorActual=null;
-  const ind=document.getElementById('sidebar-coord-indicator');
-  const out=document.getElementById('sidebar-coord-logout');
-  if(ind)ind.style.display='none';
-  if(out)out.style.display='none';
+
+function _restaurarModoCoordinador() {
+  coordinadorActual = null;
+  const ind    = document.getElementById('sidebar-coord-indicator');
+  const logout = document.getElementById('sidebar-coord-logout');
+  if (ind)    ind.style.display    = 'none';
+  if (logout) logout.style.display = 'none';
   document.body.classList.remove('modo-coordinador');
 }
-let _pwdChangeRole = null;
+
+// ── Cambio de contraseña ──
+let _pwdChangeRole = null; // 'supervisor' | 'coordinador'
 
 function abrirCambiarPassword(role) {
   _pwdChangeRole = role;
@@ -10127,39 +10252,49 @@ function abrirCambiarPassword(role) {
   document.getElementById('modal-cambiar-pwd-overlay').style.display = 'flex';
   setTimeout(() => document.getElementById('pwd-nueva').focus(), 50);
 }
+
 function cerrarCambiarPassword() {
   document.getElementById('modal-cambiar-pwd-overlay').style.display = 'none';
   _pwdChangeRole = null;
 }
+
 function guardarNuevaPassword() {
   const nueva = document.getElementById('pwd-nueva').value;
-  const conf = document.getElementById('pwd-confirmar').value;
+  const confirmar = document.getElementById('pwd-confirmar').value;
   const errEl = document.getElementById('pwd-cambiar-error');
   if (!nueva) { errEl.textContent = '✗ Ingresa la nueva contraseña'; errEl.style.display = 'block'; return; }
-  if (nueva.length < 3) { errEl.textContent = '✗ Mínimo 3 caracteres'; errEl.style.display = 'block'; return; }
-  if (nueva !== conf) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
+  if (nueva.length < 3) { errEl.textContent = '✗ La contraseña debe tener al menos 3 caracteres'; errEl.style.display = 'block'; return; }
+  if (nueva !== confirmar) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
   if (_pwdChangeRole === 'supervisor' && supervisorActual) {
     if (!state.supervisorPasswords) state.supervisorPasswords = {};
     state.supervisorPasswords[supervisorActual] = nueva;
-    save(); cerrarCambiarPassword(); alert('✓ Contraseña actualizada');
+    save();
+    cerrarCambiarPassword();
+    alert('✓ Contraseña actualizada correctamente');
   } else if (_pwdChangeRole === 'coordinador' && coordinadorActual) {
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
     state.coordinadorPasswords[coordinadorActual] = nueva;
-    save(); cerrarCambiarPassword(); alert('✓ Contraseña actualizada');
+    save();
+    cerrarCambiarPassword();
+    alert('✓ Contraseña actualizada correctamente');
   }
 }
 
-function cerrarSesionCoordinador(){
+function cerrarSesionCoordinador() {
   _restaurarModoCoordinador();
-  document.querySelector('.app').style.display='none';
+  document.querySelector('.app').style.display = 'none';
   document.getElementById('login-screen').classList.remove('hidden');
-  selectedRole=null;
-  ['formadora','supervisor','asesor','coordinador'].forEach(r=>{const c=document.getElementById('card-'+r);if(c)c.classList.remove('selected-role');});
-  document.querySelectorAll('.login-step').forEach(s=>s.classList.remove('active'));
+  selectedRole = null;
+  ['formadora','supervisor','asesor','coordinador'].forEach(r => {
+    const c = document.getElementById('card-' + r);
+    if (c) c.classList.remove('selected-role');
+  });
+  document.querySelectorAll('.login-step').forEach(s => s.classList.remove('active'));
   document.getElementById('step-rol').classList.add('active');
-  const btn=document.getElementById('btn-continuar');
-  if(btn){btn.style.opacity='0.4';btn.style.pointerEvents='none';}
+  const btn = document.getElementById('btn-continuar');
+  if (btn) { btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
 }
+
 function loginFormadora() {
   const pwd = document.getElementById('input-password').value;
   const storedHash = localStorage.getItem('evalproPasswordHash');
@@ -13242,32 +13377,34 @@ function toggleHistSupDropdown() {
   document.querySelectorAll('.month-multiselect-dropdown.open').forEach(d => d.classList.remove('open'));
   if (!isOpen) drop.classList.add('open');
 }
-function toggleHistSupAll() { histSupSelected.clear(); _updateHistSupUI(); setTimeout(() => filtrarAsesoresHistorico(), 0); }
+function toggleHistSupAll() { histSupSelected.clear(); _updateHistSupUI(); setTimeout(() => { filtrarAsesoresHistorico(); }, 0); }
 function toggleHistSup(sup) {
   if (histSupSelected.has(sup)) histSupSelected.delete(sup); else histSupSelected.add(sup);
-  _updateHistSupUI(); setTimeout(() => filtrarAsesoresHistorico(), 0);
+  _updateHistSupUI(); setTimeout(() => { filtrarAsesoresHistorico(); }, 0);
 }
 function _updateHistSupUI() {
-  const lbl=document.getElementById('hist-sup-label'), allChk=document.getElementById('hist-sup-check-all'), footer=document.getElementById('hist-sup-footer');
+  const lbl=document.getElementById('hist-sup-label');
+  const allChk=document.getElementById('hist-sup-check-all');
+  const footer=document.getElementById('hist-sup-footer');
   if (!lbl) return;
   if (histSupSelected.size===0) { lbl.textContent='Todos los supervisores'; if(allChk) allChk.textContent='✓'; if(footer) footer.textContent='Todos seleccionados'; }
   else { lbl.textContent=histSupSelected.size===1?[...histSupSelected][0].split(' ').slice(0,2).join(' '):histSupSelected.size+' supervisores'; if(allChk) allChk.textContent=''; if(footer) footer.textContent=histSupSelected.size+' seleccionado'+(histSupSelected.size>1?'s':''); }
-  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   document.querySelectorAll('[id^="hist-sup-chk-"]').forEach(el=>{ const key=el.id.replace('hist-sup-chk-',''); el.textContent=[...histSupSelected].some(s=>nr(s)===key)?'✓':''; });
 }
 function _populateHistSupItems() {
   const items=document.getElementById('hist-sup-items'); if(!items) return;
-  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nr=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   const sups=[...new Set(state.supervisores||[])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
-  items.innerHTML=sups.map(s=>{ const key=nr(s); const safe=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return '<div class="month-ms-item" onclick="toggleHistSup(\'' +safe+ '\')"><div class="month-ms-check" id="hist-sup-chk-'+key+'">'+(histSupSelected.has(s)?'✓':'')+'<\/div>'+s+'<\/div>'; }).join('');
+  items.innerHTML=sups.map(s=>{ const key=nr(s); const safe=s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return '<div class="month-ms-item" onclick="toggleHistSup(\''+safe+'\')"><div class="month-ms-check" id="hist-sup-chk-'+key+'">'+(histSupSelected.has(s)?'✓':'')+'</div>'+s+'</div>'; }).join('');
 }
 
 function filtrarAsesoresHistorico() {
-    const supFilArr = supervisorActual ? [supervisorActual] : [...histSupSelected];
+  const supFilArr = supervisorActual ? [supervisorActual] : [...histSupSelected];
   const sel = document.getElementById('hist-asesor');
   const current = sel.value;
   sel.innerHTML = '<option value="">Todos los asesores</option>';
-    const asesores = state.asesores.filter(a => !supFilArr.length || supFilArr.includes(a.supervisor));
+  const asesores = state.asesores.filter(a => !supFilArr.length || supFilArr.includes(a.supervisor));
   asesores.forEach(a => {
     sel.innerHTML += `<option value="${a.nombre}">${a.nombre}</option>`;
   });
@@ -13276,7 +13413,7 @@ function filtrarAsesoresHistorico() {
 }
 
 function _histDataForAsesor(asesorNombre) {
-  const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   const normNombre = _nr(asesorNombre);
   const asesor = state.asesores.find(a => _nr(a.nombre) === normNombre);
   const supervisor = asesor ? asesor.supervisor : '';
@@ -13326,10 +13463,10 @@ function exportHistoricoExcel() {
   // ── Fecha y metadatos ──
   const fechaHoy  = new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
   const periodoLb = histAniosActivos.length ? histAniosActivos.join(', ') : 'Todos los períodos';
-  const filtroLb  = histSupFilExp.length===1 ? `Supervisor: ${histSupFilExp[0]}` : histSupFilExp.length>1 ? `${histSupFilExp.length} supervisores` : 'Todos los supervisores';
+  const filtroLb  = histSupFilExp.length === 1 ? `Supervisor: ${histSupFilExp[0]}` : histSupFilExp.length > 1 ? `${histSupFilExp.length} supervisores` : 'Todos los supervisores';
   const asesorLb  = asesorFil ? ` • Asesor: ${asesorFil}` : '';
   const instNom   = (state.config && state.config.institucion) ? state.config.institucion : 'Área Comercial';
-  const supLabel  = histSupFilExp.length===1 ? '_'+histSupFilExp[0].split(' ')[0] : '';
+  const supLabel  = histSupFilExp.length === 1 ? '_'+histSupFilExp[0].split(' ')[0] : '';
   const aseLabel  = asesorFil ? '_'+asesorFil.split(' ')[0] : '';
   const fecha     = new Date().toISOString().slice(0,10);
 
@@ -13441,12 +13578,13 @@ function renderHistorico() {
 
   // ── Vista: TODOS los asesores ──────────────────────────────────────────────
   if (!asesorNombre) {
-    const _nr2 = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    const registeredNames = new Set(state.asesores.map(a => _nr2(a.nombre)));
+    // Combinar asesores registrados + asesores que tienen evaluaciones pero no están en state.asesores
+    const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    const registeredNames = new Set(state.asesores.map(a => _nr(a.nombre)));
     const extraAsesores = [];
     state.evaluaciones.forEach(e => {
-      if (e.asesor && !registeredNames.has(_nr2(e.asesor))) {
-        registeredNames.add(_nr2(e.asesor));
+      if (e.asesor && !registeredNames.has(_nr(e.asesor))) {
+        registeredNames.add(_nr(e.asesor));
         extraAsesores.push({ nombre: e.asesor, supervisor: e.supervisor || '' });
       }
     });
