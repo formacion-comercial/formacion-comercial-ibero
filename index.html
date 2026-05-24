@@ -10538,7 +10538,7 @@ function resetAndEnter() {
   showSyncToast('✓ Aplicación restablecida correctamente');
 }
 
-function loginAsesor() {
+async function loginAsesor() {
   const nombre = document.getElementById('asesor-select-login').value;
   const pwd    = document.getElementById('asesor-pwd-login').value;
   const errEl  = document.getElementById('asesor-login-error');
