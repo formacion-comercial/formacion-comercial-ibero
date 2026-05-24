@@ -10583,36 +10583,45 @@ async function loginAsesor() {
   }
   _limpiarFallos(_lkKeyAs);
 
+  // ── ¿Contraseña genérica? ──
+  const esPwdGenerica = pwdOkAs && !isHashAs && storedAs === '123';
+
   // Detect available month/year from question bank
   const { mes: mesDet, anio: anioDet } = _detectarMesAsesor(asesor);
   asesorMesDetectado  = mesDet;
   asesorAnioDetectado = String(anioDet);
 
-  // Check one-submission-per-month rule
+  // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
+  let soloVistaPerfil = false;
+
+  // Ya envió la evaluación este mes
   const submitKey = `${nombre}||${mesDet}||${anioDet}`;
   if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
-    blkEl.style.display = 'block';
-    return;
+    soloVistaPerfil = true;
   }
 
-  // Check deadline
-  const plazoKey = asesor.supervisor + '||' + mesDet + '||' + anioDet;
-  const plazo = state.plazos && state.plazos[plazoKey];
-  if (plazo && plazo.fecha) {
-    const deadlineStr = plazo.fecha + (plazo.hora ? 'T' + plazo.hora : 'T23:59:59');
-    const deadline = new Date(deadlineStr);
-    if (!isNaN(deadline) && new Date() > deadline) {
-      blkEl.style.display = 'block';
-      blkEl.textContent = `⏰ La evaluación ya no está disponible. Fecha límite: ${plazo.fecha.split('-').reverse().join('/')}${plazo.hora ? ' ' + plazo.hora : ''}`;
-      return;
+  // Venció el plazo
+  if (!soloVistaPerfil) {
+    const plazoKey = asesor.supervisor + '||' + mesDet + '||' + anioDet;
+    const plazo = state.plazos && state.plazos[plazoKey];
+    if (plazo && plazo.fecha) {
+      const deadlineStr = plazo.fecha + (plazo.hora ? 'T' + plazo.hora : 'T23:59:59');
+      const deadline = new Date(deadlineStr);
+      if (!isNaN(deadline) && new Date() > deadline) soloVistaPerfil = true;
     }
+  }
+
+  // No hay preguntas configuradas para su supervisor
+  if (!soloVistaPerfil) {
+    const banco = state.preguntasPorSupMes || {};
+    const prefix = asesor.supervisor + '||';
+    if (!Object.keys(banco).some(k => k.startsWith(prefix))) soloVistaPerfil = true;
   }
 
   // Registrar último acceso
   if (!state.ultimosAccesos) state.ultimosAccesos = {};
   if (!state.ultimosAccesos[asesor.nombre]) state.ultimosAccesos[asesor.nombre] = [];
   state.ultimosAccesos[asesor.nombre].unshift(new Date().toISOString());
-  // Guardar máximo 10 accesos por asesor
   if (state.ultimosAccesos[asesor.nombre].length > 10) state.ultimosAccesos[asesor.nombre].length = 10;
   save();
 
@@ -10640,6 +10649,7 @@ async function loginAsesor() {
   document.getElementById('topbar-avatar').textContent = initials;
 
   initAsesorForm(asesor);
+  if (soloVistaPerfil) setTimeout(() => asesorShowTab('perfil'), 50);
 }
 
 // ---- Variable temporal para primer acceso ----
