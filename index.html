@@ -3516,6 +3516,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         style="padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;background:var(--accent);color:#fff;transition:all .18s">
         ✦ Evaluación
       </button>
+      <button id="tab-btn-perfil" onclick="asesorShowTab('perfil')"
+        style="padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;background:transparent;color:var(--text2);transition:all .18s">
+        👤 Mi Perfil
+      </button>
     </div>
     <div class="asesor-topbar-user">
       <div>
@@ -3528,6 +3532,24 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 
   <div class="asesor-main">
+
+    <!-- ===== TAB: MI PERFIL ===== -->
+    <div id="asesor-tab-perfil" style="display:none;max-width:760px;margin:0 auto;padding:24px 16px">
+      <!-- Header perfil -->
+      <div style="display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,rgba(201,165,69,0.10),rgba(201,165,69,0.03));border:1px solid rgba(201,165,69,0.22);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+        <div id="perfil-avatar-big" style="width:64px;height:64px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;flex-shrink:0"></div>
+        <div>
+          <div id="perfil-nombre-big" style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px"></div>
+          <div id="perfil-supervisor-big" style="font-size:13px;color:var(--text3);font-family:'Fira Code',monospace;margin-bottom:4px"></div>
+          <div id="perfil-tipo-big" style="display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(201,165,69,0.15);color:var(--accent)"></div>
+        </div>
+      </div>
+      <!-- Resumen KPIs -->
+      <div id="perfil-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px"></div>
+      <!-- Historial de evaluaciones -->
+      <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Historial de Evaluaciones</div>
+      <div id="perfil-historial"></div>
+    </div>
 
     <!-- ===== TAB: CARGUE MASIVO ===== -->
     <div id="asesor-tab-cargue" style="display:none;max-width:860px;margin:0 auto">
@@ -12637,20 +12659,105 @@ function nuevaEvaluacionAsesor() {
 
 // ==================== ASESOR TABS ====================
 function asesorShowTab(tab) {
-  document.getElementById('asesor-tab-eval').style.display   = tab === 'eval'   ? 'block' : 'none';
-  document.getElementById('asesor-tab-cargue').style.display = tab === 'cargue' ? 'block' : 'none';
+  document.getElementById('asesor-tab-eval').style.display    = tab === 'eval'    ? 'block' : 'none';
+  document.getElementById('asesor-tab-cargue').style.display  = tab === 'cargue'  ? 'block' : 'none';
+  document.getElementById('asesor-tab-perfil').style.display  = tab === 'perfil'  ? 'block' : 'none';
   document.getElementById('asesor-score-sticky').style.display =
     (tab === 'eval' && document.getElementById('asesor-form-section').style.display !== 'none') ? 'flex' : 'none';
 
   const btnEval   = document.getElementById('tab-btn-eval');
+  const btnPerfil = document.getElementById('tab-btn-perfil');
   const btnCargue = document.getElementById('tab-btn-cargue');
-  if (tab === 'eval') {
-    btnEval.style.background = 'var(--accent)'; btnEval.style.color = '#fff';
-    btnCargue.style.background = 'transparent'; btnCargue.style.color = 'var(--text2)';
-  } else {
-    btnCargue.style.background = 'var(--accent2)'; btnCargue.style.color = '#1a1200';
-    btnEval.style.background = 'transparent'; btnEval.style.color = 'var(--text2)';
+  [btnEval, btnPerfil, btnCargue].forEach(b => { if (b) { b.style.background = 'transparent'; b.style.color = 'var(--text2)'; } });
+  const activeBtn = tab === 'eval' ? btnEval : tab === 'perfil' ? btnPerfil : btnCargue;
+  if (activeBtn) { activeBtn.style.background = 'var(--accent)'; activeBtn.style.color = '#fff'; }
+
+  if (tab === 'perfil') renderPerfilAsesor();
+}
+
+// ==================== PERFIL ASESOR ====================
+function renderPerfilAsesor() {
+  if (!asesorActual) return;
+  const _MO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // ── Avatar & header ──
+  const initials = asesorActual.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const avatarEl = document.getElementById('perfil-avatar-big');
+  if (avatarEl) avatarEl.textContent = initials;
+  const nomEl = document.getElementById('perfil-nombre-big');
+  if (nomEl) nomEl.textContent = asesorActual.nombre;
+  const supEl = document.getElementById('perfil-supervisor-big');
+  if (supEl) supEl.textContent = 'Supervisor: ' + (asesorActual.supervisor || '—');
+  const tipoEl = document.getElementById('perfil-tipo-big');
+  if (tipoEl) {
+    const parts = [asesorActual.tipo, asesorActual.programa].filter(Boolean);
+    tipoEl.textContent = parts.length ? parts.join(' · ') : 'Asesor';
   }
+
+  // ── Evaluaciones propias ──
+  const evs = (state.evaluaciones || []).filter(e => e.asesor === asesorActual.nombre);
+
+  // ── KPIs ──
+  const total = evs.length;
+  const aprobadas = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor)).length;
+  const pctAprobado = total ? Math.round((aprobadas / total) * 100) : 0;
+  const avgPuntaje = total
+    ? Math.round(evs.reduce((s, e) => s + calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor), 0) / total)
+    : 0;
+
+  const kpiData = [
+    { label: 'Evaluaciones', value: total, suffix: '', icon: '📋' },
+    { label: '% Aprobado', value: pctAprobado, suffix: '%', icon: '✅' },
+    { label: 'Puntaje Prom.', value: avgPuntaje, suffix: '%', icon: '⭐' }
+  ];
+  const kpisEl = document.getElementById('perfil-kpis');
+  if (kpisEl) {
+    kpisEl.innerHTML = kpiData.map(k => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center">
+        <div style="font-size:22px;margin-bottom:4px">${k.icon}</div>
+        <div style="font-size:26px;font-weight:800;color:var(--accent);font-family:'Montserrat',sans-serif">${k.value}${k.suffix}</div>
+        <div style="font-size:11px;color:var(--text3);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">${k.label}</div>
+      </div>`).join('');
+  }
+
+  // ── Historial ──
+  const histEl = document.getElementById('perfil-historial');
+  if (!histEl) return;
+  if (!evs.length) {
+    histEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">Sin evaluaciones registradas aún</div>';
+    return;
+  }
+  const sorted = [...evs].sort((a, b) => {
+    const ad = b.anio - a.anio; if (ad !== 0) return ad;
+    return _MO.indexOf(b.mes) - _MO.indexOf(a.mes);
+  });
+  histEl.innerHTML = sorted.map(e => {
+    const pct  = calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor);
+    const pass = isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor);
+    const corr = calcScore(e.respuestas || []);
+    const tot  = e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20);
+    const badgeColor = pass ? 'rgba(78,138,114,0.15)' : 'rgba(224,80,80,0.12)';
+    const badgeText  = pass ? '#4E8A72' : '#E05050';
+    const badgeLabel = pass ? '✓ Aprobado' : '✗ Reprobado';
+    return `
+      <div style="display:flex;align-items:center;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:10px">
+        <div style="min-width:90px;text-align:center">
+          <div style="font-size:15px;font-weight:800;color:var(--text);font-family:'Montserrat',sans-serif">${e.mes}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace">${e.anio}</div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${e.actividad || 'Evaluación continua'}</div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${pass ? 'var(--pass,#4E8A72)' : 'var(--fail,#E05050)'};border-radius:3px;transition:width .4s"></div>
+          </div>
+        </div>
+        <div style="min-width:60px;text-align:right">
+          <div style="font-size:20px;font-weight:800;color:${pass ? 'var(--pass,#4E8A72)' : 'var(--fail,#E05050)'}">${pct}%</div>
+          <div style="font-size:10px;color:var(--text3)">${corr}/${tot} correctas</div>
+        </div>
+        <div style="min-width:84px;text-align:center;background:${badgeColor};color:${badgeText};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">${badgeLabel}</div>
+      </div>`;
+  }).join('');
 }
 
 // ==================== PLANTILLA EXCEL ====================
