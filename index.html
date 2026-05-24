@@ -8490,6 +8490,28 @@ async function sha256hex(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+// ── Bloqueo por intentos fallidos (5 intentos → 15 min) ──
+const _MAX_INT = 5, _BLK_MS = 15 * 60 * 1000;
+function _estaBloqueado(key) {
+  try { const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}'); return !!(d.until && Date.now() < d.until); } catch(e) { return false; }
+}
+function _registrarFallo(key, errEl) {
+  try {
+    const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}');
+    const count = (d.count || 0) + 1;
+    const until = count >= _MAX_INT ? Date.now() + _BLK_MS : (d.until || 0);
+    localStorage.setItem('_lk_' + key, JSON.stringify({ count, until }));
+    if (errEl) {
+      if (count >= _MAX_INT) errEl.textContent = `✗ Cuenta bloqueada 15 min por ${_MAX_INT} intentos fallidos`;
+      else errEl.textContent = `✗ Contraseña incorrecta (${_MAX_INT - count} intento${_MAX_INT - count === 1 ? '' : 's'} restante${_MAX_INT - count === 1 ? '' : 's'})`;
+    }
+  } catch(e) {}
+}
+function _bloqueoMsg(key) {
+  try { const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}'); const m = Math.ceil((d.until - Date.now()) / 60000); return `✗ Cuenta bloqueada ${m} min más`; } catch(e) { return '✗ Cuenta bloqueada'; }
+}
+function _limpiarFallos(key) { try { localStorage.removeItem('_lk_' + key); } catch(e) {} }
+
 async function cambiarPassword() {
   const actual     = document.getElementById('pwd-actual').value;
   const nueva      = document.getElementById('pwd-nueva').value;
@@ -10019,7 +10041,7 @@ function _ensureSupervisorPasswords() {
   if (changed) save();
 }
 
-function loginSupervisor() {
+async function loginSupervisor() {
   const nombre = document.getElementById('sup-select-login').value;
   const pwd    = document.getElementById('sup-pwd-login').value;
   const errEl  = document.getElementById('sup-login-error');
@@ -10028,15 +10050,44 @@ function loginSupervisor() {
   if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
   if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
 
+  // Bloqueo por intentos
+  const _lkKeySup = 'sup_' + nombre;
+  if (_estaBloqueado(_lkKeySup)) {
+    errEl.style.display = 'block'; errEl.textContent = _bloqueoMsg(_lkKeySup); return;
+  }
+
   reloadState();
   _ensureSupervisorPasswords();
 
   if (!state.supervisores.includes(nombre)) {
     errEl.style.display = 'block'; errEl.textContent = '✗ Supervisor no encontrado'; return;
   }
-  const pwdCorrecta = state.supervisorPasswords[nombre];
-  if (pwd !== pwdCorrecta) {
-    errEl.style.display = 'block'; errEl.textContent = '✗ Contraseña incorrecta'; return;
+  const storedSup = state.supervisorPasswords[nombre] || '123';
+  const isHashSup = storedSup.length === 64 && /^[0-9a-f]+$/.test(storedSup);
+  let pwdOkSup = false;
+  if (isHashSup) {
+    pwdOkSup = (await sha256hex(pwd)) === storedSup;
+  } else {
+    pwdOkSup = pwd === storedSup;
+    // Migración: rehashear si es texto plano no-default
+    if (pwdOkSup && storedSup !== '123') {
+      state.supervisorPasswords[nombre] = await sha256hex(pwd);
+      save();
+    }
+  }
+  if (!pwdOkSup) {
+    _registrarFallo(_lkKeySup, errEl); errEl.style.display = 'block'; return;
+  }
+  _limpiarFallos(_lkKeySup);
+
+  // Forzar cambio si aún usa contraseña por defecto '123'
+  if (storedSup === '123') {
+    supervisorActual = nombre;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.querySelector('.app').style.display = 'flex';
+    _aplicarModoSupervisor(nombre);
+    abrirCambiarPassword('supervisor');
+    return;
   }
 
   // Login OK
@@ -10249,19 +10300,49 @@ function _ensureCoordinadorPasswords() {
 }
 
 
-function loginCoordinador() {
+async function loginCoordinador() {
   const nombre = document.getElementById('coord-select-login').value;
   const pwd    = document.getElementById('coord-pwd-login').value;
   const errEl  = document.getElementById('coord-login-error');
   errEl.style.display = 'none';
   if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
   if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
+
+  // Bloqueo por intentos
+  const _lkKeyCoord = 'coord_' + nombre;
+  if (_estaBloqueado(_lkKeyCoord)) {
+    errEl.style.display = 'block'; errEl.textContent = _bloqueoMsg(_lkKeyCoord); return;
+  }
+
   reloadState();
   _ensureCoordinadorPasswords();
-  const pwdCorrecta = state.coordinadorPasswords[nombre];
-  if (!pwdCorrecta || pwd !== pwdCorrecta) {
-    errEl.style.display = 'block'; errEl.textContent = '✗ Contraseña incorrecta'; return;
+  const storedCoord = state.coordinadorPasswords[nombre] || '123';
+  const isHashCoord = storedCoord.length === 64 && /^[0-9a-f]+$/.test(storedCoord);
+  let pwdOkCoord = false;
+  if (isHashCoord) {
+    pwdOkCoord = (await sha256hex(pwd)) === storedCoord;
+  } else {
+    pwdOkCoord = pwd === storedCoord;
+    if (pwdOkCoord && storedCoord !== '123') {
+      state.coordinadorPasswords[nombre] = await sha256hex(pwd);
+      save();
+    }
   }
+  if (!pwdOkCoord) {
+    _registrarFallo(_lkKeyCoord, errEl); errEl.style.display = 'block'; return;
+  }
+  _limpiarFallos(_lkKeyCoord);
+
+  // Forzar cambio si aún usa contraseña por defecto '123'
+  if (storedCoord === '123') {
+    coordinadorActual = nombre;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.querySelector('.app').style.display = 'flex';
+    _aplicarModoCoordinador(nombre);
+    abrirCambiarPassword('coordinador');
+    return;
+  }
+
   // Login OK
   coordinadorActual = nombre;
   document.getElementById('login-screen').classList.add('hidden');
@@ -10319,16 +10400,18 @@ function guardarNuevaPassword() {
   if (nueva !== confirmar) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
   if (_pwdChangeRole === 'supervisor' && supervisorActual) {
     if (!state.supervisorPasswords) state.supervisorPasswords = {};
-    state.supervisorPasswords[supervisorActual] = nueva;
-    save();
-    cerrarCambiarPassword();
-    alert('✓ Contraseña actualizada correctamente');
+    sha256hex(nueva).then(h => {
+      state.supervisorPasswords[supervisorActual] = h;
+      save(); cerrarCambiarPassword();
+      alert('✓ Contraseña actualizada correctamente');
+    });
   } else if (_pwdChangeRole === 'coordinador' && coordinadorActual) {
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
-    state.coordinadorPasswords[coordinadorActual] = nueva;
-    save();
-    cerrarCambiarPassword();
-    alert('✓ Contraseña actualizada correctamente');
+    sha256hex(nueva).then(h => {
+      state.coordinadorPasswords[coordinadorActual] = h;
+      save(); cerrarCambiarPassword();
+      alert('✓ Contraseña actualizada correctamente');
+    });
   }
 }
 
@@ -10365,19 +10448,28 @@ function loginFormadora() {
     document.querySelectorAll('.nav-item').forEach((n,i) => { if(i===0) n.classList.add('active'); else n.classList.remove('active'); });
   }
 
+  // Bloqueo por intentos
+  if (_estaBloqueado('formadora')) {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('login-error').textContent = _bloqueoMsg('formadora');
+    return;
+  }
+
   if (storedHash) {
     // Hash-based verification
     sha256hex(pwd).then(hash => {
-      if (hash === storedHash) { _doLogin(); }
+      if (hash === storedHash) { _limpiarFallos('formadora'); _doLogin(); }
       else {
+        _registrarFallo('formadora', document.getElementById('login-error'));
         document.getElementById('login-error').style.display = 'block';
         document.getElementById('input-password').focus();
       }
     });
   } else {
     // Plain-text fallback (default password)
-    if (pwd === PASSWORD_FORMADORA) { _doLogin(); }
+    if (pwd === PASSWORD_FORMADORA) { _limpiarFallos('formadora'); _doLogin(); }
     else {
+      _registrarFallo('formadora', document.getElementById('login-error'));
       document.getElementById('login-error').style.display = 'block';
       document.getElementById('input-password').focus();
     }
@@ -10442,15 +10534,32 @@ function loginAsesor() {
   // Ensure password exists (backward compat)
   if (!asesor.password) { asesor.password = '123'; save(); }
 
-  // '123' funciona como contraseña universal temporal para cualquier asesor
-  const esPwdGenerica = (pwd === '123');
-
-  // Verify password
-  if (!esPwdGenerica && pwd !== asesor.password) {
-    errEl.style.display = 'block';
-    errEl.textContent = '✗ Contraseña incorrecta';
-    return;
+  // ── Verificar bloqueo por intentos ──
+  const _lkKeyAs = 'as_' + nombre;
+  if (_estaBloqueado(_lkKeyAs)) {
+    errEl.style.display = 'block'; errEl.textContent = _bloqueoMsg(_lkKeyAs); return;
   }
+
+  // ── Verificar contraseña (soporta texto plano y SHA-256) ──
+  const storedAs = asesor.password || '123';
+  const isHashAs = storedAs.length === 64 && /^[0-9a-f]+$/.test(storedAs);
+  let pwdOkAs = false;
+  if (isHashAs) {
+    const inputHash = await sha256hex(pwd);
+    pwdOkAs = inputHash === storedAs;
+  } else {
+    pwdOkAs = pwd === storedAs;
+    // Migración: si la contraseña es correcta y está en texto plano, rehashear
+    if (pwdOkAs && storedAs !== '123') {
+      asesor.password = await sha256hex(pwd);
+      asesor.passwordPersonalizada = true;
+      save();
+    }
+  }
+  if (!pwdOkAs) {
+    _registrarFallo(_lkKeyAs, errEl); errEl.style.display = 'block'; return;
+  }
+  _limpiarFallos(_lkKeyAs);
 
   // Detect available month/year from question bank
   const { mes: mesDet, anio: anioDet } = _detectarMesAsesor(asesor);
@@ -10543,29 +10652,31 @@ function confirmarCambioPassword() {
     errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return;
   }
 
-  // Guardar nueva contraseña y limpiar flag
+  // Guardar nueva contraseña como hash y limpiar flag
   reloadState();
   const asesor = state.asesores.find(a => a.nombre === _asesorPendienteAcceso);
   if (!asesor) return;
-  asesor.password = nueva;
-  asesor.mustChangePassword = false;
-  asesor.passwordPersonalizada = true;
-  save();
+  sha256hex(nueva).then(h => {
+    asesor.password = h;
+    asesor.mustChangePassword = false;
+    asesor.passwordPersonalizada = true;
+    save();
 
-  // Cerrar modal y entrar a la app
-  document.getElementById('modal-cambiar-pwd').classList.remove('visible');
+    // Cerrar modal y entrar a la app
+    document.getElementById('modal-cambiar-pwd').classList.remove('visible');
 
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('asesor-mode').style.display = 'block';
-  document.querySelector('.app').style.display = 'none';
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('asesor-mode').style.display = 'block';
+    document.querySelector('.app').style.display = 'none';
 
-  document.getElementById('topbar-nombre').textContent = asesor.nombre;
-  document.getElementById('topbar-sup').textContent = `Supervisor: ${asesor.supervisor}`;
-  const initials = asesor.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  document.getElementById('topbar-avatar').textContent = initials;
+    document.getElementById('topbar-nombre').textContent = asesor.nombre;
+    document.getElementById('topbar-sup').textContent = `Supervisor: ${asesor.supervisor}`;
+    const initials = asesor.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('topbar-avatar').textContent = initials;
 
-  initAsesorForm(asesor);
-  _asesorPendienteAcceso = null;
+    initAsesorForm(asesor);
+    _asesorPendienteAcceso = null;
+  });
 }
 
 function cerrarSesion() {
