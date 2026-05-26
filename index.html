@@ -3061,6 +3061,16 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                    font:700 12px 'Montserrat',sans-serif;cursor:pointer;letter-spacing:0.03em">
             🎓 Asignar Programas
           </button>
+          <!-- Botón carga masiva de emails -->
+          <button onclick="document.getElementById('email-import-file').click()"
+            style="display:flex;align-items:center;gap:6px;padding:8px 16px;
+                   background:rgba(78,138,114,0.12);color:var(--accent3);border:1px solid var(--accent3);
+                   border-radius:var(--radius-sm);font:700 12px 'Montserrat',sans-serif;cursor:pointer">
+            📧 Cargar emails (.xlsx / .csv)
+          </button>
+          <input type="file" id="email-import-file" accept=".xlsx,.xls,.csv" style="display:none"
+            onchange="importarEmailsExcel(this)">
+          <span id="email-import-status" style="font-size:12px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
         </div>
         <div class="table-wrap">
           <table>
@@ -3070,6 +3080,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                 <th>Supervisor</th>
                 <th>Tipo</th>
                 <th>Programa</th>
+                <th>Email</th>
                 <th>Contraseña</th>
                 <th style="text-align:center">Acción</th>
               </tr>
@@ -14982,6 +14993,83 @@ async function enviarNotificaciones() {
   }
 
   if (statusEl) statusEl.textContent = `✓ Listo: ${enviados} enviados${errores ? ', ' + errores + ' errores' : ''}`;
+}
+
+function importarEmailsExcel(input) {
+  if (!input.files[0]) return;
+  if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
+
+  const statusEl = document.getElementById('email-import-status');
+  if (statusEl) statusEl.textContent = 'Procesando…';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let rows = [];
+
+      if (input.files[0].name.endsWith('.csv')) {
+        // CSV: parsear líneas
+        const text = new TextDecoder('utf-8').decode(new Uint8Array(e.target.result));
+        rows = text.split(/\r?\n/).map(l => l.split(/[,;|\t]/).map(c => c.trim().replace(/^"|"$/g,'')));
+      } else {
+        // Excel
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      }
+
+      if (!rows.length) { if (statusEl) statusEl.textContent = '⚠ Archivo vacío'; return; }
+
+      // Auto-detectar columnas Nombre y Email (busca en fila 1 o usa posición 0,1)
+      const header = rows[0].map(c => String(c).toLowerCase().trim());
+      let colNombre = header.findIndex(h => /nombre|name|asesor/i.test(h));
+      let colEmail  = header.findIndex(h => /email|correo|mail/i.test(h));
+      let dataStart = 1;
+      if (colNombre === -1 && colEmail === -1) {
+        // Sin encabezado: asumir col 0 = nombre, col 1 = email
+        colNombre = 0; colEmail = 1; dataStart = 0;
+      }
+      if (colNombre === -1) colNombre = 0;
+      if (colEmail  === -1) colEmail  = 1;
+
+      const dataRows = rows.slice(dataStart).filter(r => r[colEmail] && String(r[colEmail]).includes('@'));
+
+      // Normalizar nombre para comparación
+      const norm = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+
+      let actualizados = 0, noEncontrados = [];
+      dataRows.forEach(r => {
+        const nombreBuscar = norm(r[colNombre]);
+        const email = String(r[colEmail]).trim();
+        // Buscar coincidencia exacta primero, luego parcial
+        let asesor = state.asesores.find(a => norm(a.nombre) === nombreBuscar);
+        if (!asesor) asesor = state.asesores.find(a => norm(a.nombre).includes(nombreBuscar) || nombreBuscar.includes(norm(a.nombre)));
+        if (asesor) {
+          asesor.email = email;
+          actualizados++;
+        } else {
+          noEncontrados.push(String(r[colNombre]));
+        }
+      });
+
+      save();
+      renderConfig();
+      input.value = '';
+
+      let msg = `✓ ${actualizados} email${actualizados!==1?'s':''} actualizados`;
+      if (noEncontrados.length) msg += ` · ${noEncontrados.length} no encontrados`;
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = actualizados ? 'var(--pass)' : 'var(--fail)'; }
+
+      if (noEncontrados.length) {
+        const lista = noEncontrados.slice(0, 10).join('\n') + (noEncontrados.length > 10 ? `\n…y ${noEncontrados.length-10} más` : '');
+        alert(`✓ ${actualizados} emails cargados.\n\n⚠ ${noEncontrados.length} nombres no se encontraron en el sistema:\n${lista}\n\nVerifica que el nombre en el Excel coincida exactamente con el registrado.`);
+      } else {
+        alert(`✓ ¡Listo! Se actualizaron ${actualizados} emails correctamente.`);
+      }
+    } catch(err) {
+      if (statusEl) { statusEl.textContent = '✗ Error: ' + err.message; statusEl.style.color = 'var(--fail)'; }
+    }
+  };
+  reader.readAsArrayBuffer(input.files[0]);
 }
 
 async function probarNotificacion() {
