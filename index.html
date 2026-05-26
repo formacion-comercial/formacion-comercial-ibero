@@ -14951,7 +14951,12 @@ async function enviarNotificaciones() {
           mes:        mes,
           anio:       String(anio),
           link:       link,
-          supervisor: supervisor
+          supervisor: supervisor,
+          // campos del template original "Contáctanos"
+          name:       asesor.nombre,
+          email:      asesor.email,
+          title:      `Evaluación ${mes} ${anio}`,
+          message:    `Tu evaluación de ${mes} ${anio} ya está disponible. Ingresa aquí: ${link}`
         });
         enviados++;
         if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--pass)">✓ email enviado</span>';
