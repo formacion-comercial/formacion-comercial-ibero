@@ -14934,27 +14934,20 @@ async function enviarNotificaciones() {
     if (chk && !chk.checked) continue;
     const rowStatus = document.getElementById('notif-status-' + _sanitizeId(asesor.nombre));
 
-    // ── Email via EmailJS ──
+    // ── Email via EmailJS SDK ──
     if (cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey && asesor.email) {
       try {
-        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            service_id:  cfg.ejsService,
-            template_id: cfg.ejsTemplate,
-            user_id:     cfg.ejsPubKey,
-            template_params: {
-              to_name:  asesor.nombre,
-              to_email: asesor.email,
-              mes:      mes,
-              anio:     String(anio),
-              link:     link,
-              supervisor: supervisor
-            }
-          })
+        if (typeof emailjs === 'undefined') throw new Error('SDK no cargado');
+        emailjs.init({ publicKey: cfg.ejsPubKey });
+        const res = await emailjs.send(cfg.ejsService, cfg.ejsTemplate, {
+          to_name:    asesor.nombre,
+          to_email:   asesor.email,
+          mes:        mes,
+          anio:       String(anio),
+          link:       link,
+          supervisor: supervisor
         });
-        if (res.ok) {
+        if (res.status === 200) {
           enviados++;
           if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--pass)">✓ email enviado</span>';
         } else {
