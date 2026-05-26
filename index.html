@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     /* ── Corporate palette digital (charcoal + gold) ── */
@@ -2832,6 +2833,82 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </div>
       </div>
 
+      <!-- ══ NOTIFICACIONES ══ -->
+      <div class="card section-gap" style="border-left:3px solid var(--accent3);margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div style="font-weight:700;font-size:15px;color:var(--text)">📢 Notificaciones a Asesores</div>
+          <button onclick="probarNotificacion()"
+            style="padding:6px 16px;border-radius:var(--radius-sm);border:1px solid var(--accent3);
+                   background:rgba(78,138,114,0.10);color:var(--accent3);font-size:12px;font-weight:700;
+                   font-family:'Montserrat',sans-serif;cursor:pointer">
+            ▶ Enviar prueba
+          </button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6">
+          Configura los canales para alertar a los asesores cuando su evaluación esté disponible.
+          Necesitas crear un flujo en <strong>Power Automate</strong> (para Teams + Email) o usar <strong>EmailJS</strong> para correo.
+          <a href="https://make.powerautomate.com" target="_blank" style="color:var(--accent);text-decoration:none">→ Abrir Power Automate</a>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+          <!-- Teams / Power Automate -->
+          <div>
+            <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                        letter-spacing:0.07em;color:var(--text3);margin-bottom:8px">
+              🔷 Teams — Power Automate (Webhook HTTP)
+            </div>
+            <input type="url" id="notif-teams-url" placeholder="https://prod-xx.westus.logic.azure.com/..."
+              style="width:100%;padding:9px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                     background:var(--surface2);font-size:12px;font-family:'Fira Code',monospace;
+                     color:var(--text);outline:none;box-sizing:border-box;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--text3);line-height:1.5">
+              Crea un flujo en Power Automate con trigger "Cuando se recibe una solicitud HTTP".
+              Copia la URL generada aquí. El flujo puede enviar mensaje a un canal de Teams
+              y/o un email usando el conector de Outlook.
+            </div>
+          </div>
+
+          <!-- EmailJS -->
+          <div>
+            <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                        letter-spacing:0.07em;color:var(--text3);margin-bottom:8px">
+              ✉ Email — EmailJS (correo directo)
+            </div>
+            <input type="text" id="notif-ejs-service" placeholder="Service ID  (ej: service_abc123)"
+              style="width:100%;padding:7px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                     background:var(--surface2);font-size:12px;font-family:'Fira Code',monospace;
+                     color:var(--text);outline:none;box-sizing:border-box;margin-bottom:6px">
+            <input type="text" id="notif-ejs-template" placeholder="Template ID  (ej: template_xyz789)"
+              style="width:100%;padding:7px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                     background:var(--surface2);font-size:12px;font-family:'Fira Code',monospace;
+                     color:var(--text);outline:none;box-sizing:border-box;margin-bottom:6px">
+            <input type="text" id="notif-ejs-pubkey" placeholder="Public Key  (ej: user_XXXXXXXXXXXXXXX)"
+              style="width:100%;padding:7px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                     background:var(--surface2);font-size:12px;font-family:'Fira Code',monospace;
+                     color:var(--text);outline:none;box-sizing:border-box;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--text3);line-height:1.5">
+              Crea una cuenta en <a href="https://www.emailjs.com" target="_blank" style="color:var(--accent)">emailjs.com</a>
+              (gratis hasta 200 emails/mes). Crea un servicio de email y una plantilla con las variables:
+              <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">to_name</code>,
+              <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">to_email</code>,
+              <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">mes</code>,
+              <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">anio</code>,
+              <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">link</code>.
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+          <button onclick="guardarNotifConfig()"
+            style="padding:8px 20px;border-radius:var(--radius-sm);border:none;background:var(--accent);
+                   color:#fff;font-size:13px;font-weight:700;font-family:'Montserrat',sans-serif;cursor:pointer">
+            Guardar configuración
+          </button>
+          <span id="notif-config-status" style="font-size:12px;color:var(--pass);display:none">✓ Configuración guardada</span>
+        </div>
+      </div>
+
       <!-- ── Gestión manual ── -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
         <!-- Supervisores -->
@@ -2944,6 +3021,12 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                 <option value="Posgrado">Posgrado</option>
                 <option value="Ed. Continua">Ed. Continua</option>
               </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;flex:2;min-width:180px">
+              <label style="font-size:11px;color:var(--text3)">Email corporativo</label>
+              <input id="cred-nuevo-asesor-email" type="email" placeholder="nombre@empresa.com"
+                style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                       background:var(--surface);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;outline:none">
             </div>
             <div style="display:flex;gap:6px;align-self:flex-end">
               <button onclick="guardarNuevoAsesorCred()"
@@ -3869,6 +3952,51 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 </div>
 
+<!-- MODAL NOTIFICAR ASESORES -->
+<div class="modal-overlay" id="modal-notificar-overlay" onclick="if(event.target===this)cerrarModalNotificar()"
+  style="display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);width:min(580px,96vw);
+              max-height:88vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-weight:800;font-size:18px;color:var(--text)">📢 Notificar asesores</div>
+        <div id="notif-modal-subtitle" style="font-size:13px;color:var(--text3);margin-top:3px"></div>
+      </div>
+      <button onclick="cerrarModalNotificar()"
+        style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px 8px;
+               border-radius:4px;line-height:1">✕</button>
+    </div>
+
+    <!-- Canales activos -->
+    <div id="notif-canales-aviso" style="display:none;background:rgba(224,80,80,0.10);border:1px solid rgba(224,80,80,0.25);
+         border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--fail)">
+    </div>
+
+    <!-- Lista de asesores -->
+    <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                letter-spacing:0.07em;color:var(--text3);margin-bottom:8px">
+      Asesores del grupo
+    </div>
+    <div id="notif-asesores-lista" style="max-height:300px;overflow-y:auto;
+         border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:18px"></div>
+
+    <!-- Botones -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="enviarNotificaciones()"
+        style="padding:10px 24px;border-radius:var(--radius-sm);border:none;background:var(--accent3);
+               color:#fff;font-size:13px;font-weight:700;font-family:'Montserrat',sans-serif;cursor:pointer">
+        📤 Enviar notificaciones
+      </button>
+      <button onclick="cerrarModalNotificar()"
+        style="padding:10px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);
+               background:transparent;color:var(--text3);font-size:13px;cursor:pointer">
+        Cancelar
+      </button>
+      <span id="notif-send-status" style="font-size:12px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CAMBIAR CONTRASEÑA -->
 <div class="modal-overlay" id="modal-cambiar-pwd-overlay" onclick="if(event.target===this)cerrarCambiarPassword()"
   style="display:none;align-items:center;justify-content:center">
@@ -4033,6 +4161,7 @@ if (!state.coordinadorPasswords)      state.coordinadorPasswords = {};
 if (!state.preguntasPorSupMesInicial) state.preguntasPorSupMesInicial = {};
 if (!state.ultimosAccesos)            state.ultimosAccesos = {};
 if (!state.programaPorSupervisor)     state.programaPorSupervisor = {};
+if (!state.notifConfig)               state.notifConfig = {};
 
 // ── Eliminar evaluaciones de supervisores no requeridos (una sola vez) ───────
 try {
@@ -9165,6 +9294,7 @@ function limpiarEvaluaciones() {
 }
 
 function renderConfig() {
+  _renderNotifConfig();
   // Gemini API key — mostrar masked si ya está guardada
   const keyInp = document.getElementById('gemini-api-key-input');
   if (keyInp) {
@@ -9240,6 +9370,13 @@ function renderConfig() {
       <tr>
         <td style="padding:9px 12px;color:var(--text);font-size:13px">${a.nombre}</td>
         <td style="padding:9px 12px;color:var(--text2);font-size:13px;font-family:'Fira Code',monospace">${a.supervisor}</td>
+        <td style="padding:6px 12px">
+          <input type="email" value="${a.email||''}" placeholder="email@empresa.com"
+            onchange="actualizarEmailAsesor('${a.nombre.replace(/'/g,"\\'")}',this.value)"
+            style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                   background:var(--surface2);color:var(--text);font-size:12px;font-family:'Fira Code',monospace;
+                   outline:none;width:180px">
+        </td>
         <td style="padding:9px 12px">
           <select onchange="cambiarTipoAsesor(${i},this.value)"
             style="padding:3px 8px;border-radius:20px;border:1px solid;font-size:11px;font-weight:700;
@@ -9344,9 +9481,15 @@ function guardarNuevoAsesorCred() {
   }
   const tipo     = document.getElementById('cred-nuevo-asesor-tipo').value || 'Nuevo';
   const programa = document.getElementById('cred-nuevo-asesor-programa').value || '';
-  state.asesores.push({ nombre, supervisor: sup, password: '123', tipo, programa, mustChangePassword: true });
+  const email    = (document.getElementById('cred-nuevo-asesor-email').value || '').trim();
+  state.asesores.push({ nombre, supervisor: sup, password: '123', tipo, programa, email, mustChangePassword: true });
   save(); updateAllFilters(); renderConfig(); initRegistro();
   document.getElementById('nuevo-asesor-cred-form').style.display = 'none';
+  document.getElementById('cred-nuevo-asesor-email').value = '';
+}
+function actualizarEmailAsesor(nombre, email) {
+  const a = state.asesores.find(x => x.nombre === nombre);
+  if (a) { a.email = email.trim(); save(); }
 }
 function cambiarTipoAsesor(i, nuevoTipo) {
   if (!state.asesores[i]) return;
@@ -11275,6 +11418,21 @@ function _procesarExcelMasivo(file, mes, anio) {
         msg += ` | ⚠ Pestañas no reconocidas: ${supNoEncontrados.join(', ')}`;
       }
       _setMasivoStatus('ok', msg + '\n' + resultados.join(' · '));
+      // Botones de notificación por supervisor cargado
+      const supervisoresCargados = resultados.filter(r => r.startsWith('✓')).map(r => r.split(':')[0].replace('✓ ', '').trim());
+      const masivoStatusEl = document.getElementById('masivo-status');
+      if (masivoStatusEl && supervisoresCargados.length) {
+        const notifWrap = document.createElement('div');
+        notifWrap.style.cssText = 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap';
+        supervisoresCargados.forEach(sup => {
+          const btn = document.createElement('button');
+          btn.innerHTML = `📢 Notificar a equipo de ${sup}`;
+          btn.style.cssText = 'padding:5px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent3);background:rgba(78,138,114,0.12);color:var(--accent3);font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
+          btn.onclick = () => abrirModalNotificar(sup, mes, anio);
+          notifWrap.appendChild(btn);
+        });
+        masivoStatusEl.parentNode.insertBefore(notifWrap, masivoStatusEl.nextSibling);
+      }
       setTimeout(() => renderSupervisorQuestionCards(), 800);
 
     } catch(err) {
@@ -11512,6 +11670,21 @@ function _procesarExcelPreguntas(file, supervisor, mes, supKey) {
       save();
       _setBancoStatus('banco-status-' + supKey, 'ok',
         '✓ ' + preguntas.length + ' pregunta(s) cargadas para ' + mes);
+      // Mostrar botón de notificación
+      const notifBtnId = 'notif-btn-' + supKey;
+      const existing = document.getElementById(notifBtnId);
+      if (!existing) {
+        const statusEl = document.getElementById('banco-status-' + supKey);
+        if (statusEl) {
+          const btn = document.createElement('button');
+          btn.id = notifBtnId;
+          btn.innerHTML = '📢 Notificar asesores';
+          btn.style.cssText = 'margin-left:12px;padding:4px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent3);background:rgba(78,138,114,0.12);color:var(--accent3);font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
+          const anioSel = (document.getElementById('sup-anio-' + supKey) || {}).value || new Date().getFullYear();
+          btn.onclick = () => abrirModalNotificar(supervisor, mes, anioSel);
+          statusEl.parentNode.insertBefore(btn, statusEl.nextSibling);
+        }
+      }
       setTimeout(() => renderSupervisorQuestionCards(), 900);
     } catch(err) {
       _setBancoStatus('banco-status-' + supKey, 'error', 'Error al procesar: ' + err.message);
@@ -14655,6 +14828,193 @@ function importarDatos(event) {
     }
   };
   reader.readAsText(file);
+}
+
+// ==================== NOTIFICACIONES ====================
+
+let _notifPendiente = { supervisor: null, mes: null, anio: null };
+
+function guardarNotifConfig() {
+  const teamsUrl   = (document.getElementById('notif-teams-url')   || {}).value || '';
+  const ejsService = (document.getElementById('notif-ejs-service') || {}).value || '';
+  const ejsTemplate= (document.getElementById('notif-ejs-template')|| {}).value || '';
+  const ejsPubKey  = (document.getElementById('notif-ejs-pubkey')  || {}).value || '';
+  state.notifConfig = { teamsUrl: teamsUrl.trim(), ejsService: ejsService.trim(),
+                        ejsTemplate: ejsTemplate.trim(), ejsPubKey: ejsPubKey.trim() };
+  save();
+  const st = document.getElementById('notif-config-status');
+  if (st) { st.style.display = 'inline'; setTimeout(() => st.style.display = 'none', 3000); }
+}
+
+function _renderNotifConfig() {
+  const cfg = state.notifConfig || {};
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('notif-teams-url',    cfg.teamsUrl);
+  set('notif-ejs-service',  cfg.ejsService);
+  set('notif-ejs-template', cfg.ejsTemplate);
+  set('notif-ejs-pubkey',   cfg.ejsPubKey);
+}
+
+function abrirModalNotificar(supervisor, mes, anio) {
+  _notifPendiente = { supervisor, mes, anio };
+  const cfg = state.notifConfig || {};
+  const tieneTeams = !!(cfg.teamsUrl);
+  const tieneEmail = !!(cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey);
+
+  // Subtitle
+  const sub = document.getElementById('notif-modal-subtitle');
+  if (sub) sub.textContent = `Evaluación: ${mes} ${anio}  ·  Supervisor: ${supervisor}`;
+
+  // Aviso si no hay canales
+  const aviso = document.getElementById('notif-canales-aviso');
+  if (!tieneTeams && !tieneEmail) {
+    aviso.style.display = 'block';
+    aviso.innerHTML = '⚠ No hay canales configurados. Ve a Configuración → Notificaciones para agregar Teams y/o Email.';
+  } else {
+    aviso.style.display = 'none';
+  }
+
+  // Lista asesores
+  const link = window.location.origin + window.location.pathname + '#asesor';
+  const asesores = (state.asesores || []).filter(a => a.supervisor === supervisor);
+  const lista = document.getElementById('notif-asesores-lista');
+  if (lista) {
+    lista.innerHTML = asesores.length
+      ? asesores.map(a => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+                      border-bottom:1px solid var(--border);font-size:13px" id="notif-row-${_sanitizeId(a.nombre)}">
+            <input type="checkbox" id="notif-chk-${_sanitizeId(a.nombre)}" checked
+              style="width:15px;height:15px;accent-color:var(--accent3);cursor:pointer">
+            <div style="flex:1">
+              <div style="font-weight:600;color:var(--text)">${a.nombre}</div>
+              <div style="font-size:11px;color:${a.email?'var(--text3)':'var(--fail)'};font-family:'Fira Code',monospace">
+                ${a.email || '⚠ sin email — no recibirá correo'}
+              </div>
+            </div>
+            <span id="notif-status-${_sanitizeId(a.nombre)}" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
+          </div>`).join('')
+      : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Sin asesores para este supervisor</div>';
+  }
+
+  document.getElementById('notif-send-status').textContent = '';
+  document.getElementById('modal-notificar-overlay').style.display = 'flex';
+}
+
+function cerrarModalNotificar() {
+  document.getElementById('modal-notificar-overlay').style.display = 'none';
+}
+
+function _sanitizeId(nombre) {
+  return nombre.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+async function enviarNotificaciones() {
+  const { supervisor, mes, anio } = _notifPendiente;
+  const cfg  = state.notifConfig || {};
+  const link = window.location.origin + window.location.pathname + '#asesor';
+  const asesores = (state.asesores || []).filter(a => a.supervisor === supervisor);
+  const statusEl = document.getElementById('notif-send-status');
+  if (statusEl) statusEl.textContent = 'Enviando…';
+
+  let enviados = 0, errores = 0;
+
+  for (const asesor of asesores) {
+    const chk = document.getElementById('notif-chk-' + _sanitizeId(asesor.nombre));
+    if (chk && !chk.checked) continue;
+    const rowStatus = document.getElementById('notif-status-' + _sanitizeId(asesor.nombre));
+
+    // ── Email via EmailJS ──
+    if (cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey && asesor.email) {
+      try {
+        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            service_id:  cfg.ejsService,
+            template_id: cfg.ejsTemplate,
+            user_id:     cfg.ejsPubKey,
+            template_params: {
+              to_name:  asesor.nombre,
+              to_email: asesor.email,
+              mes:      mes,
+              anio:     String(anio),
+              link:     link,
+              supervisor: supervisor
+            }
+          })
+        });
+        if (res.ok) {
+          enviados++;
+          if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--pass)">✓ email enviado</span>';
+        } else {
+          throw new Error('HTTP ' + res.status);
+        }
+      } catch(e) {
+        errores++;
+        if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--fail)">✗ error email</span>';
+      }
+    }
+
+    // ── Teams via Power Automate ──
+    if (cfg.teamsUrl) {
+      try {
+        await fetch(cfg.teamsUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asesor:     asesor.nombre,
+            supervisor: supervisor,
+            mes:        mes,
+            anio:       String(anio),
+            link:       link,
+            mensaje:    `Hola ${asesor.nombre}, tu evaluación de ${mes} ${anio} ya está disponible. Ingresa aquí: ${link}`
+          })
+        });
+        if (rowStatus && !rowStatus.innerHTML.includes('email')) {
+          rowStatus.innerHTML = '<span style="color:var(--pass)">✓ Teams</span>';
+        } else if (rowStatus) {
+          rowStatus.innerHTML = rowStatus.innerHTML.replace('enviado', 'enviado + Teams');
+        }
+      } catch(e) { /* CORS o red — mostrar advertencia pero no bloquear */ }
+    }
+
+    await new Promise(r => setTimeout(r, 120)); // pausa entre envíos
+  }
+
+  if (statusEl) statusEl.textContent = `✓ Listo: ${enviados} enviados${errores ? ', ' + errores + ' errores' : ''}`;
+}
+
+async function probarNotificacion() {
+  const cfg = state.notifConfig || {};
+  const link = window.location.origin + window.location.pathname + '#asesor';
+
+  if (!cfg.ejsService && !cfg.teamsUrl) {
+    alert('⚠ Primero guarda al menos un canal (Teams URL o EmailJS) en la configuración.');
+    return;
+  }
+
+  // Prueba Teams
+  if (cfg.teamsUrl) {
+    try {
+      await fetch(cfg.teamsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asesor: 'Prueba', supervisor: 'Test', mes: 'Prueba', anio: '2025',
+          link: link,
+          mensaje: '✅ Conexión de prueba desde EvalPro — Notificaciones configuradas correctamente.'
+        })
+      });
+      alert('✓ Mensaje de prueba enviado a Teams/Power Automate correctamente.');
+    } catch(e) {
+      alert('⚠ Error al conectar con Teams: ' + e.message + '\nVerifica la URL del webhook.');
+    }
+  }
+
+  // Prueba Email — solo aviso
+  if (cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey) {
+    alert('EmailJS configurado con Service ID: ' + cfg.ejsService + '\nLos emails se enviarán a cada asesor que tenga email registrado.');
+  }
 }
 
 // ==================== INIT ====================
