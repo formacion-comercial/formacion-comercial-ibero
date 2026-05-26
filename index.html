@@ -14927,6 +14927,13 @@ async function enviarNotificaciones() {
   const statusEl = document.getElementById('notif-send-status');
   if (statusEl) statusEl.textContent = 'Enviando…';
 
+  // Inicializar EmailJS una sola vez
+  if (cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey) {
+    if (typeof emailjs !== 'undefined') {
+      emailjs.init({ publicKey: cfg.ejsPubKey });
+    }
+  }
+
   let enviados = 0, errores = 0;
 
   for (const asesor of asesores) {
@@ -14937,8 +14944,7 @@ async function enviarNotificaciones() {
     // ── Email via EmailJS SDK ──
     if (cfg.ejsService && cfg.ejsTemplate && cfg.ejsPubKey && asesor.email) {
       try {
-        if (typeof emailjs === 'undefined') throw new Error('SDK no cargado');
-        emailjs.init({ publicKey: cfg.ejsPubKey });
+        if (typeof emailjs === 'undefined') throw new Error('SDK no cargado - recarga la página');
         const res = await emailjs.send(cfg.ejsService, cfg.ejsTemplate, {
           to_name:    asesor.nombre,
           to_email:   asesor.email,
@@ -14947,15 +14953,13 @@ async function enviarNotificaciones() {
           link:       link,
           supervisor: supervisor
         });
-        if (res.status === 200) {
-          enviados++;
-          if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--pass)">✓ email enviado</span>';
-        } else {
-          throw new Error('HTTP ' + res.status);
-        }
+        enviados++;
+        if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--pass)">✓ email enviado</span>';
       } catch(e) {
         errores++;
-        if (rowStatus) rowStatus.innerHTML = '<span style="color:var(--fail)">✗ error email</span>';
+        const msg = e.text || e.message || JSON.stringify(e);
+        if (rowStatus) rowStatus.innerHTML = `<span style="color:var(--fail)" title="${msg}">✗ ${msg.slice(0,40)}</span>`;
+        console.error('EmailJS error:', e);
       }
     }
 
