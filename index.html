@@ -12476,10 +12476,12 @@ function initAsesorForm(asesor) {
           <span>📬</span> Mientras tanto puedes revisar tu perfil y tu historial de evaluaciones
         </div>
       </div>`;
-    // Ocultar botón enviar y sticky score — no hay nada que enviar
+    // Ocultar botón enviar, sticky score y deadline banner — no hay nada que enviar
     const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
     if (btnEnviar) btnEnviar.style.display = 'none';
     document.getElementById('asesor-score-sticky').style.display = 'none';
+    const deadBanner = document.getElementById('asesor-deadline-banner');
+    if (deadBanner) deadBanner.style.display = 'none';
   }
 
   updateAsesorProgress();
