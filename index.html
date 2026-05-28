@@ -1183,6 +1183,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             <button id="db-prog-educacincontinua" onclick="setDbPrograma('Ed. Continua')" style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">Ed. Continua</button>
           </div>
 
+          <!-- Filtro modalidad -->
+          <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px">
+            <button id="db-mod-all"            onclick="setDbModalidad('')"                style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;white-space:nowrap">Todos</button>
+            <button id="db-mod-mensual"        onclick="setDbModalidad('mensual')"         style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">📅 Mensual</button>
+            <button id="db-mod-fortalecimiento" onclick="setDbModalidad('fortalecimiento')" style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">💪 Fortalecimiento</button>
+          </div>
+
           <!-- Filtro tipo asesor -->
           <select id="db-tipo-asesor" onchange="renderDashboard()"
             style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);
@@ -5395,6 +5402,7 @@ let dbSupSelected   = new Set(); // supervisores seleccionados (vacío = todos)
 let resSupSelected  = new Set(); // supervisores seleccionados en Resultados (vacío = todos)
 let histSupSelected = new Set(); // supervisores seleccionados en Histórico (vacío = todos)
 let dbProgramaFil   = '';   // PREGRADO | POSGRADO | EDUCACION CONTINUA | ''
+let dbModalidadFil  = '';   // mensual | fortalecimiento | ''
 
 function toggleDbSupDropdown() {
   const drop = document.getElementById('db-sup-dropdown');
@@ -5559,6 +5567,17 @@ function setProgramaSupervisor(supervisor, prog) {
   state.programaPorSupervisor[norm(supervisor)] = prog;
   save();
 }
+function setDbModalidad(mod) {
+  dbModalidadFil = mod;
+  [['','db-mod-all'],['mensual','db-mod-mensual'],['fortalecimiento','db-mod-fortalecimiento']].forEach(([val, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.cssText = val === mod
+      ? 'padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:\'Montserrat\',sans-serif;white-space:nowrap'
+      : 'padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:\'Montserrat\',sans-serif;white-space:nowrap';
+  });
+  renderDashboard();
+}
 function setDbPrograma(prog) {
   dbProgramaFil = prog;
   ['','Pregrado','Posgrado','Ed. Continua'].forEach(p => {
@@ -5638,15 +5657,17 @@ function renderDashboard() {
   if (tipoFil) evs = evs.filter(e => (e.tipo || 'continua') === tipoFil);
   const tipoAsesorFil = (document.getElementById('db-tipo-asesor') || {}).value || '';
   if (tipoAsesorFil) evs = evs.filter(e => _getTipoAsesor(e.asesor) === tipoAsesorFil);
-  if (dbProgramaFil)  evs = evs.filter(e => _getProgramaSupervisor(e.supervisor) === dbProgramaFil);
+  if (dbProgramaFil)   evs = evs.filter(e => _getProgramaSupervisor(e.supervisor) === dbProgramaFil);
+  if (dbModalidadFil)  evs = evs.filter(e => (e.modalidad || 'mensual') === dbModalidadFil);
 
   // ── Evaluaciones para chart supervisores (año+mes+sup+programa) ──
   const chartEvs = state.evaluaciones.filter(e => {
     const anioOk = !dbAniosActivos.length || dbAniosActivos.includes(String(e.anio));
     const mesOk  = !dbMesesActivos.length  || dbMesesActivos.includes(e.mes);
     const supOk  = !supFilArr.length || supFilArr.some(s => _norm(s) === _norm(e.supervisor));
-    const progOk = !dbProgramaFil || _getProgramaSupervisor(e.supervisor) === dbProgramaFil;
-    return anioOk && mesOk && supOk && progOk;
+    const progOk = !dbProgramaFil  || _getProgramaSupervisor(e.supervisor) === dbProgramaFil;
+    const modOk  = !dbModalidadFil || (e.modalidad || 'mensual') === dbModalidadFil;
+    return anioOk && mesOk && supOk && progOk && modOk;
   });
 
   // ── KPIs ──
