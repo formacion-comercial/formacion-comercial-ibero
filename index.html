@@ -2419,7 +2419,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <div class="page-title">Accesos de Asesores</div>
           <div class="page-sub">Historial de ingresos al módulo de evaluación</div>
         </div>
-        <button class="btn btn-export" onclick="exportarAccesosExcel()">⬇ Exportar Excel</button>
+        <div style="display:flex;gap:10px">
+          <button class="btn" onclick="resetearTodosAccesos()"
+            style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.25);color:var(--fail);font-size:13px">
+            🗑 Resetear contadores
+          </button>
+          <button class="btn btn-export" onclick="exportarAccesosExcel()">⬇ Exportar Excel</button>
+        </div>
       </div>
 
       <!-- KPIs -->
@@ -2491,6 +2497,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
               <col style="width:48px">
               <col>
               <col style="width:200px">
+              <col style="width:76px">
               <col style="width:110px">
             </colgroup>
             <thead>
@@ -2498,6 +2505,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                 <th style="padding:12px 16px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);text-align:center;border-bottom:2px solid var(--border)">#</th>
                 <th style="padding:12px 16px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);text-align:left;border-bottom:2px solid var(--border)">Asesor / Supervisor</th>
                 <th style="padding:12px 16px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);text-align:left;border-bottom:2px solid var(--border)">Último acceso</th>
+                <th style="padding:12px 16px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);text-align:center;border-bottom:2px solid var(--border)">Total</th>
                 <th style="padding:12px 16px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);text-align:center;border-bottom:2px solid var(--border)">Estado</th>
               </tr>
             </thead>
@@ -7284,7 +7292,7 @@ function renderAccesos() {
     const subRow = hasHist ? `
       <tr id="${rowId}-hist" style="display:none;background:${rowBg}">
         <td style="border-bottom:1px solid var(--border)"></td>
-        <td colspan="3" style="padding:8px 16px 16px;border-bottom:1px solid var(--border)">
+        <td colspan="4" style="padding:8px 16px 16px;border-bottom:1px solid var(--border)">
           <div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
                letter-spacing:0.07em;color:var(--text3);margin-bottom:8px">Historial de accesos</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px">
@@ -7300,7 +7308,12 @@ function renderAccesos() {
           <div style="font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3">${f.nombre}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:3px">${f.supervisor}</div>
         </td>
-        <td style="${TC}">${ultimoHtml}${histBtn ? `<div style="margin-top:4px">${histBtn}</div>` : ''}</td>
+        <td style="${TC}">${ultimoHtml}</td>
+        <td style="${TC};text-align:center">
+          <div style="font-size:17px;font-weight:800;font-family:'Fira Code',monospace;
+               color:${tieneAcceso?'var(--accent4)':'var(--text3)'}">${f.totalAcc || '—'}</div>
+          <div style="margin-top:4px">${histBtn}</div>
+        </td>
         <td style="${TC};text-align:center">${badge}</td>
       </tr>
       ${subRow}`;
@@ -7328,6 +7341,13 @@ function onAccSupervisorChange() {
   renderAccesos();
 }
 
+function resetearTodosAccesos() {
+  if (!confirm('¿Seguro que deseas resetear todos los contadores de acceso a 0?\n\nEsto borrará el historial de ingresos de todos los asesores. Esta acción no se puede deshacer.')) return;
+  state.ultimosAccesos = {};
+  save();
+  renderAccesos();
+  alert('✅ Contadores de acceso reseteados a 0.');
+}
 function limpiarFiltrosAccesos() {
   ['acc-supervisor','acc-asesor','acc-estado'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
