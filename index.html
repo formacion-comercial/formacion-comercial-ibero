@@ -12459,24 +12459,27 @@ function initAsesorForm(asesor) {
     document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]') &&
       (document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]').style.display = 'none');
   } else {
-    // Modo genérico: sin Forms configurado, autoevaluación directa
+    // Sin preguntas cargadas ni formulario configurado
     list.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;background:rgba(244,211,74,0.08);border:1px solid rgba(244,211,74,0.20);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px">
-        <span style="color:var(--accent2);font-size:16px">⚠</span>
-        <span style="font-size:12px;color:var(--text2)">Tu supervisor aún no ha configurado el formulario. Completa la autoevaluación aquí.</span>
-      </div>
-      ` + Array.from({length:20}, (_,i) => `
-      <div class="q-card" id="qcard-a-${i}">
-        <div class="q-card-num">P${String(i+1).padStart(2,'0')}</div>
-        <div class="q-card-label">Pregunta ${i+1}</div>
-        <div class="q-toggle-wrap">
-          <button class="q-toggle" id="qtog-c-${i}" onclick="setAsesorResp(${i},1)">✓ Correcta</button>
-          <button class="q-toggle" id="qtog-w-${i}" onclick="setAsesorResp(${i},0)">✗ Incorrecta</button>
+      <div style="text-align:center;padding:48px 24px">
+        <div style="font-size:56px;margin-bottom:16px">⏳</div>
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:10px">
+          Evaluación no disponible aún
         </div>
-      </div>`).join('');
-    // Asegurar que el botón enviar sea visible
+        <div style="font-size:14px;color:var(--text2);max-width:400px;margin:0 auto;line-height:1.7">
+          Tu formadora aún no ha cargado las preguntas para <strong style="color:var(--accent)">${mesSel} ${anioSel}</strong>.<br>
+          Cuando estén listas recibirás una notificación.
+        </div>
+        <div style="margin-top:24px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;
+             background:rgba(201,165,69,0.08);border:1px solid rgba(201,165,69,0.20);
+             border-radius:var(--radius-sm);font-size:12px;color:var(--text3)">
+          <span>📬</span> Mientras tanto puedes revisar tu perfil y tu historial de evaluaciones
+        </div>
+      </div>`;
+    // Ocultar botón enviar y sticky score — no hay nada que enviar
     const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
-    if (btnEnviar) btnEnviar.style.display = '';
+    if (btnEnviar) btnEnviar.style.display = 'none';
+    document.getElementById('asesor-score-sticky').style.display = 'none';
   }
 
   updateAsesorProgress();
