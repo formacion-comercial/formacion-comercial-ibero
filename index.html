@@ -12299,13 +12299,37 @@ function initAsesorForm(asesor) {
   asesorActual = asesor;
   asesorRespuestas = new Array(20).fill(null);
 
+  const mesSel  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
+  const anioSel = asesorAnioDetectado || String(new Date().getFullYear());
+
+  // ── Bloquear si ya presentó la evaluación ──
+  const submitKey = `${asesor.nombre}||${mesSel}||${anioSel}`;
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
+    document.getElementById('asesor-form-section').style.display = 'block';
+    document.getElementById('asesor-result-section').classList.remove('show');
+    document.getElementById('asesor-score-sticky').style.display = 'none';
+    const list = document.getElementById('asesor-questions-list');
+    if (list) list.innerHTML = `
+      <div style="text-align:center;padding:48px 24px">
+        <div style="font-size:56px;margin-bottom:16px">✅</div>
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:10px">
+          Evaluación ya presentada
+        </div>
+        <div style="font-size:14px;color:var(--text2);max-width:400px;margin:0 auto;line-height:1.7">
+          Ya presentaste tu evaluación de <strong style="color:var(--accent)">${mesSel} ${anioSel}</strong>.<br>
+          Puedes revisar tu resultado en <strong>Mi Perfil</strong>.
+        </div>
+      </div>`;
+    const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
+    if (btnEnviar) btnEnviar.style.display = 'none';
+    return;
+  }
+
   document.getElementById('asesor-form-section').style.display = 'block';
   document.getElementById('asesor-result-section').classList.remove('show');
   document.getElementById('asesor-score-sticky').style.display = 'flex';
 
   const formsLink  = state.formsPorSupervisor && state.formsPorSupervisor[asesor.supervisor];
-  const mesSel     = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
-  const anioSel    = asesorAnioDetectado || String(new Date().getFullYear());
   const bancoPregsMes = _getPreguntas(asesor.supervisor, mesSel, anioSel);
   const list = document.getElementById('asesor-questions-list');
 
