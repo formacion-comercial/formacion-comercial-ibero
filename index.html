@@ -3077,7 +3077,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             <thead>
               <tr>
                 <th>Asesor</th>
-                <th>Supervisor</th>
+                <th>Supervisor ✏️</th>
                 <th>Tipo</th>
                 <th>Programa</th>
                 <th>Email</th>
@@ -9380,7 +9380,14 @@ function renderConfig() {
         return `
       <tr>
         <td style="padding:9px 12px;color:var(--text);font-size:13px">${a.nombre}</td>
-        <td style="padding:9px 12px;color:var(--text2);font-size:13px;font-family:'Fira Code',monospace">${a.supervisor}</td>
+        <td style="padding:6px 12px">
+          <select onchange="cambiarSupervisorAsesor('${a.nombre.replace(/'/g,"\\'")}',this.value)"
+            style="padding:3px 8px;border-radius:20px;border:1px solid rgba(91,143,176,0.35);font-size:11px;font-weight:700;
+                   font-family:'Montserrat',sans-serif;cursor:pointer;
+                   color:var(--text2);background:var(--surface2);max-width:160px">
+            ${state.supervisores.map(s=>`<option value="${s}" ${s===a.supervisor?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
         <td style="padding:6px 12px">
           <input type="email" value="${a.email||''}" placeholder="email@empresa.com"
             onchange="actualizarEmailAsesor('${a.nombre.replace(/'/g,"\\'")}',this.value)"
@@ -9506,6 +9513,20 @@ function cambiarTipoAsesor(i, nuevoTipo) {
   if (!state.asesores[i]) return;
   state.asesores[i].tipo = nuevoTipo;
   save(); renderConfig();
+}
+function cambiarSupervisorAsesor(nombre, nuevoSupervisor) {
+  const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
+  const n = norm(nombre);
+  const a = state.asesores.find(x => norm(x.nombre) === n);
+  if (!a) return;
+  const anterior = a.supervisor;
+  a.supervisor = nuevoSupervisor;
+  // Actualizar también en credenciales si existe entrada separada
+  if (state.credenciales && state.credenciales[nombre]) {
+    state.credenciales[nombre].supervisor = nuevoSupervisor;
+  }
+  save(); updateAllFilters(); renderConfig();
+  console.log(`Supervisor de ${nombre} cambiado: ${anterior} → ${nuevoSupervisor}`);
 }
 function cambiarProgramaAsesor(nombre, nuevoProg) {
   const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
