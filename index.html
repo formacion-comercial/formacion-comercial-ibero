@@ -3669,6 +3669,8 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       </div>
       <!-- Resumen KPIs -->
       <div id="perfil-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px"></div>
+      <!-- Resultados por modalidad -->
+      <div id="perfil-modalidad-section" style="margin-bottom:24px"></div>
       <!-- Historial de evaluaciones -->
       <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Historial de Evaluaciones</div>
       <div id="perfil-historial"></div>
@@ -12992,6 +12994,54 @@ function renderPerfilAsesor() {
       </div>`).join('');
   }
 
+  // ── Resultados por modalidad ──
+  const modEl = document.getElementById('perfil-modalidad-section');
+  if (modEl) {
+    const modalidades = [
+      { key: 'mensual',        label: 'Evaluación Mensual',         icon: '📅', color: 'var(--accent4)', bg: 'rgba(91,143,176,0.08)', border: 'rgba(91,143,176,0.25)' },
+      { key: 'fortalecimiento', label: 'Sesiones de Fortalecimiento', icon: '💪', color: 'var(--accent3)', bg: 'rgba(78,138,114,0.08)', border: 'rgba(78,138,114,0.25)' }
+    ];
+    const cards = modalidades.map(m => {
+      const mEvs = evs.filter(e => (e.modalidad || 'mensual') === m.key);
+      const mTotal = mEvs.length;
+      const mAprob = mEvs.filter(e => isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor)).length;
+      const mPct   = mTotal ? Math.round((mAprob / mTotal) * 100) : 0;
+      const mAvg   = mTotal ? Math.round(mEvs.reduce((s, e) => s + calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor), 0) / mTotal) : 0;
+      return `
+        <div style="background:${m.bg};border:1px solid ${m.border};border-radius:var(--radius);padding:18px 20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <span style="font-size:18px">${m.icon}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--text)">${m.label}</span>
+            <span style="margin-left:auto;font-size:11px;font-family:'Fira Code',monospace;
+                         background:${m.bg};border:1px solid ${m.border};
+                         color:${m.color};padding:2px 8px;border-radius:20px;font-weight:700">
+              ${mTotal} eval${mTotal !== 1 ? 's' : ''}
+            </span>
+          </div>
+          ${mTotal === 0
+            ? `<div style="text-align:center;color:var(--text3);font-size:12px;padding:8px 0">Sin evaluaciones de este tipo</div>`
+            : `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+                <div>
+                  <div style="font-size:22px;font-weight:800;color:${m.color};font-family:'Montserrat',sans-serif">${mTotal}</div>
+                  <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Total</div>
+                </div>
+                <div>
+                  <div style="font-size:22px;font-weight:800;color:${m.color};font-family:'Montserrat',sans-serif">${mPct}%</div>
+                  <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">% Aprobado</div>
+                </div>
+                <div>
+                  <div style="font-size:22px;font-weight:800;color:${m.color};font-family:'Montserrat',sans-serif">${mAvg}%</div>
+                  <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Puntaje Prom.</div>
+                </div>
+              </div>`
+          }
+        </div>`;
+    }).join('');
+    modEl.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Resultados por Tipo de Evaluación</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${cards}</div>`;
+  }
+
   // ── Historial ──
   const histEl = document.getElementById('perfil-historial');
   if (!histEl) return;
@@ -13018,7 +13068,15 @@ function renderPerfilAsesor() {
           <div style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace">${e.anio}</div>
         </div>
         <div style="flex:1">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${e.actividad || 'Evaluación continua'}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--text3)">${e.actividad || 'Evaluación continua'}</span>
+            <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;
+              ${(e.modalidad||'mensual')==='fortalecimiento'
+                ? 'background:rgba(78,138,114,0.12);color:var(--accent3)'
+                : 'background:rgba(91,143,176,0.12);color:var(--accent4)'}">
+              ${(e.modalidad||'mensual')==='fortalecimiento' ? '💪 Fortalecimiento' : '📅 Mensual'}
+            </span>
+          </div>
           <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${pass ? 'var(--pass,#4E8A72)' : 'var(--fail,#E05050)'};border-radius:3px;transition:width .4s"></div>
           </div>
