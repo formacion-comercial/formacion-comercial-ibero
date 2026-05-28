@@ -1515,6 +1515,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                   <option value="2027">2027</option>
                   <option value="2028">2028</option>
                 </select>
+                <select id="masivo-modalidad"
+                  style="min-width:200px;background:var(--surface2);border:1px solid var(--border);
+                         border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
+                         font-family:'Montserrat',sans-serif;outline:none">
+                  <option value="mensual">📅 Evaluación Mensual</option>
+                  <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
+                </select>
                 <button onclick="descargarPlantillaMasivaPreguntas()"
                   style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-sm);
                          border:1px solid var(--border);background:var(--surface2);color:var(--text3);
@@ -11400,20 +11407,22 @@ function descargarPlantillaMasivaPreguntas() {
 }
 
 function subirExcelMasivo() {
-  const mes  = (document.getElementById('masivo-mes')  || {}).value;
-  const anio = (document.getElementById('masivo-anio') || {}).value;
+  const mes       = (document.getElementById('masivo-mes')       || {}).value;
+  const anio      = (document.getElementById('masivo-anio')      || {}).value;
+  const modalidad = (document.getElementById('masivo-modalidad') || {}).value || 'mensual';
   if (!mes)  { _setMasivoStatus('error', '⚠ Selecciona el mes antes de subir.'); return; }
   if (!anio) { _setMasivoStatus('error', '⚠ Selecciona el año antes de subir.');  return; }
   const inp = document.getElementById('masivo-file');
-  if (inp) { inp.dataset.mes = mes; inp.dataset.anio = anio; inp.value = ''; inp.click(); }
+  if (inp) { inp.dataset.mes = mes; inp.dataset.anio = anio; inp.dataset.modalidad = modalidad; inp.value = ''; inp.click(); }
 }
 
 function _onMasivoFileChange(input) {
   if (!input.files[0]) return;
-  _procesarExcelMasivo(input.files[0], input.dataset.mes, input.dataset.anio);
+  _procesarExcelMasivo(input.files[0], input.dataset.mes, input.dataset.anio, input.dataset.modalidad);
 }
 
-function _procesarExcelMasivo(file, mes, anio) {
+function _procesarExcelMasivo(file, mes, anio, modalidad) {
+  modalidad = modalidad || 'mensual';
   if (typeof XLSX === 'undefined') { _setMasivoStatus('error', 'Librería XLSX no disponible.'); return; }
   _setMasivoStatus('loading', '⏳ Procesando archivo…');
 
@@ -11456,6 +11465,9 @@ function _procesarExcelMasivo(file, mes, anio) {
         if (preguntas.length) {
           if (!state.preguntasPorSupMes) state.preguntasPorSupMes = {};
           state.preguntasPorSupMes[_supMesKey(supMatch, mes, anio)] = preguntas;
+          // Guardar modalidad por clave supervisor||mes||anio
+          if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
+          state.modalidadPorSupMes[_supMesKey(supMatch, mes, anio)] = modalidad;
           totalPregs += preguntas.length;
           resultados.push(`✓ ${supMatch}: ${preguntas.length} pregunta(s)`);
         } else {
