@@ -12710,8 +12710,26 @@ function enviarEvaluacionAsesor() {
     r === null || (Array.isArray(r) && r.length === 0)
   ).length;
   if (sinMarcar > 0) {
-    if (!confirm(`Tienes ${sinMarcar} preguntas sin responder. Se tomarán como incorrectas. ¿Confirmar envío?`)) return;
+    // Resaltar las preguntas sin responder
+    asesorRespuestas.forEach((r, i) => {
+      const card = document.getElementById('qcard-a-' + i);
+      if (!card) return;
+      const sinResp = r === null || (Array.isArray(r) && r.length === 0);
+      card.style.border = sinResp ? '2px solid var(--fail)' : '';
+      card.style.background = sinResp ? 'rgba(184,80,80,0.05)' : '';
+    });
+    // Hacer scroll a la primera sin responder
+    const primeraSinResp = asesorRespuestas.findIndex(r => r === null || (Array.isArray(r) && r.length === 0));
+    const primerCard = document.getElementById('qcard-a-' + primeraSinResp);
+    if (primerCard) primerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    alert(`⚠ Debes responder todas las preguntas antes de enviar.\n\nTe faltan ${sinMarcar} pregunta${sinMarcar > 1 ? 's' : ''} por responder.`);
+    return;
   }
+  // Limpiar resaltado rojo si todo está respondido
+  asesorRespuestas.forEach((_, i) => {
+    const card = document.getElementById('qcard-a-' + i);
+    if (card) { card.style.border = ''; card.style.background = ''; }
+  });
 
   // Calcular respuestas: prioridad banco por mes+año, luego banco genérico
   const rawPregs = _getPreguntas(asesorActual.supervisor, mes, anio)
