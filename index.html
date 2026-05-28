@@ -10823,11 +10823,9 @@ async function loginAsesor() {
   // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
   let soloVistaPerfil = false;
 
-  // Ya envió la evaluación este mes — solo bloquear si es modalidad mensual
+  // Ya envió la evaluación este mes — bloquear para todas las modalidades
   const submitKey = `${nombre}||${mesDet}||${anioDet}`;
-  const _modalidadActual = (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesDet + '||' + anioDet] || 'mensual';
-  const _esMensual = _modalidadActual === 'mensual';
-  if (_esMensual && state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
     soloVistaPerfil = true;
   }
 
@@ -12722,7 +12720,17 @@ function enviarEvaluacionAsesor() {
     const primeraSinResp = asesorRespuestas.findIndex(r => r === null || (Array.isArray(r) && r.length === 0));
     const primerCard = document.getElementById('qcard-a-' + primeraSinResp);
     if (primerCard) primerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    alert(`⚠ Debes responder todas las preguntas antes de enviar.\n\nTe faltan ${sinMarcar} pregunta${sinMarcar > 1 ? 's' : ''} por responder.`);
+    // Mostrar mensaje inline sin popup
+    let msgEl = document.getElementById('asesor-sinresp-msg');
+    if (!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.id = 'asesor-sinresp-msg';
+      msgEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--fail);color:#fff;padding:10px 22px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;font-family:Montserrat,sans-serif;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+      document.body.appendChild(msgEl);
+    }
+    msgEl.textContent = `⚠ Te faltan ${sinMarcar} pregunta${sinMarcar > 1 ? 's' : ''} por responder`;
+    msgEl.style.display = 'block';
+    setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
     return;
   }
   // Limpiar resaltado rojo si todo está respondido
@@ -12789,12 +12797,9 @@ function enviarEvaluacionAsesor() {
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
   });
-  // Mark as submitted — solo bloquear re-ingreso si es modalidad mensual
-  const _modEnvio = (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio] || 'mensual';
-  if (_modEnvio === 'mensual') {
-    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-    state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = true;
-  }
+  // Mark as submitted — bloquear re-ingreso para todas las modalidades
+  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+  state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = true;
 
   // Register in histórico
   if (!state.historicoAsesores) state.historicoAsesores = {};
