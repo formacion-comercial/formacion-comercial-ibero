@@ -10823,9 +10823,11 @@ async function loginAsesor() {
   // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
   let soloVistaPerfil = false;
 
-  // Ya envió la evaluación este mes
+  // Ya envió la evaluación este mes — solo bloquear si es modalidad mensual
   const submitKey = `${nombre}||${mesDet}||${anioDet}`;
-  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
+  const _modalidadActual = (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesDet + '||' + anioDet] || 'mensual';
+  const _esMensual = _modalidadActual === 'mensual';
+  if (_esMensual && state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
     soloVistaPerfil = true;
   }
 
@@ -12765,12 +12767,16 @@ function enviarEvaluacionAsesor() {
     selecciones: rawPregs ? asesorRespuestas.slice() : null,
     registradoPor: 'asesor',
     tipo: 'continua',
+    modalidad: (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio] || 'mensual',
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
   });
-  // Mark as submitted — blocks re-entry for same month/year
-  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = true;
+  // Mark as submitted — solo bloquear re-ingreso si es modalidad mensual
+  const _modEnvio = (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio] || 'mensual';
+  if (_modEnvio === 'mensual') {
+    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+    state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = true;
+  }
 
   // Register in histórico
   if (!state.historicoAsesores) state.historicoAsesores = {};
