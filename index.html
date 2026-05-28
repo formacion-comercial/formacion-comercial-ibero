@@ -1352,6 +1352,15 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                     <option value="inicial">Evaluación de Formación Inicial</option>
                   </select>
                 </div>
+                <div class="form-group full">
+                  <label>Modalidad</label>
+                  <select id="reg-modalidad"
+                    style="border-radius:var(--radius-sm);padding:9px 13px;font-size:13px;
+                           background:var(--surface2);border:1px solid var(--border);color:var(--text)">
+                    <option value="mensual">📅 Evaluación Mensual</option>
+                    <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div class="card section-gap" id="deadline-card" style="border:1.5px solid var(--border);transition:border-color .2s">
@@ -6267,7 +6276,8 @@ function guardarEvaluacion() {
   const respFinal     = regRespuestas.map(r => r === null ? 0 : r);
   const aObj          = state.asesores.find(a => a.nombre === asesor);
   const totalPreguntas = respFinal.length;
-  const tipoEval = (document.getElementById('reg-tipo-eval') || {}).value || 'continua';
+  const tipoEval  = (document.getElementById('reg-tipo-eval')  || {}).value || 'continua';
+  const modalidad = (document.getElementById('reg-modalidad')  || {}).value || 'mensual';
   const deadFecha = (document.getElementById('reg-deadline-fecha') || {}).value || '';
   const deadHora  = (document.getElementById('reg-deadline-hora') || {}).value || '';
 
@@ -6285,6 +6295,7 @@ function guardarEvaluacion() {
     respuestas: respFinal,
     totalPreguntas,
     tipo: tipoEval,
+    modalidad,
     fechaRegistro: new Date().toISOString(),
     registradoPor: 'formadora'
   };
