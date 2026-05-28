@@ -12861,7 +12861,7 @@ function enviarEvaluacionAsesor() {
         const sel  = asesorRespuestas[i];
         let selTexto = '—', corrTexto = '—', enunciado = '';
         if (q) {
-          enunciado = q.texto || q.pregunta || ('Pregunta ' + (i+1));
+          enunciado = q.enunciado || q.texto || q.pregunta || ('Pregunta ' + (i+1));
           if (tipo === 'verdaderofalso') {
             selTexto  = sel || '—';
             corrTexto = (q.correcta || '?').toUpperCase();
