@@ -1596,6 +1596,66 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           </div>
         </div>
 
+        <!-- ── Asignación individual de preguntas ── -->
+        <div class="card section-gap" style="margin-top:0">
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="font-size:28px">🎯</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:var(--text);font-size:15px;margin-bottom:4px">
+                Asignación individual — preguntas por asesor
+              </div>
+              <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
+                Cuando un asesor debe presentar una evaluación distinta a la de su grupo, carga aquí sus preguntas específicas. El Excel debe tener <strong>una sola pestaña</strong> (el nombre no importa) con el mismo formato de columnas.
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                <select id="indiv-asesor"
+                  style="flex:2;min-width:200px;background:var(--surface2);border:1px solid var(--border);
+                         border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
+                         font-family:'Montserrat',sans-serif;outline:none">
+                  <option value="">— Selecciona un asesor —</option>
+                </select>
+                <select id="indiv-mes"
+                  style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);
+                         border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
+                         font-family:'Montserrat',sans-serif;outline:none">
+                  <option value="">— Mes —</option>
+                  <option>Enero</option><option>Febrero</option><option>Marzo</option>
+                  <option>Abril</option><option>Mayo</option><option>Junio</option>
+                  <option>Julio</option><option>Agosto</option><option>Septiembre</option>
+                  <option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
+                </select>
+                <select id="indiv-anio"
+                  style="min-width:88px;background:var(--surface2);border:1px solid var(--border);
+                         border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
+                         font-family:'Montserrat',sans-serif;outline:none">
+                  <option value="2025">2025</option><option value="2026" selected>2026</option>
+                  <option value="2027">2027</option><option value="2028">2028</option>
+                </select>
+                <select id="indiv-modalidad"
+                  style="min-width:190px;background:var(--surface2);border:1px solid var(--border);
+                         border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
+                         font-family:'Montserrat',sans-serif;outline:none">
+                  <option value="mensual">📅 Evaluación Mensual</option>
+                  <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
+                </select>
+                <button onclick="subirExcelIndividual()"
+                  style="padding:8px 16px;border-radius:var(--radius-sm);border:none;
+                         background:var(--accent);color:#fff;cursor:pointer;font-size:12px;
+                         font-weight:700;font-family:'Montserrat',sans-serif;white-space:nowrap">
+                  ↑ Subir Excel
+                </button>
+                <input type="file" id="indiv-file" accept=".xlsx,.xls" style="display:none"
+                  onchange="_onIndivFileChange(this)">
+              </div>
+
+              <div id="indiv-status" style="display:none;font-size:12px;margin-top:6px;padding:8px 12px;
+                   border-radius:var(--radius-sm);background:var(--surface2)"></div>
+              <div id="indiv-cards" style="margin-top:14px"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Resumen de preguntas cargadas -->
         <div id="supervisor-question-cards"></div>
 
@@ -4200,6 +4260,7 @@ let state = JSON.parse(localStorage.getItem('evalproState') || 'null') || {
   sheetsPorSupervisor: {},
   preguntasPorSupMes: {},
   preguntasPorSupMesInicial: {},
+  preguntasPorAsesorMes: {},
   evaluacionesEnviadas: {},
   historicoAsesores: {},
   plazos: {},
@@ -4212,6 +4273,7 @@ if (!state.plazos)                    state.plazos = {};
 if (!state.supervisorPasswords)       state.supervisorPasswords = {};
 if (!state.coordinadorPasswords)      state.coordinadorPasswords = {};
 if (!state.preguntasPorSupMesInicial) state.preguntasPorSupMesInicial = {};
+if (!state.preguntasPorAsesorMes)     state.preguntasPorAsesorMes = {};
 if (!state.ultimosAccesos)            state.ultimosAccesos = {};
 if (!state.programaPorSupervisor)     state.programaPorSupervisor = {};
 if (!state.notifConfig)               state.notifConfig = {};
@@ -4264,6 +4326,11 @@ try {
     if (state.preguntasPorSupMesInicial) {
       Object.keys(state.preguntasPorSupMesInicial).forEach(key => {
         if (MESES_EXCLUIR.some(m => key.includes(m))) { delete state.preguntasPorSupMesInicial[key]; changed = true; }
+      });
+    }
+    if (state.preguntasPorAsesorMes) {
+      Object.keys(state.preguntasPorAsesorMes).forEach(key => {
+        if (MESES_EXCLUIR.some(m => key.includes(m))) { delete state.preguntasPorAsesorMes[key]; changed = true; }
       });
     }
     if (changed) {
@@ -4676,6 +4743,11 @@ async function _fbInit() {
         if (_MESES_LIMPIAR.some(m => key.includes(m))) { delete state.preguntasPorSupMes[key]; _histChanged = true; }
       });
     }
+    if (state.preguntasPorAsesorMes) {
+      Object.keys(state.preguntasPorAsesorMes).forEach(key => {
+        if (_MESES_LIMPIAR.some(m => key.includes(m))) { delete state.preguntasPorAsesorMes[key]; _histChanged = true; }
+      });
+    }
     if (_histChanged) {
       localStorage.setItem('evalproState', JSON.stringify(state));
       try {
@@ -4742,6 +4814,7 @@ function reloadState() {
     state.sheetsPorSupervisor    = fresh.sheetsPorSupervisor    || {};
     state.preguntasPorSupMes          = fresh.preguntasPorSupMes          || {};
     state.preguntasPorSupMesInicial   = fresh.preguntasPorSupMesInicial   || {};
+    state.preguntasPorAsesorMes       = fresh.preguntasPorAsesorMes       || {};
     state.evaluacionesEnviadas        = fresh.evaluacionesEnviadas        || {};
     state.historicoAsesores           = fresh.historicoAsesores           || {};
     state.plazos                      = fresh.plazos                      || {};
@@ -10842,6 +10915,7 @@ function resetAndEnter() {
   state.sheetsPorSupervisor    = {};
   state.preguntasPorSupMes        = {};
   state.preguntasPorSupMesInicial = {};
+  state.preguntasPorAsesorMes     = {};
   state.evaluacionesEnviadas      = {};
   state.historicoAsesores         = {};
   state.plazos                    = {};
@@ -10877,7 +10951,7 @@ async function loginAsesor() {
       if (snap.exists) {
         const remoto = snap.data();
         // Mezclar selectivamente campos críticos sin pisar estado local completo
-        ['preguntasPorSupMes','plazos','evaluacionesEnviadas','asesores','supervisores',
+        ['preguntasPorSupMes','preguntasPorAsesorMes','plazos','evaluacionesEnviadas','asesores','supervisores',
          'modalidadPorSupMes','notifConfig'].forEach(k => {
           if (remoto[k] !== undefined) state[k] = remoto[k];
         });
@@ -10946,11 +11020,15 @@ async function loginAsesor() {
     }
   }
 
-  // No hay preguntas configuradas para su supervisor
+  // No hay preguntas configuradas para su supervisor (ni individuales)
   if (!soloVistaPerfil) {
     const banco = state.preguntasPorSupMes || {};
+    const bancoPers = state.preguntasPorAsesorMes || {};
     const prefix = asesor.supervisor + '||';
-    if (!Object.keys(banco).some(k => k.startsWith(prefix))) soloVistaPerfil = true;
+    const prefixAsesor = asesor.nombre + '||';
+    const tieneGrupal = Object.keys(banco).some(k => k.startsWith(prefix));
+    const tieneIndiv  = Object.keys(bancoPers).some(k => k.startsWith(prefixAsesor));
+    if (!tieneGrupal && !tieneIndiv) soloVistaPerfil = true;
   }
 
   // Registrar último acceso
@@ -11069,6 +11147,8 @@ function regShowTab(tab) {
   if (evalTab) evalTab.style.display = tab === 'eval' ? 'block' : 'none';
   document.getElementById('reg-tab-preguntas').style.display = 'block';
   renderSupervisorQuestionCards();
+  _initIndivAsesorSelect();
+  renderIndivCards();
   cargarDeadlineRegistro();
   _actualizarDeadlineUI();
 }
@@ -11503,6 +11583,15 @@ function _getPreguntas(sup, mes, anio) {
   const bank = state.preguntasPorSupMes || {};
   return (anio && bank[_supMesKey(sup, mes, anio)]) || bank[_supMesKey(sup, mes)] || null;
 }
+// Individual asesor questions take priority over group questions
+function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio) {
+  const bank = state.preguntasPorAsesorMes || {};
+  const keyConAnio = (asesorNombre || '') + '||' + (mes || '') + (anio ? '||' + anio : '');
+  const keySinAnio = (asesorNombre || '') + '||' + (mes || '');
+  const individual = (anio && bank[keyConAnio]) || bank[keySinAnio] || null;
+  if (individual) return individual;
+  return _getPreguntas(supervisor, mes, anio);
+}
 
 // ==================== CARGA MASIVA DE PREGUNTAS ====================
 
@@ -11548,6 +11637,128 @@ function subirExcelMasivo() {
 function _onMasivoFileChange(input) {
   if (!input.files[0]) return;
   _procesarExcelMasivo(input.files[0], input.dataset.mes, input.dataset.anio, input.dataset.modalidad);
+}
+
+// ==================== ASIGNACIÓN INDIVIDUAL DE PREGUNTAS ====================
+function _initIndivAsesorSelect() {
+  const sel = document.getElementById('indiv-asesor');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Selecciona un asesor —</option>';
+  [...state.asesores].sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(a => {
+    const op = document.createElement('option');
+    op.value = a.nombre;
+    op.textContent = a.nombre + (a.supervisor ? ' (' + a.supervisor + ')' : '');
+    sel.appendChild(op);
+  });
+  if (cur) sel.value = cur;
+}
+
+function subirExcelIndividual() {
+  const asesor    = (document.getElementById('indiv-asesor')    || {}).value;
+  const mes       = (document.getElementById('indiv-mes')       || {}).value;
+  const anio      = (document.getElementById('indiv-anio')      || {}).value;
+  const modalidad = (document.getElementById('indiv-modalidad') || {}).value || 'mensual';
+  if (!asesor) { _setIndivStatus('error', '⚠ Selecciona un asesor primero.'); return; }
+  if (!mes)    { _setIndivStatus('error', '⚠ Selecciona el mes.'); return; }
+  if (!anio)   { _setIndivStatus('error', '⚠ Selecciona el año.'); return; }
+  const inp = document.getElementById('indiv-file');
+  if (inp) { inp.dataset.asesor = asesor; inp.dataset.mes = mes; inp.dataset.anio = anio; inp.dataset.modalidad = modalidad; inp.value = ''; inp.click(); }
+}
+
+function _onIndivFileChange(input) {
+  if (!input.files[0]) return;
+  _procesarExcelIndividual(input.files[0], input.dataset.asesor, input.dataset.mes, input.dataset.anio, input.dataset.modalidad);
+}
+
+function _setIndivStatus(tipo, msg) {
+  const el = document.getElementById('indiv-status');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = tipo === 'error' ? 'var(--fail)' : tipo === 'ok' ? 'var(--pass)' : 'var(--text2)';
+  el.textContent = msg;
+}
+
+function _procesarExcelIndividual(file, asesorNombre, mes, anio, modalidad) {
+  modalidad = modalidad || 'mensual';
+  if (typeof XLSX === 'undefined') { _setIndivStatus('error', 'Librería XLSX no disponible.'); return; }
+  _setIndivStatus('loading', '⏳ Procesando archivo…');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      if (!wb.SheetNames.length) { _setIndivStatus('error', '⚠ El archivo está vacío.'); return; }
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      const preguntas = rows.slice(1)
+        .filter(r => String(r[0] || '').trim())
+        .map(r => {
+          const enunciado = String(r[0] || '').trim();
+          const opciones  = [r[1], r[2], r[3], r[4]].map(o => String(o || '').trim()).filter(o => o);
+          const correcta  = String(r[5] || '').trim().toUpperCase();
+          const tipoRaw   = String(r[6] || '').trim().toLowerCase();
+          const tipo      = tipoRaw === 'multiple' ? 'multiple'
+                          : (tipoRaw === 'verdaderofalso' || tipoRaw === 'vf') ? 'verdaderofalso'
+                          : 'unica';
+          const correctas = tipo === 'multiple' ? correcta.split(',').map(l => l.trim()).filter(l => l) : null;
+          return { enunciado, opciones, correcta, tipo, correctas };
+        })
+        .filter(q => q.enunciado && (q.tipo === 'verdaderofalso' || q.opciones.length >= 2));
+
+      if (!preguntas.length) { _setIndivStatus('error', '⚠ No se encontraron preguntas válidas en el archivo.'); return; }
+
+      if (!state.preguntasPorAsesorMes) state.preguntasPorAsesorMes = {};
+      const key = asesorNombre + '||' + mes + '||' + anio;
+      state.preguntasPorAsesorMes[key] = preguntas;
+      if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
+      state.modalidadPorSupMes[key] = modalidad;
+      save();
+      _setIndivStatus('ok', `✓ ${preguntas.length} pregunta(s) cargadas para ${asesorNombre} — ${mes} ${anio}`);
+      renderIndivCards();
+    } catch(err) {
+      _setIndivStatus('error', '⚠ Error al procesar el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderIndivCards() {
+  const cont = document.getElementById('indiv-cards');
+  if (!cont) return;
+  const bank = state.preguntasPorAsesorMes || {};
+  const keys = Object.keys(bank).sort();
+  if (!keys.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = `
+    <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;
+                color:var(--text3);margin-bottom:10px">Preguntas individuales cargadas</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${keys.map(key => {
+        const parts = key.split('||');
+        const nombre = parts[0], mes = parts[1], anio = parts[2] || '';
+        const cnt = bank[key] ? bank[key].length : 0;
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);
+                    border-radius:var(--radius-sm);background:var(--surface2)">
+          <span style="font-size:14px">🎯</span>
+          <div style="flex:1">
+            <span style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;color:var(--text)">${nombre}</span>
+            <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3);margin-left:8px">${mes}${anio ? ' ' + anio : ''}</span>
+          </div>
+          <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent3)">${cnt} preguntas</span>
+          <button onclick="eliminarBancoIndividual('${key.replace(/'/g,"\\'")}')"
+            style="background:none;border:none;color:var(--fail);cursor:pointer;font-size:13px;padding:2px 6px"
+            title="Eliminar">✕</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function eliminarBancoIndividual(key) {
+  const parts = key.split('||');
+  if (!confirm(`¿Eliminar las preguntas individuales de "${parts[0]}" para ${parts[1]}${parts[2] ? ' ' + parts[2] : ''}?`)) return;
+  if (state.preguntasPorAsesorMes) delete state.preguntasPorAsesorMes[key];
+  save();
+  renderIndivCards();
 }
 
 function _procesarExcelMasivo(file, mes, anio, modalidad) {
@@ -12436,7 +12647,7 @@ function initAsesorForm(asesor) {
   document.getElementById('asesor-score-sticky').style.display = 'flex';
 
   const formsLink  = state.formsPorSupervisor && state.formsPorSupervisor[asesor.supervisor];
-  const bancoPregsMes = _getPreguntas(asesor.supervisor, mesSel, anioSel);
+  const bancoPregsMes = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel);
   const list = document.getElementById('asesor-questions-list');
 
   // Update read-only display
@@ -12889,8 +13100,8 @@ async function enviarEvaluacionAsesor() {
     if (card) { card.style.border = ''; card.style.background = ''; }
   });
 
-  // Calcular respuestas: prioridad banco por mes+año, luego banco genérico
-  const rawPregs = _getPreguntas(asesorActual.supervisor, mes, anio)
+  // Calcular respuestas: prioridad banco individual, luego grupal, luego banco genérico
+  const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio)
                 || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[asesorActual.supervisor]);
   const LETRAS   = ['A','B','C','D'];
   let respFinal;
