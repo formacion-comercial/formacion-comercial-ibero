@@ -7859,6 +7859,81 @@ function renderReporte() {
       </div>
     </div>`;
 
+  // ======== RANKING: PREGUNTAS MÁS FALLIDAS POR SUPERVISOR ========
+  const _rankSup = {};
+  evs.forEach(e => {
+    const t = e.totalPreguntas || e.respuestas.length || 20;
+    if (t > 20 || !e.respuestas || !e.respuestas.length) return;
+    const sk = e.supervisor || '—';
+    if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
+    _rankSup[sk].total++;
+    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+    e.respuestas.forEach((r, i) => {
+      if (r === 0) {
+        if (!_rankSup[sk].qs[i]) _rankSup[sk].qs[i] = { cnt: 0, enunc: null };
+        _rankSup[sk].qs[i].cnt++;
+        if (!_rankSup[sk].qs[i].enunc && pregs) {
+          const q = pregs[i];
+          _rankSup[sk].qs[i].enunc = (q && typeof q === 'object') ? q.enunciado : (q || null);
+        }
+      }
+    });
+  });
+  const _rankSupKeys = Object.keys(_rankSup).sort();
+  if (_rankSupKeys.length) {
+    html += `
+    <div style="margin-bottom:28px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="font-size:16px">📊</span>
+        <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;color:var(--text)">Preguntas con más fallas por supervisor</span>
+        <span style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:100px">Top 5</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+        ${_rankSupKeys.map(sk => {
+          const { qs, total } = _rankSup[sk];
+          const sorted = Object.entries(qs)
+            .map(([idx, d]) => ({ idx: parseInt(idx), cnt: d.cnt, enunc: d.enunc }))
+            .sort((a, b) => b.cnt - a.cnt)
+            .slice(0, 5);
+          if (!sorted.length) return '';
+          const rankColors = ['#b85050','#c46060','#d07070','#d88080','#e09090'];
+          return `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+            <div style="padding:10px 14px;background:rgba(184,80,80,0.05);border-bottom:1px solid rgba(184,80,80,0.15);display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(184,80,80,0.10);border:1px solid rgba(184,80,80,0.20);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--fail);font-weight:700;flex-shrink:0">
+                ${sk.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+              </div>
+              <span style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;color:var(--text);flex:1">${sk}</span>
+              <span style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text3)">${total} eval${total!==1?'s':''}</span>
+            </div>
+            <div>
+              ${sorted.map(({ idx, cnt, enunc }, rank) => {
+                const pct = total ? Math.round((cnt / total) * 100) : 0;
+                const label = enunc || `Pregunta ${idx + 1}`;
+                const barColor = rankColors[rank] || rankColors[4];
+                return `
+                <div style="padding:10px 14px;border-bottom:1px solid var(--border);${rank===sorted.length-1?'border-bottom:none':''}">
+                  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">
+                    <span style="font-family:'Fira Code',monospace;font-size:10px;font-weight:700;color:${barColor};flex-shrink:0;min-width:18px;margin-top:2px">#${rank+1}</span>
+                    <span style="font-size:12px;color:var(--text);flex:1;line-height:1.4">${label}</span>
+                    <span style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;color:var(--fail);flex-shrink:0;white-space:nowrap">${cnt}/${total}</span>
+                  </div>
+                  <div style="margin-left:26px">
+                    <div style="height:6px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:3px">
+                      <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px"></div>
+                    </div>
+                    <div style="font-size:10px;color:var(--text3);font-family:'Fira Code',monospace">${pct}% de asesores falló esta pregunta</div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin-bottom:24px"></div>`;
+  }
+
   // Agrupar por asesor
   const porAsesor = {};
   evs.forEach(e => { if (!porAsesor[e.asesor]) porAsesor[e.asesor] = []; porAsesor[e.asesor].push(e); });
