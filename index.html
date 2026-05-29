@@ -4559,19 +4559,28 @@ function updateSyncIndicator(msg, pulse) {
   last.textContent = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 }
 
+// Debounce para evitar escrituras masivas simultáneas a Firestore
+let _saveTimer = null;
 function save() {
-  // Cache local
+  // Cache local siempre inmediato
   localStorage.setItem('evalproState', JSON.stringify(state));
   localStorage.setItem('evalproSync', Date.now().toString());
-  // Sync config a Firestore (sin evaluaciones, que se guardan individualmente)
-  if (window._fbDb) {
-    const cfg = Object.assign({}, state);
-    delete cfg.evaluaciones;
-    window._fbDb.collection('config').doc('main')
-      .set(cfg)
-      .catch(e => console.warn('Firestore save error:', e));
-  }
   actualizarBadgeNotificaciones();
+  // Firestore con debounce de 1.5s para agrupar escrituras concurrentes
+  if (window._fbDb) {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      const cfg = Object.assign({}, state);
+      delete cfg.evaluaciones; // guardadas individualmente
+      delete cfg.fotosPerfil;  // fotos solo en localStorage — demasiado pesadas para Firestore
+      window._fbDb.collection('config').doc('main')
+        .set(cfg)
+        .catch(e => {
+          console.warn('Firestore save error:', e);
+          showSyncToast('⚠ Error al sincronizar datos. Tus cambios están guardados localmente.');
+        });
+    }, 1500);
+  }
 }
 
 // ==================== FIREBASE ====================
@@ -10785,7 +10794,22 @@ async function loginAsesor() {
   if (!nombre) { alert('Por favor selecciona tu nombre'); return; }
   if (!pwd)    { errEl.style.display = 'block'; errEl.textContent = '✗ Ingresa tu contraseña'; return; }
 
-  reloadState(); // pull freshest questions from formadora
+  reloadState(); // pull from localStorage
+  // Sincronizar desde Firestore para tener los datos más recientes (preguntas, plazos, evaluacionesEnviadas)
+  if (window._fbDb) {
+    try {
+      const snap = await window._fbDb.collection('config').doc('main').get();
+      if (snap.exists) {
+        const remoto = snap.data();
+        // Mezclar selectivamente campos críticos sin pisar estado local completo
+        ['preguntasPorSupMes','plazos','evaluacionesEnviadas','asesores','supervisores',
+         'modalidadPorSupMes','notifConfig'].forEach(k => {
+          if (remoto[k] !== undefined) state[k] = remoto[k];
+        });
+        localStorage.setItem('evalproState', JSON.stringify(state));
+      }
+    } catch(e) { console.warn('Sync Firebase login asesor falló:', e); }
+  }
   const asesor = state.asesores.find(a => a.nombre === nombre);
   if (!asesor) return;
 
@@ -12729,10 +12753,30 @@ function _countdownExpired() {
   }
 }
 
-function enviarEvaluacionAsesor() {
+async function enviarEvaluacionAsesor() {
   stopCountdown();
   const mes      = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
   const anio     = asesorAnioDetectado || String(new Date().getFullYear());
+
+  // ── Sincronizar con Firestore antes de enviar para evitar duplicados ──
+  if (window._fbDb) {
+    try {
+      const snap = await window._fbDb.collection('config').doc('main').get();
+      if (snap.exists) {
+        const remoto = snap.data();
+        // Mezclar solo evaluacionesEnviadas para detectar si ya envió en otra pestaña/sesión
+        if (remoto.evaluacionesEnviadas) {
+          state.evaluacionesEnviadas = Object.assign({}, remoto.evaluacionesEnviadas, state.evaluacionesEnviadas);
+        }
+      }
+    } catch(e) { console.warn('Sync pre-envío falló:', e); }
+  }
+  // Verificar nuevamente si ya fue enviada (por si se envió desde otra pestaña)
+  const _submitKeyCheck = `${asesorActual.nombre}||${mes}||${anio}`;
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[_submitKeyCheck]) {
+    initAsesorForm(asesorActual);
+    return;
+  }
   const actividad = `Evaluación ${mes} ${anio}`;
 
   const sinMarcar = asesorRespuestas.filter(r =>
