@@ -7871,7 +7871,7 @@ function renderReporte() {
       const t     = e.totalPreguntas || e.respuestas.length || 20;
       const pts   = calcPct(e.respuestas, t, e.supervisor);
       const pass  = isPaso(e.respuestas, t, e.supervisor);
-      const pregs = state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor];
+      const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
       // Para mostrar preguntas individuales: usar máx 20 (evaluaciones manuales)
       // Para sintéticas (100q), no mostrar desglose pregunta a pregunta
       const esSintetica = t > 20;
@@ -9768,8 +9768,8 @@ function showDetalle(id) {
   const pass = isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
   const pct  = calcPct(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
 
-  // Get question bank for this supervisor (if exists)
-  const pregs   = state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor];
+  // Get question bank for this supervisor/mes/anio (if exists)
+  const pregs   = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
   const LETRAS  = ['A','B','C','D'];
   const fallidas = e.respuestas
     .map((r, i) => ({ r, i }))
