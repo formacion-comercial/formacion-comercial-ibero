@@ -3660,7 +3660,11 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <div id="asesor-tab-perfil" style="display:none;max-width:760px;margin:0 auto;padding:24px 16px">
       <!-- Header perfil -->
       <div style="display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,rgba(201,165,69,0.10),rgba(201,165,69,0.03));border:1px solid rgba(201,165,69,0.22);border-radius:var(--radius);padding:24px;margin-bottom:24px">
-        <div id="perfil-avatar-big" style="width:64px;height:64px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;flex-shrink:0"></div>
+        <div style="position:relative;flex-shrink:0;cursor:pointer" onclick="document.getElementById('perfil-foto-input').click()" title="Cambiar foto de perfil">
+          <div id="perfil-avatar-big" style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0"></div>
+          <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px">📷</div>
+          <input type="file" id="perfil-foto-input" accept="image/*" style="display:none" onchange="subirFotoPerfil(this)">
+        </div>
         <div>
           <div id="perfil-nombre-big" style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px"></div>
           <div id="perfil-supervisor-big" style="font-size:13px;color:var(--text3);font-family:'Fira Code',monospace;margin-bottom:4px"></div>
@@ -13004,6 +13008,23 @@ function asesorShowTab(tab) {
 }
 
 // ==================== PERFIL ASESOR ====================
+function subirFotoPerfil(input) {
+  if (!input.files[0] || !asesorActual) return;
+  const file = input.files[0];
+  if (file.size > 2 * 1024 * 1024) {
+    alert('La imagen no puede superar 2MB. Por favor selecciona una más pequeña.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    if (!state.fotosPerfil) state.fotosPerfil = {};
+    state.fotosPerfil[asesorActual.nombre] = e.target.result;
+    save();
+    renderPerfilAsesor();
+  };
+  reader.readAsDataURL(file);
+}
+
 function renderPerfilAsesor() {
   if (!asesorActual) return;
   const _MO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -13011,7 +13032,14 @@ function renderPerfilAsesor() {
   // ── Avatar & header ──
   const initials = asesorActual.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const avatarEl = document.getElementById('perfil-avatar-big');
-  if (avatarEl) avatarEl.textContent = initials;
+  if (avatarEl) {
+    const foto = (state.fotosPerfil || {})[asesorActual.nombre];
+    if (foto) {
+      avatarEl.innerHTML = `<img src="${foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    } else {
+      avatarEl.textContent = initials;
+    }
+  }
   const nomEl = document.getElementById('perfil-nombre-big');
   if (nomEl) nomEl.textContent = asesorActual.nombre;
   const supEl = document.getElementById('perfil-supervisor-big');
