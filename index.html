@@ -4719,6 +4719,11 @@ async function _fbDeleteEval(id) {
   catch(e) { console.warn('Error eliminando evaluación de Firestore:', e); }
 }
 
+// Genera un ID único collision-resistant (timestamp ms + 3 dígitos random)
+function _nuevoEvalId() {
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+}
+
 // Wrapper: push + sync a Firestore
 function _pushEval(ev) {
   state.evaluaciones.push(ev);
@@ -6453,7 +6458,7 @@ function guardarEvaluacion() {
   }
 
   const _evFormadora = {
-    id: state.nextId++,
+    id: _nuevoEvalId(),
     asesor, supervisor: aObj.supervisor,
     mes, anio: parseInt(anio), actividad,
     respuestas: respFinal,
@@ -10276,7 +10281,7 @@ function guardarCargaManual() {
       _fbSaveEval(dup);
     } else {
       _pushEval({
-        id: state.nextId++,
+        id: _nuevoEvalId(),
         asesor: nombre,
         supervisor: sup,
         mes, anio,
@@ -11606,7 +11611,7 @@ function impConfirmar() {
     if (!state.evaluaciones) state.evaluaciones = [];
     if (!state.nextId) state.nextId = 1;
     _pushEval({
-      id: state.nextId++,
+      id: _nuevoEvalId(),
       asesor: asesor.nombre,
       supervisor: asesor.supervisor,
       mes,
@@ -12599,7 +12604,7 @@ function parsearRespuestasSheets(csvText, supervisor) {
     }
 
     _pushEval({
-      id: state.nextId++,
+      id: _nuevoEvalId(),
       asesor:     nombre,
       supervisor,
       mes:        mesNorm,
@@ -13231,9 +13236,9 @@ async function enviarEvaluacionAsesor() {
 
   const pct = Math.round((corr / respFinal.length) * 100);
 
-  // Save to shared state
+  // Save to shared state — usar ID único basado en timestamp para evitar colisiones con 200 usuarios simultáneos
   _pushEval({
-    id: state.nextId++,
+    id: _nuevoEvalId(),
     asesor: asesorActual.nombre,
     supervisor: asesorActual.supervisor,
     mes, anio: parseInt(anio), actividad,
@@ -13242,7 +13247,9 @@ async function enviarEvaluacionAsesor() {
     selecciones: rawPregs ? asesorRespuestas.slice() : null,
     registradoPor: 'asesor',
     tipo: 'continua',
-    modalidad: (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio] || 'mensual',
+    modalidad: (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
+            || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
+            || 'mensual',
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
   });
@@ -13895,7 +13902,7 @@ function confirmarCargue() {
       state.supervisores.push(r.supervisor);
     }
     _pushEval({
-      id: state.nextId++,
+      id: _nuevoEvalId(),
       asesor: r.asesor,
       supervisor: r.supervisor,
       facultad: r.facultad,
@@ -15304,7 +15311,7 @@ function guardarEvaluacionFI() {
   const aObj           = state.asesores.find(a => a.nombre === asesor);
 
   _pushEval({
-    id: state.nextId++,
+    id: _nuevoEvalId(),
     asesor,
     supervisor: aObj ? aObj.supervisor : '',
     mes, anio: parseInt(anio), actividad,
