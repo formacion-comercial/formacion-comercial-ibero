@@ -8871,7 +8871,7 @@ async function sha256hex(str) {
 }
 
 // ── Bloqueo por intentos fallidos (5 intentos → 15 min) ──
-const _MAX_INT = 5, _BLK_MS = 15 * 60 * 1000;
+const _MAX_INT = 5, _BLK_MS = 0;
 function _estaBloqueado(key) {
   try { const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}'); return !!(d.until && Date.now() < d.until); } catch(e) { return false; }
 }
