@@ -3650,6 +3650,51 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 </div>
 
+<!-- ===== MODAL: RESTABLECER CONTRASEÑA POR INTENTOS FALLIDOS ===== -->
+<div id="modal-reset-pwd-intentos" style="display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,0.70);backdrop-filter:blur(5px);align-items:center;justify-content:center">
+  <div style="background:#23232e;border-radius:14px;width:min(380px,94vw);padding:30px 28px 24px;
+              border:1px solid rgba(255,255,255,0.10);box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+    <div style="font-size:32px;text-align:center;margin-bottom:10px">🔐</div>
+    <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:17px;color:#fff;
+                text-align:center;margin-bottom:8px">Establece una nueva contraseña</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.50);text-align:center;margin-bottom:22px;line-height:1.6">
+      Superaste el límite de intentos.<br>Crea una nueva contraseña para ingresar.
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:rgba(255,255,255,0.45);font-family:'Fira Code',monospace;
+                    text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:6px">
+        Nueva contraseña
+      </label>
+      <input type="password" id="reset-int-nueva" placeholder="Mínimo 6 caracteres"
+        onkeydown="if(event.key==='Enter')document.getElementById('reset-int-confirmar').focus()"
+        style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
+               background:rgba(255,255,255,0.06);color:#fff;font-size:14px;outline:none;
+               box-sizing:border-box;font-family:'Montserrat',sans-serif">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:11px;color:rgba(255,255,255,0.45);font-family:'Fira Code',monospace;
+                    text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:6px">
+        Confirmar contraseña
+      </label>
+      <input type="password" id="reset-int-confirmar" placeholder="Repite la contraseña"
+        onkeydown="if(event.key==='Enter')_guardarResetPwdIntentos()"
+        style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
+               background:rgba(255,255,255,0.06);color:#fff;font-size:14px;outline:none;
+               box-sizing:border-box;font-family:'Montserrat',sans-serif">
+    </div>
+    <div id="reset-int-error" style="display:none;color:#f9826c;font-size:12px;
+         font-family:'Fira Code',monospace;margin-bottom:12px"></div>
+    <button onclick="_guardarResetPwdIntentos()"
+      style="width:100%;padding:12px;border-radius:8px;border:none;background:#c9a545;
+             color:#fff;font-size:14px;font-weight:700;font-family:'Montserrat',sans-serif;
+             cursor:pointer;transition:opacity .15s"
+      onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+      Guardar y continuar →
+    </button>
+  </div>
+</div>
+
 <!-- ===== MODAL: CAMBIAR CONTRASEÑA (primer acceso asesor) ===== -->
 <div id="modal-cambiar-pwd">
   <div class="cpwd-card">
@@ -8870,27 +8915,67 @@ async function sha256hex(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// ── Bloqueo por intentos fallidos (5 intentos → 15 min) ──
+// ── Control de intentos fallidos ──
 const _MAX_INT = 5, _BLK_MS = 0;
 function _estaBloqueado(key) {
   try { const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}'); return !!(d.until && Date.now() < d.until); } catch(e) { return false; }
 }
+// Returns true when the limit is reached (caller should show password reset)
 function _registrarFallo(key, errEl) {
   try {
     const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}');
     const count = (d.count || 0) + 1;
-    const until = count >= _MAX_INT ? Date.now() + _BLK_MS : (d.until || 0);
-    localStorage.setItem('_lk_' + key, JSON.stringify({ count, until }));
+    localStorage.setItem('_lk_' + key, JSON.stringify({ count, until: d.until || 0 }));
+    if (count >= _MAX_INT) return true; // signal: show password reset
     if (errEl) {
-      if (count >= _MAX_INT) errEl.textContent = `✗ Cuenta bloqueada 15 min por ${_MAX_INT} intentos fallidos`;
-      else errEl.textContent = `✗ Contraseña incorrecta (${_MAX_INT - count} intento${_MAX_INT - count === 1 ? '' : 's'} restante${_MAX_INT - count === 1 ? '' : 's'})`;
+      const rest = _MAX_INT - count;
+      errEl.textContent = `✗ Contraseña incorrecta (${rest} intento${rest === 1 ? '' : 's'} restante${rest === 1 ? '' : 's'})`;
     }
-  } catch(e) {}
+    return false;
+  } catch(e) { return false; }
 }
-function _bloqueoMsg(key) {
-  try { const d = JSON.parse(localStorage.getItem('_lk_' + key) || '{}'); const m = Math.ceil((d.until - Date.now()) / 60000); return `✗ Cuenta bloqueada ${m} min más`; } catch(e) { return '✗ Cuenta bloqueada'; }
-}
+function _bloqueoMsg(key) { return '✗ Demasiados intentos fallidos'; }
 function _limpiarFallos(key) { try { localStorage.removeItem('_lk_' + key); } catch(e) {} }
+
+// ── Modal: restablecer contraseña por exceso de intentos ──
+let _resetPwdRole = null, _resetPwdNombre = null;
+function _mostrarResetPwdIntentos(role, nombre) {
+  _resetPwdRole = role; _resetPwdNombre = nombre;
+  document.getElementById('reset-int-nueva').value = '';
+  document.getElementById('reset-int-confirmar').value = '';
+  document.getElementById('reset-int-error').style.display = 'none';
+  document.getElementById('modal-reset-pwd-intentos').style.display = 'flex';
+  setTimeout(() => document.getElementById('reset-int-nueva').focus(), 80);
+}
+async function _guardarResetPwdIntentos() {
+  const nueva = (document.getElementById('reset-int-nueva').value || '').trim();
+  const conf  = (document.getElementById('reset-int-confirmar').value || '').trim();
+  const errEl = document.getElementById('reset-int-error');
+  errEl.style.display = 'none';
+  if (!nueva || nueva.length < 6) { errEl.textContent = '✗ Mínimo 6 caracteres'; errEl.style.display = 'block'; return; }
+  if (nueva !== conf) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
+  const hash = await sha256hex(nueva);
+  reloadState();
+  if (_resetPwdRole === 'asesor') {
+    const a = state.asesores.find(x => x.nombre === _resetPwdNombre);
+    if (a) { a.password = hash; a.passwordPersonalizada = true; a.mustChangePassword = false; save(); }
+  } else if (_resetPwdRole === 'supervisor') {
+    if (!state.supervisorPasswords) state.supervisorPasswords = {};
+    state.supervisorPasswords[_resetPwdNombre] = hash; save();
+  } else if (_resetPwdRole === 'coordinador') {
+    if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
+    state.coordinadorPasswords[_resetPwdNombre] = hash; save();
+  } else if (_resetPwdRole === 'formadora') {
+    localStorage.setItem('evalproPasswordHash', hash);
+  }
+  const lkKey = _resetPwdRole === 'asesor' ? 'as_' + _resetPwdNombre :
+                _resetPwdRole === 'supervisor' ? 'sup_' + _resetPwdNombre :
+                _resetPwdRole === 'coordinador' ? 'coord_' + _resetPwdNombre : 'formadora';
+  _limpiarFallos(lkKey);
+  document.getElementById('modal-reset-pwd-intentos').style.display = 'none';
+  _resetPwdRole = null; _resetPwdNombre = null;
+  showSyncToast('✓ Contraseña actualizada. Ya puedes ingresar con tu nueva contraseña.');
+}
 
 async function cambiarPassword() {
   const actual     = document.getElementById('pwd-actual').value;
@@ -10491,7 +10576,8 @@ async function loginSupervisor() {
     }
   }
   if (!pwdOkSup) {
-    _registrarFallo(_lkKeySup, errEl); errEl.style.display = 'block'; return;
+    if (_registrarFallo(_lkKeySup, errEl)) { _mostrarResetPwdIntentos('supervisor', nombre); return; }
+    errEl.style.display = 'block'; return;
   }
   _limpiarFallos(_lkKeySup);
 
@@ -10744,7 +10830,8 @@ async function loginCoordinador() {
     }
   }
   if (!pwdOkCoord) {
-    _registrarFallo(_lkKeyCoord, errEl); errEl.style.display = 'block'; return;
+    if (_registrarFallo(_lkKeyCoord, errEl)) { _mostrarResetPwdIntentos('coordinador', nombre); return; }
+    errEl.style.display = 'block'; return;
   }
   _limpiarFallos(_lkKeyCoord);
 
@@ -10875,7 +10962,7 @@ function loginFormadora() {
     sha256hex(pwd).then(hash => {
       if (hash === storedHash) { _limpiarFallos('formadora'); _doLogin(); }
       else {
-        _registrarFallo('formadora', document.getElementById('login-error'));
+        if (_registrarFallo('formadora', document.getElementById('login-error'))) { _mostrarResetPwdIntentos('formadora', 'formadora'); return; }
         document.getElementById('login-error').style.display = 'block';
         document.getElementById('input-password').focus();
       }
@@ -10884,7 +10971,7 @@ function loginFormadora() {
     // Plain-text fallback (default password)
     if (pwd === PASSWORD_FORMADORA) { _limpiarFallos('formadora'); _doLogin(); }
     else {
-      _registrarFallo('formadora', document.getElementById('login-error'));
+      if (_registrarFallo('formadora', document.getElementById('login-error'))) { _mostrarResetPwdIntentos('formadora', 'formadora'); return; }
       document.getElementById('login-error').style.display = 'block';
       document.getElementById('input-password').focus();
     }
@@ -10988,7 +11075,8 @@ async function loginAsesor() {
     }
   }
   if (!pwdOkAs) {
-    _registrarFallo(_lkKeyAs, errEl); errEl.style.display = 'block'; return;
+    if (_registrarFallo(_lkKeyAs, errEl)) { _mostrarResetPwdIntentos('asesor', nombre); return; }
+    errEl.style.display = 'block'; return;
   }
   _limpiarFallos(_lkKeyAs);
 
