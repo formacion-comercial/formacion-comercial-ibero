@@ -12688,20 +12688,31 @@ let asesorAnioDetectado = '';
 const _MESES_ORD = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre'];
 
 function _detectarMesAsesor(asesor) {
-  const banco = state.preguntasPorSupMes || {};
+  const toEntrada = (parts) => {
+    const mes  = parts[1] || '';
+    const anio = parseInt(parts[2]) || new Date().getFullYear();
+    return { mes, anio, orden: anio * 12 + (_MESES_ORD.indexOf(mes)) };
+  };
+
+  // 1. Buscar en banco individual del asesor (preguntasPorAsesorMes)
+  const bancoIndiv  = state.preguntasPorAsesorMes || {};
+  const prefixIndiv = asesor.nombre + '||';
+  const entradasIndiv = Object.keys(bancoIndiv)
+    .filter(k => k.startsWith(prefixIndiv))
+    .map(k => toEntrada(k.split('||')))
+    .sort((a, b) => b.orden - a.orden);
+  if (entradasIndiv.length) return { mes: entradasIndiv[0].mes, anio: entradasIndiv[0].anio };
+
+  // 2. Buscar en banco grupal del supervisor (preguntasPorSupMes)
+  const banco  = state.preguntasPorSupMes || {};
   const prefix = asesor.supervisor + '||';
   const entradas = Object.keys(banco)
     .filter(k => k.startsWith(prefix))
-    .map(k => {
-      const parts = k.split('||');
-      const mes   = parts[1] || '';
-      const anio  = parseInt(parts[2]) || new Date().getFullYear();
-      return { mes, anio, orden: anio * 12 + (_MESES_ORD.indexOf(mes)) };
-    })
+    .map(k => toEntrada(k.split('||')))
     .sort((a, b) => b.orden - a.orden);
-
   if (entradas.length) return { mes: entradas[0].mes, anio: entradas[0].anio };
-  // Fallback: current calendar month/year
+
+  // 3. Fallback: mes actual
   return { mes: _MESES_ORD[new Date().getMonth()], anio: new Date().getFullYear() };
 }
 
