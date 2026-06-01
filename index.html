@@ -7808,17 +7808,21 @@ function renderSeguimiento() {
       ? `<span style="color:${f.pct >= 95 ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${f.pct}%</span>`
       : '<span style="color:var(--text3)">—</span>';
     const esc = s => s.replace(/'/g,"\\'");
-    const btnReset = (sinCalifFila && !supervisorActual)
-      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-           <button onclick="abrirCalifManual('${esc(f.asesor)}','${f.mes}','${f.anio}','${esc(f.supervisor)}')"
-             style="padding:4px 10px;border-radius:4px;border:1px solid rgba(201,165,69,0.35);background:rgba(201,165,69,0.07);
-                    color:var(--accent);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
-             title="Ingresar calificación manualmente">✏ Calificación manual</button>
-           <button onclick="_resetearEnvioAsesor('${esc(f.asesor)}','${f.mes}','${f.anio}')"
-             style="padding:4px 10px;border-radius:4px;border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.06);
-                    color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
-             title="Permitir que este asesor vuelva a presentar">↺ Reenvío</button>
-         </div>`
+    const mostrarAcciones = !supervisorActual && f.mes !== '—' && f.anio !== '—';
+    const btnCalif = mostrarAcciones
+      ? `<button onclick="abrirCalifManual('${esc(f.asesor)}','${f.mes}','${f.anio}','${esc(f.supervisor)}')"
+           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(201,165,69,0.35);background:rgba(201,165,69,0.07);
+                  color:var(--accent);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+           title="Ingresar calificación manualmente">✏ Calificación manual</button>`
+      : '';
+    const btnReenvio = (sinCalifFila && mostrarAcciones)
+      ? `<button onclick="_resetearEnvioAsesor('${esc(f.asesor)}','${f.mes}','${f.anio}')"
+           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.06);
+                  color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+           title="Permitir que este asesor vuelva a presentar">↺ Reenvío</button>`
+      : '';
+    const btnReset = (btnCalif || btnReenvio)
+      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}</div>`
       : '';
     return `<tr>
       <td style="font-weight:600">${f.asesor}</td>
