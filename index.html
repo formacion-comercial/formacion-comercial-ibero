@@ -7698,6 +7698,7 @@ function renderSeguimiento() {
   const total      = filasFiltradas.length;
   const presentaron = filasFiltradas.filter(f => f.presento).length;
   const noPresentaron = total - presentaron;
+  const sinCalif = filasFiltradas.filter(f => f.presento && f.pts === null).length;
   const pctPart = total ? Math.round((presentaron / total) * 100) : 0;
 
   const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -7705,6 +7706,24 @@ function renderSeguimiento() {
   setKpi('seg-kpi-presento',   presentaron);
   setKpi('seg-kpi-nopresento', noPresentaron);
   setKpi('seg-kpi-pct',        pctPart + '%');
+
+  // Botón masivo "Permitir reenvío a todos sin calificación"
+  const segGaugeEl2 = document.getElementById('seg-gauge-row');
+  const btnMasivoId = 'seg-btn-reset-sincalif';
+  let btnMasivo = document.getElementById(btnMasivoId);
+  if (sinCalif > 0 && !supervisorActual) {
+    if (!btnMasivo) {
+      btnMasivo = document.createElement('button');
+      btnMasivo.id = btnMasivoId;
+      btnMasivo.style.cssText = 'margin-top:10px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.4);background:rgba(201,165,69,0.08);color:var(--accent);font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
+      if (segGaugeEl2) segGaugeEl2.parentNode.insertBefore(btnMasivo, segGaugeEl2.nextSibling);
+    }
+    btnMasivo.textContent = `↺ Permitir reenvío a los ${sinCalif} asesor${sinCalif!==1?'es':''} sin calificación`;
+    btnMasivo.onclick = () => _resetearEnviosSinCalif(filasFiltradas);
+    btnMasivo.style.display = '';
+  } else if (btnMasivo) {
+    btnMasivo.style.display = 'none';
+  }
 
   const segGaugeEl = document.getElementById('seg-gauge-row');
   if (segGaugeEl) segGaugeEl.innerHTML = '';
@@ -7723,13 +7742,22 @@ function renderSeguimiento() {
   if (table) table.style.display = '';
 
   tbody.innerHTML = filasFiltradas.map(f => {
+    const sinCalifFila = f.presento && f.pts === null;
     const estadoBadge = f.presento
-      ? `<span class="badge badge-pass" style="font-size:11px;padding:4px 12px">✓ Presentó</span>`
+      ? (sinCalifFila
+          ? `<span class="badge" style="font-size:11px;padding:4px 10px;background:rgba(201,165,69,0.10);color:var(--accent);border:1px solid rgba(201,165,69,0.25)">⚠ Sin calificación</span>`
+          : `<span class="badge badge-pass" style="font-size:11px;padding:4px 12px">✓ Presentó</span>`)
       : `<span class="badge badge-fail" style="font-size:11px;padding:4px 12px">✗ No presentó</span>`;
     const calLabel  = f.pts  !== null ? `<strong>${f.pts}</strong><span style="font-size:11px;color:var(--text3)">/100</span>` : '<span style="color:var(--text3)">—</span>';
     const pctLabel  = f.pct  !== null
       ? `<span style="color:${f.pct >= 95 ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${f.pct}%</span>`
       : '<span style="color:var(--text3)">—</span>';
+    const btnReset = (sinCalifFila && !supervisorActual)
+      ? `<button onclick="_resetearEnvioAsesor('${f.asesor.replace(/'/g,"\\'")}','${f.mes}','${f.anio}')"
+           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(201,165,69,0.35);background:rgba(201,165,69,0.07);
+                  color:var(--accent);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+           title="Permitir que este asesor vuelva a presentar">↺ Permitir reenvío</button>`
+      : '';
     return `<tr>
       <td style="font-weight:600">${f.asesor}</td>
       <td style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3)">${f.supervisor}</td>
@@ -7738,6 +7766,7 @@ function renderSeguimiento() {
       <td style="text-align:center">${estadoBadge}</td>
       <td style="text-align:center">${calLabel}</td>
       <td style="text-align:center">${pctLabel}</td>
+      <td style="text-align:center">${btnReset}</td>
     </tr>`;
   }).join('');
 }
@@ -7777,6 +7806,28 @@ function onSegSupervisorChange() {
     lista.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
   if (lista.find(a => a.nombre === prev)) sel.value = prev;
   renderSeguimiento();
+}
+
+function _resetearEnvioAsesor(asesor, mes, anio) {
+  if (!confirm(`¿Permitir que "${asesor}" vuelva a presentar la evaluación de ${mes} ${anio}?\n\nSu envío anterior (sin calificación) será eliminado.`)) return;
+  const key = asesor + '||' + mes + '||' + anio;
+  if (state.evaluacionesEnviadas) delete state.evaluacionesEnviadas[key];
+  save();
+  renderSeguimiento();
+  showSyncToast(`✓ ${asesor} puede volver a presentar su evaluación.`);
+}
+
+function _resetearEnviosSinCalif(filas) {
+  const sinCalif = filas.filter(f => f.presento && f.pts === null);
+  if (!sinCalif.length) return;
+  if (!confirm(`¿Permitir reenvío a los ${sinCalif.length} asesores sin calificación?\n\nPodrán volver a presentar su evaluación.`)) return;
+  sinCalif.forEach(f => {
+    const key = f.asesor + '||' + f.mes + '||' + f.anio;
+    if (state.evaluacionesEnviadas) delete state.evaluacionesEnviadas[key];
+  });
+  save();
+  renderSeguimiento();
+  showSyncToast(`✓ ${sinCalif.length} asesor${sinCalif.length!==1?'es':''} habilitados para volver a presentar.`);
 }
 
 function limpiarFiltrosSeguimiento() {
