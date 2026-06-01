@@ -4760,11 +4760,21 @@ const _FB_CONFIG = {
   appId: "1:812255286761:web:244fb019a000b3b9bca778"
 };
 
-// Guarda una evaluación individual en Firestore
-async function _fbSaveEval(ev) {
-  if (!window._fbDb) return;
-  try { await window._fbDb.collection('evaluaciones').doc(String(ev.id)).set(ev); }
-  catch(e) { console.warn('Error guardando evaluación en Firestore:', e); }
+// Guarda una evaluación individual en Firestore con reintentos
+async function _fbSaveEval(ev, intentos) {
+  if (!window._fbDb) return false;
+  intentos = intentos || 0;
+  try {
+    await window._fbDb.collection('evaluaciones').doc(String(ev.id)).set(ev);
+    return true;
+  } catch(e) {
+    console.warn('Error guardando evaluación en Firestore (intento ' + (intentos+1) + '):', e);
+    if (intentos < 3) {
+      await new Promise(r => setTimeout(r, 1500 * (intentos + 1)));
+      return _fbSaveEval(ev, intentos + 1);
+    }
+    return false;
+  }
 }
 
 // Elimina una evaluación de Firestore
@@ -4892,9 +4902,13 @@ async function _fbInit() {
     try { updateAllFilters(); } catch(_) {}
     setTimeout(() => updateSyncIndicator('Sincronizado', false), 300);
 
-    // Listener en tiempo real
+    // Listener en tiempo real — merge para no borrar evaluaciones pendientes de confirmación
     window._fbDb.collection('evaluaciones').onSnapshot(snap => {
-      state.evaluaciones = snap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+      const fromFs = snap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+      const fsIds  = new Set(fromFs.map(e => String(e.id)));
+      // Mantener en memoria cualquier evaluación local que Firestore aún no confirme
+      const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
+      state.evaluaciones = [...fromFs, ...pending];
       localStorage.setItem('evalproState', JSON.stringify(state));
       clearTimeout(window._fbRefreshTimer);
       window._fbRefreshTimer = setTimeout(() => { try { updateAllFilters(); } catch(_) {} }, 600);
@@ -13418,8 +13432,11 @@ async function enviarEvaluacionAsesor() {
 
   const pct = Math.round((corr / respFinal.length) * 100);
 
-  // Save to shared state — usar ID único basado en timestamp para evitar colisiones con 200 usuarios simultáneos
-  _pushEval({
+  // ── Mostrar spinner mientras se guarda ──
+  const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
+  if (btnEnviar) { btnEnviar.disabled = true; btnEnviar.textContent = '⏳ Guardando…'; }
+
+  const evObj = {
     id: _nuevoEvalId(),
     asesor: asesorActual.nombre,
     supervisor: asesorActual.supervisor,
@@ -13434,8 +13451,21 @@ async function enviarEvaluacionAsesor() {
             || 'mensual',
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
-  });
-  // Mark as submitted — guardar también puntaje como respaldo ante pérdida de datos
+  };
+
+  // ── Guardar evaluación en Firestore (con reintentos) y esperar confirmación ──
+  state.evaluaciones.push(evObj);
+  localStorage.setItem('evalproState', JSON.stringify(state));
+  const guardadoOk = await _fbSaveEval(evObj);
+
+  if (!guardadoOk) {
+    // Firestore falló después de 3 reintentos — mostrar error y dejar que reintente manualmente
+    if (btnEnviar) { btnEnviar.disabled = false; btnEnviar.textContent = '↺ Error — Intentar de nuevo'; }
+    showSyncToast('⚠ No se pudo guardar tu evaluación. Verifica tu conexión y vuelve a intentarlo.');
+    return;
+  }
+
+  // ── Marcar como enviada con puntaje de respaldo — guardar INMEDIATAMENTE en Firestore ──
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
   state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = { pts, pct, pass, correctas: corr, total: respFinal.length };
 
@@ -13446,6 +13476,24 @@ async function enviarEvaluacionAsesor() {
   const alreadyReg = state.historicoAsesores[hKey].some(r => r.mes === mes && r.anio === anio);
   if (!alreadyReg) {
     state.historicoAsesores[hKey].push({ mes, anio, pct, corrects: corr, total: respFinal.length, tipo: 'continua' });
+  }
+
+  // Guardar evaluacionesEnviadas de forma inmediata (sin debounce) para garantizar persistencia
+  localStorage.setItem('evalproState', JSON.stringify(state));
+  if (window._fbDb) {
+    try {
+      await window._fbDb.collection('config').doc('main').update({
+        evaluacionesEnviadas: state.evaluacionesEnviadas,
+        historicoAsesores: state.historicoAsesores
+      });
+    } catch(e) {
+      // Si update falla (doc no existe aún), usar set con merge
+      try {
+        const cfg = Object.assign({}, state);
+        delete cfg.evaluaciones; delete cfg.fotosPerfil;
+        await window._fbDb.collection('config').doc('main').set(cfg, { merge: true });
+      } catch(e2) { console.warn('Error guardando estado post-envío:', e2); }
+    }
   }
 
   save();
