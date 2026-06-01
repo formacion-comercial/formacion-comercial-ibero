@@ -4155,6 +4155,61 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
   </div>
 </div>
 
+<!-- MODAL CALIFICACIÓN MANUAL -->
+<div class="modal-overlay" id="modal-calif-manual" onclick="if(event.target===this)cerrarCalifManual()"
+  style="display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius);width:min(420px,96vw);
+              padding:28px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:17px;color:var(--text)">
+          ✏ Ingresar calificación manual
+        </div>
+        <div id="calif-manual-nombre" style="font-size:12px;color:var(--text3);margin-top:4px;font-family:'Fira Code',monospace"></div>
+      </div>
+      <button onclick="cerrarCalifManual()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;padding:4px">✕</button>
+    </div>
+
+    <div style="background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.20);border-radius:var(--radius-sm);
+                padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--text2);line-height:1.6">
+      ⚠ La evaluación fue enviada pero los datos se perdieron. Ingresa la calificación que obtuvo este asesor.
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;
+                    text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:8px">
+        Puntaje obtenido (0 – 100)
+      </label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="calif-manual-pts" min="0" max="100" placeholder="Ej: 85"
+          onkeydown="if(event.key==='Enter')guardarCalifManual()"
+          style="flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                 background:var(--surface2);color:var(--text);font-size:18px;font-weight:700;
+                 font-family:'Montserrat',sans-serif;outline:none;text-align:center">
+        <span style="font-size:14px;color:var(--text3);font-family:'Fira Code',monospace">/100</span>
+      </div>
+    </div>
+
+    <div id="calif-manual-error" style="display:none;color:var(--fail);font-size:12px;
+         font-family:'Fira Code',monospace;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="cerrarCalifManual()"
+        style="flex:1;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);
+               background:var(--surface2);color:var(--text2);font-size:13px;font-weight:600;
+               font-family:'Montserrat',sans-serif;cursor:pointer">
+        Cancelar
+      </button>
+      <button onclick="guardarCalifManual()"
+        style="flex:2;padding:10px;border-radius:var(--radius-sm);border:none;
+               background:var(--accent);color:#fff;font-size:13px;font-weight:700;
+               font-family:'Montserrat',sans-serif;cursor:pointer">
+        💾 Guardar calificación
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CAMBIAR CONTRASEÑA -->
 <div class="modal-overlay" id="modal-cambiar-pwd-overlay" onclick="if(event.target===this)cerrarCambiarPassword()"
   style="display:none;align-items:center;justify-content:center">
@@ -7752,11 +7807,18 @@ function renderSeguimiento() {
     const pctLabel  = f.pct  !== null
       ? `<span style="color:${f.pct >= 95 ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${f.pct}%</span>`
       : '<span style="color:var(--text3)">—</span>';
+    const esc = s => s.replace(/'/g,"\\'");
     const btnReset = (sinCalifFila && !supervisorActual)
-      ? `<button onclick="_resetearEnvioAsesor('${f.asesor.replace(/'/g,"\\'")}','${f.mes}','${f.anio}')"
-           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(201,165,69,0.35);background:rgba(201,165,69,0.07);
-                  color:var(--accent);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
-           title="Permitir que este asesor vuelva a presentar">↺ Permitir reenvío</button>`
+      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+           <button onclick="abrirCalifManual('${esc(f.asesor)}','${f.mes}','${f.anio}','${esc(f.supervisor)}')"
+             style="padding:4px 10px;border-radius:4px;border:1px solid rgba(201,165,69,0.35);background:rgba(201,165,69,0.07);
+                    color:var(--accent);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+             title="Ingresar calificación manualmente">✏ Calificación manual</button>
+           <button onclick="_resetearEnvioAsesor('${esc(f.asesor)}','${f.mes}','${f.anio}')"
+             style="padding:4px 10px;border-radius:4px;border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.06);
+                    color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+             title="Permitir que este asesor vuelva a presentar">↺ Reenvío</button>
+         </div>`
       : '';
     return `<tr>
       <td style="font-weight:600">${f.asesor}</td>
@@ -7806,6 +7868,55 @@ function onSegSupervisorChange() {
     lista.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
   if (lista.find(a => a.nombre === prev)) sel.value = prev;
   renderSeguimiento();
+}
+
+// ── Calificación manual para asesores sin calificación ──
+let _califManualData = null;
+function abrirCalifManual(asesor, mes, anio, supervisor) {
+  _califManualData = { asesor, mes, anio, supervisor };
+  document.getElementById('calif-manual-nombre').textContent = `${asesor}  ·  ${mes} ${anio}`;
+  document.getElementById('calif-manual-pts').value = '';
+  document.getElementById('calif-manual-error').style.display = 'none';
+  document.getElementById('modal-calif-manual').style.display = 'flex';
+  setTimeout(() => document.getElementById('calif-manual-pts').focus(), 60);
+}
+function cerrarCalifManual() {
+  document.getElementById('modal-calif-manual').style.display = 'none';
+  _califManualData = null;
+}
+function guardarCalifManual() {
+  const ptsRaw = document.getElementById('calif-manual-pts').value;
+  const errEl  = document.getElementById('calif-manual-error');
+  errEl.style.display = 'none';
+  const pts = parseInt(ptsRaw);
+  if (isNaN(pts) || pts < 0 || pts > 100) {
+    errEl.textContent = '✗ Ingresa un número entre 0 y 100'; errEl.style.display = 'block'; return;
+  }
+  const { asesor, mes, anio, supervisor } = _califManualData;
+  const correctas = Math.round(pts / 5);   // pts = correctas*5 (sobre 20 preguntas)
+  const total = 20;
+  const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
+  const pct = pts;
+  const pass = isPaso(respuestas, total, supervisor);
+
+  // Crear registro de evaluación
+  _pushEval({
+    id: _nuevoEvalId(),
+    asesor, supervisor,
+    mes, anio: parseInt(anio),
+    actividad: 'Evaluación ' + mes + ' ' + anio,
+    respuestas, totalPreguntas: total, pctRaw: pts,
+    registradoPor: 'manual', tipo: 'continua',
+    pct, correctas, total,
+    fechaRegistro: new Date().toISOString()
+  });
+  // Actualizar evaluacionesEnviadas con el puntaje
+  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+  state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct, pass, correctas, total };
+  save();
+  cerrarCalifManual();
+  renderSeguimiento();
+  showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
 }
 
 function _resetearEnvioAsesor(asesor, mes, anio) {
