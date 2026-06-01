@@ -7664,11 +7664,16 @@ function renderSeguimiento() {
           (!pMes  || e.mes  === pMes) &&
           (!pAnio || String(e.anio) === pAnio)
         );
-        const presento = evs.length > 0 ||
-          !!(state.evaluacionesEnviadas && state.evaluacionesEnviadas[a.nombre + '||' + pMes + '||' + pAnio]);
+        const envKey = a.nombre + '||' + pMes + '||' + pAnio;
+        const enviado = state.evaluacionesEnviadas && state.evaluacionesEnviadas[envKey];
+        const presento = evs.length > 0 || !!enviado;
         const lastEv = evs.length ? evs[evs.length - 1] : null;
-        const pts  = lastEv ? calcPts(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor)  : null;
-        const pct  = lastEv ? calcPct(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor)  : null;
+        // Si hay evaluación en Firestore → usar sus datos; si no, usar el respaldo de evaluacionesEnviadas
+        let pts = lastEv ? calcPts(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor) : null;
+        let pct = lastEv ? calcPct(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor) : null;
+        if (pts === null && enviado && typeof enviado === 'object' && enviado.pts != null) {
+          pts = enviado.pts; pct = enviado.pct;
+        }
         filas.push({ asesor: a.nombre, supervisor: a.supervisor,
                      mes: pMes || '—', anio: pAnio || '—', presento, pts, pct });
       });
@@ -13264,9 +13269,9 @@ async function enviarEvaluacionAsesor() {
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
   });
-  // Mark as submitted — bloquear re-ingreso para todas las modalidades
+  // Mark as submitted — guardar también puntaje como respaldo ante pérdida de datos
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = true;
+  state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = { pts, pct, pass, correctas: corr, total: respFinal.length };
 
   // Register in histórico
   if (!state.historicoAsesores) state.historicoAsesores = {};
