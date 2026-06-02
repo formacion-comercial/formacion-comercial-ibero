@@ -4399,7 +4399,7 @@ try {
 // ── Eliminar evaluaciones y datos de Noviembre y Diciembre ──────────────────
 try {
   (function eliminarNovDic() {
-    const MESES_EXCLUIR = ['Noviembre', 'Diciembre'];
+    const MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
     let changed = false;
     const antes = state.evaluaciones.length;
     state.evaluaciones = state.evaluaciones.filter(ev => !MESES_EXCLUIR.includes(ev.mes));
@@ -4835,7 +4835,7 @@ async function _fbInit() {
     });
 
     // ── Limpiar Nov/Dic del histórico DESPUÉS de cargar Firebase ─────────────
-    const _MESES_LIMPIAR = ['Noviembre','Diciembre'];
+    const _MESES_LIMPIAR = ['Noviembre','Diciembre','Octubre'];
     let _histChanged = false;
 
     // historicoAsesores: { "asesor||supervisor": [{mes, anio, pct,...}] }
@@ -4873,7 +4873,7 @@ async function _fbInit() {
     }
 
     // Cargar evaluaciones
-    const _MESES_EXCLUIR = ['Noviembre', 'Diciembre'];
+    const _MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
     const evSnap = await window._fbDb.collection('evaluaciones').get();
     if (!evSnap.empty) {
       // Eliminar de Firestore los docs de Nov/Dic
