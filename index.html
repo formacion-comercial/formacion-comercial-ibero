@@ -4899,6 +4899,7 @@ async function _fbInit() {
     }
 
     localStorage.setItem('evalproState', JSON.stringify(state));
+    try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
     try { updateAllFilters(); } catch(_) {}
     setTimeout(() => updateSyncIndicator('Sincronizado', false), 300);
 
@@ -4909,6 +4910,7 @@ async function _fbInit() {
       // Mantener en memoria cualquier evaluación local que Firestore aún no confirme
       const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
       state.evaluaciones = [...fromFs, ...pending];
+      try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
       localStorage.setItem('evalproState', JSON.stringify(state));
       clearTimeout(window._fbRefreshTimer);
       window._fbRefreshTimer = setTimeout(() => { try { updateAllFilters(); } catch(_) {} }, 600);
@@ -7694,6 +7696,8 @@ function verTodosAccesos(nombre, supervisor, accesos) {
 
 // ==================== SEGUIMIENTO ====================
 function renderSeguimiento() {
+  // Garantizar que evaluacionesEnviadas refleje todos los resultados cargados
+  try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
   // segSupsActivos[] — vacío = todos los supervisores
   const aseFil    = (document.getElementById('seg-asesor')     || {}).value || '';
   const anioFil   = (document.getElementById('seg-anio')       || {}).value || '';
@@ -7728,13 +7732,18 @@ function renderSeguimiento() {
     periodos.forEach(p => {
       const [pMes, pAnio] = p ? p.split('||') : ['', ''];
       asesoresFiltrados.forEach(a => {
+        const normNombre = _formsNorm(a.nombre);
         const evs = state.evaluaciones.filter(e =>
-          e.asesor === a.nombre &&
+          (e.asesor === a.nombre || _formsNorm(e.asesor) === normNombre) &&
           (!pMes  || e.mes  === pMes) &&
           (!pAnio || String(e.anio) === pAnio)
         );
-        const envKey = a.nombre + '||' + pMes + '||' + pAnio;
-        const enviado = state.evaluacionesEnviadas && state.evaluacionesEnviadas[envKey];
+        const envKey  = a.nombre + '||' + pMes + '||' + pAnio;
+        // También buscar con el nombre exacto del documento de evaluación (por si difiere del registro)
+        const evKey   = evs.length && evs[evs.length-1].asesor !== a.nombre
+          ? evs[evs.length-1].asesor + '||' + pMes + '||' + pAnio : null;
+        const enviado = (state.evaluacionesEnviadas && state.evaluacionesEnviadas[envKey]) ||
+                        (evKey && state.evaluacionesEnviadas && state.evaluacionesEnviadas[evKey]) || null;
         const presento = evs.length > 0 || !!enviado;
         const lastEv = evs.length ? evs[evs.length - 1] : null;
         // Si hay evaluación en Firestore → usar sus datos; si no, usar el respaldo de evaluacionesEnviadas
@@ -7935,6 +7944,51 @@ function guardarCalifManual() {
   cerrarCalifManual();
   renderSeguimiento();
   showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
+}
+
+// ── Sincronizar evaluacionesEnviadas desde state.evaluaciones ──────────────
+// Garantiza que cada evaluación en Firestore tenga su respaldo en evaluacionesEnviadas
+// para que Seguimiento siempre muestre el puntaje correcto.
+function _sincronizarEvaluacionesEnviadas() {
+  if (!state.evaluaciones || !state.evaluaciones.length) return;
+  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+  let changed = false;
+
+  // Agrupar por asesor||mes||anio — quedarse con la más reciente (mayor id)
+  const grupos = {};
+  state.evaluaciones.forEach(ev => {
+    if (!ev.asesor || !ev.mes || !ev.anio) return;
+    const key = ev.asesor + '||' + ev.mes + '||' + ev.anio;
+    if (!grupos[key] || Number(ev.id) > Number(grupos[key].id)) grupos[key] = ev;
+  });
+
+  Object.entries(grupos).forEach(([key, ev]) => {
+    const existing = state.evaluacionesEnviadas[key];
+    // Actualizar si no existe, es boolean (formato antiguo) o le falta pts
+    if (!existing || existing === true || typeof existing !== 'object' || existing.pts == null) {
+      const t = ev.totalPreguntas || (ev.respuestas ? ev.respuestas.length : 0);
+      if (!t || !ev.respuestas || !ev.respuestas.length) return;
+      const sup = ev.supervisor ||
+        (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(ev.asesor)) || {}).supervisor || '';
+      const pts  = calcPts(ev.respuestas, t, sup);
+      const pct  = calcPct(ev.respuestas, t, sup);
+      const pass = isPaso(ev.respuestas, t, sup);
+      const corr = ev.respuestas.filter(r => r === 1 || r === true).length;
+      state.evaluacionesEnviadas[key] = { pts, pct, pass, correctas: corr, total: t };
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    localStorage.setItem('evalproState', JSON.stringify(state));
+    if (window._fbDb) {
+      try {
+        window._fbDb.collection('config').doc('main').update({
+          evaluacionesEnviadas: state.evaluacionesEnviadas
+        });
+      } catch(e) {}
+    }
+  }
 }
 
 function _resetearEnvioAsesor(asesor, mes, anio) {
