@@ -7844,14 +7844,8 @@ function renderSeguimiento() {
                   color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
            title="Permitir que este asesor vuelva a presentar">↺ Reenvío</button>`
       : '';
-    const btnNoPresento = (f.presento && mostrarAcciones)
-      ? `<button onclick="_marcarNoPresento('${esc(f.asesor)}','${f.mes}','${f.anio}')"
-           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.06);
-                  color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
-           title="Eliminar evaluación y marcar como No presentó">✕ No presentó</button>`
-      : '';
-    const btnReset = (btnCalif || btnReenvio || btnNoPresento)
-      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}${btnNoPresento}</div>`
+    const btnReset = (btnCalif || btnReenvio)
+      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}</div>`
       : '';
     return `<tr>
       <td style="font-weight:600">${f.asesor}</td>
