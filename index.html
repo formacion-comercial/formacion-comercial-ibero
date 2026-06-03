@@ -3627,6 +3627,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <select class="login-input" id="coord-select-login"
           style="cursor:pointer;background:#2e2f38;color:#fff;border:1.5px solid rgba(255,255,255,0.15)">
           <option value="">— Selecciona —</option>
+          <option value="Catalina Barahona">Catalina Barahona</option>
           <option value="Carolina Torres">Carolina Torres</option>
           <option value="Fabian Vargas">Fabian Vargas</option>
           <option value="Jennifer Vargas">Jennifer Vargas</option>
@@ -10808,7 +10809,7 @@ function _ensureSupervisorPasswords() {
   if (!state.pwdsMigradosV2) {
     state.supervisores.forEach(s => { state.supervisorPasswords[s] = '123'; });
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
-    ["Carolina Torres","Fabian Vargas","Jennifer Vargas"].forEach(c => { state.coordinadorPasswords[c] = '123'; });
+    ["Catalina Barahona","Carolina Torres","Fabian Vargas","Jennifer Vargas"].forEach(c => { state.coordinadorPasswords[c] = '123'; });
     state.pwdsMigradosV2 = true;
     changed = true;
   }
@@ -11067,7 +11068,7 @@ function cerrarSesionSupervisor() {
 }
 
 // ── Coordinador login y sesión ──
-const _COORD_NOMBRES = ["Carolina Torres", "Fabian Vargas", "Jennifer Vargas"];
+const _COORD_NOMBRES = ["Catalina Barahona", "Carolina Torres", "Fabian Vargas", "Jennifer Vargas"];
 
 function _ensureCoordinadorPasswords() {
   if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
