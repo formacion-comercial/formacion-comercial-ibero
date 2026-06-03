@@ -10589,8 +10589,8 @@ function guardarCargaManual() {
 function showView(name, el) {
   // Block restricted views for supervisor
   if (supervisorActual && ['registro','ranking','formacion-inicial','config'].includes(name)) return;
-  // Block restricted views for coordinador (solo dashboard, resultados, historico)
-  if (coordinadorActual && !['dashboard','resultados','historico','seguimiento'].includes(name)) return;
+  // Block restricted views for coordinador
+  if (coordinadorActual && !['dashboard','resultados','historico','seguimiento','reporte'].includes(name)) return;
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
