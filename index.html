@@ -4218,14 +4218,14 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <h3 style="margin-bottom:20px;font-size:17px;font-weight:700">🔑 Cambiar contraseña</h3>
     <div style="margin-bottom:14px">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Nueva contraseña</label>
-      <input id="pwd-nueva" type="password" placeholder="Nueva contraseña"
+      <input id="mod-pwd-nueva" type="password" placeholder="Nueva contraseña"
         style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
                font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)"
         oninput="document.getElementById('pwd-cambiar-error').style.display='none'">
     </div>
     <div style="margin-bottom:20px">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px">Confirmar contraseña</label>
-      <input id="pwd-confirmar" type="password" placeholder="Repite la nueva contraseña"
+      <input id="mod-pwd-confirmar" type="password" placeholder="Repite la nueva contraseña"
         style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
                font-size:14px;font-family:'Montserrat',sans-serif;background:var(--surface2)"
         onkeydown="if(event.key==='Enter')guardarNuevaPassword()">
@@ -11162,11 +11162,11 @@ let _pwdChangeRole = null; // 'supervisor' | 'coordinador'
 
 function abrirCambiarPassword(role) {
   _pwdChangeRole = role;
-  document.getElementById('pwd-nueva').value = '';
-  document.getElementById('pwd-confirmar').value = '';
+  document.getElementById('mod-pwd-nueva').value = '';
+  document.getElementById('mod-pwd-confirmar').value = '';
   document.getElementById('pwd-cambiar-error').style.display = 'none';
   document.getElementById('modal-cambiar-pwd-overlay').style.display = 'flex';
-  setTimeout(() => document.getElementById('pwd-nueva').focus(), 50);
+  setTimeout(() => document.getElementById('mod-pwd-nueva').focus(), 50);
 }
 
 function cerrarCambiarPassword() {
@@ -11175,25 +11175,39 @@ function cerrarCambiarPassword() {
 }
 
 function guardarNuevaPassword() {
-  const nueva = document.getElementById('pwd-nueva').value;
-  const confirmar = document.getElementById('pwd-confirmar').value;
+  const nueva = document.getElementById('mod-pwd-nueva').value;
+  const confirmar = document.getElementById('mod-pwd-confirmar').value;
   const errEl = document.getElementById('pwd-cambiar-error');
   if (!nueva) { errEl.textContent = '✗ Ingresa la nueva contraseña'; errEl.style.display = 'block'; return; }
   if (nueva.length < 3) { errEl.textContent = '✗ La contraseña debe tener al menos 3 caracteres'; errEl.style.display = 'block'; return; }
   if (nueva !== confirmar) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
   if (_pwdChangeRole === 'supervisor' && supervisorActual) {
     if (!state.supervisorPasswords) state.supervisorPasswords = {};
-    sha256hex(nueva).then(h => {
+    sha256hex(nueva).then(async h => {
       state.supervisorPasswords[supervisorActual] = h;
-      save(); cerrarCambiarPassword();
-      alert('✓ Contraseña actualizada correctamente');
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      cerrarCambiarPassword();
+      // Guardar inmediatamente en Firestore (sin esperar el debounce)
+      if (window._fbDb) {
+        try {
+          await window._fbDb.collection('config').doc('main').update({ supervisorPasswords: state.supervisorPasswords });
+        } catch(e) { save(); }
+      } else { save(); }
+      showSyncToast('✓ Contraseña actualizada correctamente');
     });
   } else if (_pwdChangeRole === 'coordinador' && coordinadorActual) {
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
-    sha256hex(nueva).then(h => {
+    sha256hex(nueva).then(async h => {
       state.coordinadorPasswords[coordinadorActual] = h;
-      save(); cerrarCambiarPassword();
-      alert('✓ Contraseña actualizada correctamente');
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      cerrarCambiarPassword();
+      // Guardar inmediatamente en Firestore (sin esperar el debounce)
+      if (window._fbDb) {
+        try {
+          await window._fbDb.collection('config').doc('main').update({ coordinadorPasswords: state.coordinadorPasswords });
+        } catch(e) { save(); }
+      } else { save(); }
+      showSyncToast('✓ Contraseña actualizada correctamente');
     });
   }
 }
