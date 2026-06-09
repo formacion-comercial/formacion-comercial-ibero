@@ -1365,6 +1365,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                     style="border-radius:var(--radius-sm);padding:9px 13px;font-size:13px;
                            background:var(--surface2);border:1px solid var(--border);color:var(--text)">
                     <option value="mensual">📅 Evaluación Mensual</option>
+                    <option value="asesor-nuevo">🆕 Evaluación Asesor Nuevo</option>
                     <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
                   </select>
                 </div>
@@ -1527,6 +1528,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                          border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
                          font-family:'Montserrat',sans-serif;outline:none">
                   <option value="mensual">📅 Evaluación Mensual</option>
+                  <option value="asesor-nuevo">🆕 Evaluación Asesor Nuevo</option>
                   <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
                 </select>
                 <button onclick="descargarPlantillaMasivaPreguntas()"
@@ -1637,6 +1639,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                          border-radius:var(--radius-sm);color:var(--text);padding:8px 12px;font-size:12px;
                          font-family:'Montserrat',sans-serif;outline:none">
                   <option value="mensual">📅 Evaluación Mensual</option>
+                  <option value="asesor-nuevo">🆕 Evaluación Asesor Nuevo</option>
                   <option value="fortalecimiento">💪 Sesiones de Fortalecimiento</option>
                 </select>
                 <button onclick="subirExcelIndividual()"
@@ -13859,6 +13862,7 @@ function renderPerfilAsesor() {
   if (modEl) {
     const modalidades = [
       { key: 'mensual',        label: 'Evaluación Mensual',         icon: '📅', color: 'var(--accent4)', bg: 'rgba(91,143,176,0.08)', border: 'rgba(91,143,176,0.25)' },
+      { key: 'asesor-nuevo',   label: 'Evaluación Asesor Nuevo',    icon: '🆕', color: '#c9a545',        bg: 'rgba(201,165,69,0.08)',  border: 'rgba(201,165,69,0.25)'  },
       { key: 'fortalecimiento', label: 'Sesiones de Fortalecimiento', icon: '💪', color: 'var(--accent3)', bg: 'rgba(78,138,114,0.08)', border: 'rgba(78,138,114,0.25)' }
     ];
     const cards = modalidades.map(m => {
