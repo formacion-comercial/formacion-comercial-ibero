@@ -1187,6 +1187,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px">
             <button id="db-mod-all"            onclick="setDbModalidad('')"                style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;white-space:nowrap">Todos</button>
             <button id="db-mod-mensual"        onclick="setDbModalidad('mensual')"         style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">📅 Mensual</button>
+            <button id="db-mod-asesor-nuevo"   onclick="setDbModalidad('asesor-nuevo')"    style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">🆕 Asesor Nuevo</button>
             <button id="db-mod-fortalecimiento" onclick="setDbModalidad('fortalecimiento')" style="padding:6px 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;white-space:nowrap">💪 Fortalecimiento</button>
           </div>
 
@@ -5810,7 +5811,7 @@ function setProgramaSupervisor(supervisor, prog) {
 }
 function setDbModalidad(mod) {
   dbModalidadFil = mod;
-  [['','db-mod-all'],['mensual','db-mod-mensual'],['fortalecimiento','db-mod-fortalecimiento']].forEach(([val, id]) => {
+  [['','db-mod-all'],['mensual','db-mod-mensual'],['asesor-nuevo','db-mod-asesor-nuevo'],['fortalecimiento','db-mod-fortalecimiento']].forEach(([val, id]) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.style.cssText = val === mod
