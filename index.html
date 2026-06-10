@@ -11406,7 +11406,14 @@ async function loginAsesor() {
         // Mezclar selectivamente campos críticos sin pisar estado local completo
         ['preguntasPorSupMes','preguntasPorAsesorMes','plazos','evaluacionesEnviadas','asesores','supervisores',
          'modalidadPorSupMes','notifConfig'].forEach(k => {
-          if (remoto[k] !== undefined) state[k] = remoto[k];
+          if (remoto[k] === undefined) return;
+          // Bancos de preguntas: COMBINAR local + remoto para no perder preguntas
+          // recién guardadas que aún no llegaron a Firestore
+          if (k === 'preguntasPorAsesorMes' || k === 'preguntasPorSupMes' || k === 'modalidadPorSupMes') {
+            state[k] = Object.assign({}, remoto[k], state[k] || {});
+          } else {
+            state[k] = remoto[k];
+          }
         });
         localStorage.setItem('evalproState', JSON.stringify(state));
       }
@@ -12166,7 +12173,15 @@ function _procesarExcelIndividual(file, asesorNombre, mes, anio, modalidad) {
       state.preguntasPorAsesorMes[key] = preguntas;
       if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
       state.modalidadPorSupMes[key] = modalidad;
-      save();
+      // Guardar inmediatamente en Firestore (sin esperar debounce) para que el asesor
+      // pueda iniciar sesión de inmediato y encontrar sus preguntas
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      if (window._fbDb) {
+        window._fbDb.collection('config').doc('main').update({
+          preguntasPorAsesorMes: state.preguntasPorAsesorMes,
+          modalidadPorSupMes: state.modalidadPorSupMes
+        }).catch(() => save()); // fallback al debounce si falla
+      } else { save(); }
       _setIndivStatus('ok', `✓ ${preguntas.length} pregunta(s) cargadas para ${asesorNombre} — ${mes} ${anio}`);
       renderIndivCards();
     } catch(err) {
@@ -13153,7 +13168,10 @@ function initAsesorForm(asesor) {
 
   if (bancoPregsMes && bancoPregsMes.length) {
     // ── Modo banco: preguntas con opciones A/B/C/D desde Excel ──
-    const _maxPregs = _esSup5Q(asesor.supervisor) ? 5 : 20;
+    const _modalidadAsesor = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
+                           || (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesSel + '||' + anioSel]
+                           || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+    const _maxPregs = _esSup5Q(asesor.supervisor) ? 5 : _modalidadAsesor === 'asesor-nuevo' ? 10 : 20;
     asesorRespuestas = bancoPregsMes.slice(0, _maxPregs).map(q => q.tipo === 'multiple' ? [] : null);
     const LETRAS = ['A','B','C','D'];
     list.innerHTML = bancoPregsMes.slice(0, _maxPregs).map((q, i) => {
