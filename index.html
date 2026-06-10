@@ -4180,17 +4180,17 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     </div>
 
     <div style="margin-bottom:16px">
-      <label style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;
+      <label id="calif-manual-label" style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;
                     text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:8px">
         Puntaje obtenido (0 – 100)
       </label>
       <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" id="calif-manual-pts" min="0" max="100" placeholder="Ej: 85"
+        <input type="number" id="calif-manual-pts" min="0" max="100" step="0.5" placeholder="Ej: 85"
           onkeydown="if(event.key==='Enter')guardarCalifManual()"
           style="flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
                  background:var(--surface2);color:var(--text);font-size:18px;font-weight:700;
                  font-family:'Montserrat',sans-serif;outline:none;text-align:center">
-        <span style="font-size:14px;color:var(--text3);font-family:'Fira Code',monospace">/100</span>
+        <span id="calif-manual-escala" style="font-size:14px;color:var(--text3);font-family:'Fira Code',monospace">/100</span>
       </div>
     </div>
 
@@ -5070,6 +5070,27 @@ function calcPts(resp, total, sup) {
 }
 function fmtScore(resp, total) {
   return `${calcPts(resp, total)}/100`;
+}
+
+// ── Evaluación Asesor Nuevo: escala 0–10, fórmula 5 + correctas×0.5 ─────────
+function _calcNotaAsesorNuevo(correctas) {
+  return Math.round((5 + Math.min(correctas, 10) * 0.5) * 10) / 10;
+}
+function _isPasoAsesorNuevo(nota) { return nota >= 6.0; }
+function _isEvalAsesorNuevo(ev)   { return ev && ev.modalidad === 'asesor-nuevo'; }
+// Devuelve { pts (0-100), pct (0-100), pass, nota (0-10 o null), escala (10 o 100) }
+function _getEvalScore(ev) {
+  if (!ev || !ev.respuestas) return { pts: null, pct: null, pass: false, nota: null, escala: 100 };
+  if (_isEvalAsesorNuevo(ev)) {
+    const corr = calcScore(ev.respuestas);
+    const nota = ev.nota != null ? ev.nota : _calcNotaAsesorNuevo(corr);
+    return { pts: Math.round(nota * 10), pct: Math.round(nota * 10), pass: _isPasoAsesorNuevo(nota), nota, escala: 10 };
+  }
+  const t    = ev.totalPreguntas || ev.respuestas.length;
+  const pts  = calcPts(ev.respuestas, t, ev.supervisor);
+  const pct  = calcPct(ev.respuestas, t, ev.supervisor);
+  const pass = isPaso(ev.respuestas, t, ev.supervisor);
+  return { pts, pct, pass, nota: null, escala: 100 };
 }
 
 function getEvsByFilter(mes, anio, sup) {
@@ -6602,9 +6623,11 @@ function renderResultados() {
       ${evs.map(e => {
         const t    = e.totalPreguntas || e.respuestas.length || 20;
         const sc   = calcScore(e.respuestas);
-        const pts  = calcPts(e.respuestas, t, e.supervisor);
-        const pct  = calcPct(e.respuestas, t, e.supervisor);
-        const pass = isPaso(e.respuestas, t, e.supervisor);
+        const _sc  = _getEvalScore(e);
+        const pts  = _sc.pts; const pct = _sc.pct; const pass = _sc.pass;
+        const nota = _sc.nota; const escala = _sc.escala;
+        const ptsLabel = nota !== null ? `${nota}/10` : `${pts}`;
+        const pctLabel = nota !== null ? `${nota}/10` : `${pct}%`;
         const fecha = e.fechaRegistro
           ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})
           : '—';
@@ -6617,10 +6640,10 @@ function renderResultados() {
           <td style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3);cursor:pointer" onclick="showDetalle(${e.id})">${fecha}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})">${e.actividad || '—'}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><div class="score-bar-wrap">
-            <div class="score-bar"><div class="score-bar-fill ${pass?'pass':'fail'}" style="width:${pts}%"></div></div>
-            <span class="score-val">${pts}</span>
+            <div class="score-bar"><div class="score-bar-fill ${pass?'pass':'fail'}" style="width:${_sc.escala===10 ? pts : pts}%"></div></div>
+            <span class="score-val">${ptsLabel}</span>
           </div></td>
-          <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pct}%</td>
+          <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pctLabel}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓':'✗'} ${pass?'Aprobado':'Reprobado'}</span></td>
           <td style="white-space:nowrap">
             ${(!supervisorActual && !coordinadorActual) ? `<button onclick="eliminarEvaluacion('${e.id}')"
@@ -7750,14 +7773,19 @@ function renderSeguimiento() {
                         (evKey && state.evaluacionesEnviadas && state.evaluacionesEnviadas[evKey]) || null;
         const presento = evs.length > 0 || !!enviado;
         const lastEv = evs.length ? evs[evs.length - 1] : null;
-        // Si hay evaluación en Firestore → usar sus datos; si no, usar el respaldo de evaluacionesEnviadas
-        let pts = lastEv ? calcPts(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor) : null;
-        let pct = lastEv ? calcPct(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor) : null;
-        if (pts === null && enviado && typeof enviado === 'object' && enviado.pts != null) {
+        // Obtener puntaje usando el helper que soporta escala 0-10 (asesor-nuevo)
+        let pts = null, pct = null, nota = null, escala = 100;
+        if (lastEv) {
+          const sc = _getEvalScore(lastEv);
+          pts = sc.pts; pct = sc.pct; nota = sc.nota; escala = sc.escala;
+        } else if (enviado && typeof enviado === 'object' && enviado.pts != null) {
           pts = enviado.pts; pct = enviado.pct;
+          nota = enviado.nota || null;
+          escala = nota != null ? 10 : 100;
         }
         filas.push({ asesor: a.nombre, supervisor: a.supervisor,
-                     mes: pMes || '—', anio: pAnio || '—', presento, pts, pct });
+                     mes: pMes || '—', anio: pAnio || '—', presento, pts, pct, nota, escala,
+                     modalidad: lastEv ? (lastEv.modalidad || 'mensual') : 'mensual' });
       });
     });
   }
@@ -7830,9 +7858,15 @@ function renderSeguimiento() {
           ? `<span class="badge" style="font-size:11px;padding:4px 10px;background:rgba(201,165,69,0.10);color:var(--accent);border:1px solid rgba(201,165,69,0.25)">⚠ Sin calificación</span>`
           : `<span class="badge badge-pass" style="font-size:11px;padding:4px 12px">✓ Presentó</span>`)
       : `<span class="badge badge-fail" style="font-size:11px;padding:4px 12px">✗ No presentó</span>`;
-    const calLabel  = f.pts  !== null ? `<strong>${f.pts}</strong><span style="font-size:11px;color:var(--text3)">/100</span>` : '<span style="color:var(--text3)">—</span>';
-    const pctLabel  = f.pct  !== null
-      ? `<span style="color:${f.pct >= 95 ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${f.pct}%</span>`
+    const esAsesorNuevo = f.modalidad === 'asesor-nuevo';
+    const calLabel = f.nota !== null
+      ? `<strong>${f.nota}</strong><span style="font-size:11px;color:var(--text3)">/10</span>`
+      : (f.pts !== null
+          ? `<strong>${f.pts}</strong><span style="font-size:11px;color:var(--text3)">/100</span>`
+          : '<span style="color:var(--text3)">—</span>');
+    const _passThreshold = esAsesorNuevo ? 60 : 95; // 6.0/10 = 60% para asesor-nuevo
+    const pctLabel = f.pct !== null
+      ? `<span style="color:${f.pct >= _passThreshold ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${esAsesorNuevo && f.nota !== null ? f.nota + '/10' : f.pct + '%'}</span>`
       : '<span style="color:var(--text3)">—</span>';
     const esc = s => s.replace(/'/g,"\\'");
     const mostrarAcciones = !supervisorActual && f.mes !== '—' && f.anio !== '—';
@@ -7904,9 +7938,20 @@ function onSegSupervisorChange() {
 // ── Calificación manual para asesores sin calificación ──
 let _califManualData = null;
 function abrirCalifManual(asesor, mes, anio, supervisor) {
-  _califManualData = { asesor, mes, anio, supervisor };
+  // Detectar si el asesor tiene evaluación de tipo asesor-nuevo en ese período
+  const evExist = (state.evaluaciones || []).find(e =>
+    _formsNorm(e.asesor) === _formsNorm(asesor) && e.mes === mes && String(e.anio) === String(anio)
+  );
+  const aObj = state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(asesor));
+  const esNuevo = (evExist && evExist.modalidad === 'asesor-nuevo') || (aObj && aObj.tipo === 'Nuevo');
+  _califManualData = { asesor, mes, anio, supervisor, esNuevo };
   document.getElementById('calif-manual-nombre').textContent = `${asesor}  ·  ${mes} ${anio}`;
   document.getElementById('calif-manual-pts').value = '';
+  document.getElementById('calif-manual-pts').max   = esNuevo ? '10' : '100';
+  document.getElementById('calif-manual-pts').step  = esNuevo ? '0.5' : '1';
+  document.getElementById('calif-manual-pts').placeholder = esNuevo ? 'Ej: 9.5' : 'Ej: 85';
+  document.getElementById('calif-manual-label').textContent = esNuevo ? 'Nota obtenida (0 – 10)' : 'Puntaje obtenido (0 – 100)';
+  document.getElementById('calif-manual-escala').textContent = esNuevo ? '/10' : '/100';
   document.getElementById('calif-manual-error').style.display = 'none';
   document.getElementById('modal-calif-manual').style.display = 'flex';
   setTimeout(() => document.getElementById('calif-manual-pts').focus(), 60);
@@ -7919,35 +7964,57 @@ function guardarCalifManual() {
   const ptsRaw = document.getElementById('calif-manual-pts').value;
   const errEl  = document.getElementById('calif-manual-error');
   errEl.style.display = 'none';
-  const pts = parseInt(ptsRaw);
-  if (isNaN(pts) || pts < 0 || pts > 100) {
-    errEl.textContent = '✗ Ingresa un número entre 0 y 100'; errEl.style.display = 'block'; return;
-  }
-  const { asesor, mes, anio, supervisor } = _califManualData;
-  const correctas = Math.round(pts / 5);   // pts = correctas*5 (sobre 20 preguntas)
-  const total = 20;
-  const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
-  const pct = pts;
-  const pass = isPaso(respuestas, total, supervisor);
+  const { asesor, mes, anio, supervisor, esNuevo } = _califManualData;
 
-  // Crear registro de evaluación
-  _pushEval({
-    id: _nuevoEvalId(),
-    asesor, supervisor,
-    mes, anio: parseInt(anio),
-    actividad: 'Evaluación ' + mes + ' ' + anio,
-    respuestas, totalPreguntas: total, pctRaw: pts,
-    registradoPor: 'manual', tipo: 'continua',
-    pct, correctas, total,
-    fechaRegistro: new Date().toISOString()
-  });
-  // Actualizar evaluacionesEnviadas con el puntaje
-  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct, pass, correctas, total };
-  save();
-  cerrarCalifManual();
-  renderSeguimiento();
-  showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
+  if (esNuevo) {
+    // Escala 0-10 con decimales de 0.5 en 0.5
+    const nota = parseFloat(ptsRaw);
+    if (isNaN(nota) || nota < 0 || nota > 10) {
+      errEl.textContent = '✗ Ingresa una nota entre 0.0 y 10.0'; errEl.style.display = 'block'; return;
+    }
+    const correctas = Math.round((nota - 5) / 0.5);  // inversa de: nota = 5 + corr*0.5
+    const total     = 10;
+    const corrAjust = Math.max(0, Math.min(total, correctas));
+    const respuestas = Array(corrAjust).fill(1).concat(Array(total - corrAjust).fill(0));
+    const pts  = Math.round(nota * 10);
+    const pass = _isPasoAsesorNuevo(nota);
+    _pushEval({
+      id: _nuevoEvalId(), asesor, supervisor,
+      mes, anio: parseInt(anio),
+      actividad: 'Evaluación ' + mes + ' ' + anio,
+      respuestas, totalPreguntas: total,
+      registradoPor: 'manual', tipo: 'continua', modalidad: 'asesor-nuevo',
+      nota, pct: pts, correctas: corrAjust, total,
+      fechaRegistro: new Date().toISOString()
+    });
+    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+    state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct: pts, pass, correctas: corrAjust, total, nota };
+    save(); cerrarCalifManual(); renderSeguimiento();
+    showSyncToast(`✓ Calificación de ${asesor} guardada: ${nota}/10`);
+  } else {
+    const pts = parseInt(ptsRaw);
+    if (isNaN(pts) || pts < 0 || pts > 100) {
+      errEl.textContent = '✗ Ingresa un número entre 0 y 100'; errEl.style.display = 'block'; return;
+    }
+    const correctas = Math.round(pts / 5);
+    const total = 20;
+    const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
+    const pct = pts;
+    const pass = isPaso(respuestas, total, supervisor);
+    _pushEval({
+      id: _nuevoEvalId(), asesor, supervisor,
+      mes, anio: parseInt(anio),
+      actividad: 'Evaluación ' + mes + ' ' + anio,
+      respuestas, totalPreguntas: total, pctRaw: pts,
+      registradoPor: 'manual', tipo: 'continua',
+      pct, correctas, total,
+      fechaRegistro: new Date().toISOString()
+    });
+    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+    state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct, pass, correctas, total };
+    save(); cerrarCalifManual(); renderSeguimiento();
+    showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
+  }
 }
 
 // ── Marcar asesor como No presentó (elimina evaluación del período) ─────────
@@ -13535,11 +13602,23 @@ async function enviarEvaluacionAsesor() {
     respFinal = asesorRespuestas.map(r => (r === null || (Array.isArray(r) && r.length === 0) ? 0 : r === 1 ? 1 : 0));
   }
 
-  const corr = calcScore(respFinal);
-  const pts  = corr * 5;
-  const pass = isPaso(respFinal, respFinal.length, asesorActual.supervisor);
+  const corr     = calcScore(respFinal);
+  const modalidad = (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
+                 || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
+                 || (asesorActual.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
 
-  const pct = Math.round((corr / respFinal.length) * 100);
+  let pts, pct, pass, nota;
+  if (modalidad === 'asesor-nuevo') {
+    nota = _calcNotaAsesorNuevo(corr);
+    pts  = Math.round(nota * 10);
+    pct  = pts;
+    pass = _isPasoAsesorNuevo(nota);
+  } else {
+    nota = null;
+    pts  = corr * 5;
+    pass = isPaso(respFinal, respFinal.length, asesorActual.supervisor);
+    pct  = Math.round((corr / respFinal.length) * 100);
+  }
 
   // ── Mostrar spinner mientras se guarda ──
   const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
@@ -13555,9 +13634,8 @@ async function enviarEvaluacionAsesor() {
     selecciones: rawPregs ? asesorRespuestas.slice() : null,
     registradoPor: 'asesor',
     tipo: 'continua',
-    modalidad: (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
-            || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
-            || 'mensual',
+    modalidad,
+    nota,   // null para mensuales, 0-10 para asesor-nuevo
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString()
   };
