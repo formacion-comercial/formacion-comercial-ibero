@@ -1676,67 +1676,78 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
       </div>
 
-      <div class="filters" style="align-items:center">
-        <select id="fil-supervisor" onchange="renderResultados()" style="display:none">
-          <option value="">Todos los supervisores</option>
-        </select>
-        <div class="month-multiselect" id="res-sup-multiselect">
-          <button class="month-multiselect-btn" id="res-sup-btn" onclick="toggleResSupDropdown()">
-            <span id="res-sup-label">Todos los supervisores</span>
-            <span style="font-size:10px;opacity:0.6">▾</span>
-          </button>
-          <div class="month-multiselect-dropdown" id="res-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
-            <div class="month-ms-item" onclick="toggleResSupAll()">
-              <div class="month-ms-check" id="res-sup-check-all">✓</div>Todos los supervisores
-            </div>
-            <div id="res-sup-items"></div>
-            <div class="month-ms-footer" id="res-sup-footer">Todos seleccionados</div>
-          </div>
-        </div>
-        <div class="month-multiselect" id="res-mes-multiselect">
-          <button class="month-multiselect-btn" id="res-mes-btn" onclick="toggleMonthDropdown('res')">
-            <span id="res-mes-label">Todos los meses</span>
-            <span style="font-size:10px;opacity:0.6">▾</span>
-          </button>
-          <div class="month-multiselect-dropdown" id="res-mes-dropdown">
-            <div class="month-ms-header">Selecciona hasta 3 meses</div>
-            <div class="month-ms-item" onclick="toggleResMes('')"><div class="month-ms-check" id="res-ms-check-">✓</div>Todos los meses</div>
-            <div class="month-ms-item" id="res-ms-item-Enero" onclick="toggleResMes('Enero')"><div class="month-ms-check" id="res-ms-check-Enero"></div>Enero</div>
-            <div class="month-ms-item" id="res-ms-item-Febrero" onclick="toggleResMes('Febrero')"><div class="month-ms-check" id="res-ms-check-Febrero"></div>Febrero</div>
-            <div class="month-ms-item" id="res-ms-item-Marzo" onclick="toggleResMes('Marzo')"><div class="month-ms-check" id="res-ms-check-Marzo"></div>Marzo</div>
-            <div class="month-ms-item" id="res-ms-item-Abril" onclick="toggleResMes('Abril')"><div class="month-ms-check" id="res-ms-check-Abril"></div>Abril</div>
-            <div class="month-ms-item" id="res-ms-item-Mayo" onclick="toggleResMes('Mayo')"><div class="month-ms-check" id="res-ms-check-Mayo"></div>Mayo</div>
-            <div class="month-ms-item" id="res-ms-item-Junio" onclick="toggleResMes('Junio')"><div class="month-ms-check" id="res-ms-check-Junio"></div>Junio</div>
-            <div class="month-ms-item" id="res-ms-item-Julio" onclick="toggleResMes('Julio')"><div class="month-ms-check" id="res-ms-check-Julio"></div>Julio</div>
-            <div class="month-ms-item" id="res-ms-item-Agosto" onclick="toggleResMes('Agosto')"><div class="month-ms-check" id="res-ms-check-Agosto"></div>Agosto</div>
-            <div class="month-ms-item" id="res-ms-item-Septiembre" onclick="toggleResMes('Septiembre')"><div class="month-ms-check" id="res-ms-check-Septiembre"></div>Septiembre</div>
-            <div class="month-ms-item" id="res-ms-item-Octubre" onclick="toggleResMes('Octubre')"><div class="month-ms-check" id="res-ms-check-Octubre"></div>Octubre</div>
-            <div class="month-ms-footer" id="res-ms-footer">0 / 3 seleccionados</div>
-          </div>
-        </div>
-        <select id="fil-anio-r" onchange="renderResultados()">
-          <option value="">Todos los años</option>
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-          <option value="2028">2028</option>
-        </select>
-        <select id="fil-estado" onchange="renderResultados()">
-          <option value="">Todos</option>
-          <option value="Aprobado">Solo Aprobados</option>
-          <option value="Reprobado">Solo Reprobados</option>
-        </select>
-        <input id="fil-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderResultados()"
-          style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
-                 background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none">
-      </div>
+      <!-- Bloque de filtros unificado Resultados -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
 
-      <!-- Filtros de modalidad Resultados -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-        <span style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-right:4px">Tipo:</span>
-        <button id="res-mod-all"           onclick="setResModalidad('')"              style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .15s">Todos</button>
-        <button id="res-mod-mensual"       onclick="setResModalidad('mensual')"       style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">📅 Mensual</button>
-        <button id="res-mod-asesor-nuevo"  onclick="setResModalidad('asesor-nuevo')"  style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">🆕 Asesor Nuevo</button>
-        <button id="res-mod-fortalecimiento" onclick="setResModalidad('fortalecimiento')" style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">💪 Fortalecimiento</button>
+        <!-- Fila 1: filtros de datos -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="fil-supervisor" onchange="renderResultados()" style="display:none">
+            <option value="">Todos los supervisores</option>
+          </select>
+          <div class="month-multiselect" id="res-sup-multiselect">
+            <button class="month-multiselect-btn" id="res-sup-btn" onclick="toggleResSupDropdown()">
+              <span id="res-sup-label">Todos los supervisores</span>
+              <span style="font-size:10px;opacity:0.6">▾</span>
+            </button>
+            <div class="month-multiselect-dropdown" id="res-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
+              <div class="month-ms-item" onclick="toggleResSupAll()">
+                <div class="month-ms-check" id="res-sup-check-all">✓</div>Todos los supervisores
+              </div>
+              <div id="res-sup-items"></div>
+              <div class="month-ms-footer" id="res-sup-footer">Todos seleccionados</div>
+            </div>
+          </div>
+          <div class="month-multiselect" id="res-mes-multiselect">
+            <button class="month-multiselect-btn" id="res-mes-btn" onclick="toggleMonthDropdown('res')">
+              <span id="res-mes-label">Todos los meses</span>
+              <span style="font-size:10px;opacity:0.6">▾</span>
+            </button>
+            <div class="month-multiselect-dropdown" id="res-mes-dropdown">
+              <div class="month-ms-header">Selecciona hasta 3 meses</div>
+              <div class="month-ms-item" onclick="toggleResMes('')"><div class="month-ms-check" id="res-ms-check-">✓</div>Todos los meses</div>
+              <div class="month-ms-item" id="res-ms-item-Enero" onclick="toggleResMes('Enero')"><div class="month-ms-check" id="res-ms-check-Enero"></div>Enero</div>
+              <div class="month-ms-item" id="res-ms-item-Febrero" onclick="toggleResMes('Febrero')"><div class="month-ms-check" id="res-ms-check-Febrero"></div>Febrero</div>
+              <div class="month-ms-item" id="res-ms-item-Marzo" onclick="toggleResMes('Marzo')"><div class="month-ms-check" id="res-ms-check-Marzo"></div>Marzo</div>
+              <div class="month-ms-item" id="res-ms-item-Abril" onclick="toggleResMes('Abril')"><div class="month-ms-check" id="res-ms-check-Abril"></div>Abril</div>
+              <div class="month-ms-item" id="res-ms-item-Mayo" onclick="toggleResMes('Mayo')"><div class="month-ms-check" id="res-ms-check-Mayo"></div>Mayo</div>
+              <div class="month-ms-item" id="res-ms-item-Junio" onclick="toggleResMes('Junio')"><div class="month-ms-check" id="res-ms-check-Junio"></div>Junio</div>
+              <div class="month-ms-item" id="res-ms-item-Julio" onclick="toggleResMes('Julio')"><div class="month-ms-check" id="res-ms-check-Julio"></div>Julio</div>
+              <div class="month-ms-item" id="res-ms-item-Agosto" onclick="toggleResMes('Agosto')"><div class="month-ms-check" id="res-ms-check-Agosto"></div>Agosto</div>
+              <div class="month-ms-item" id="res-ms-item-Septiembre" onclick="toggleResMes('Septiembre')"><div class="month-ms-check" id="res-ms-check-Septiembre"></div>Septiembre</div>
+              <div class="month-ms-item" id="res-ms-item-Octubre" onclick="toggleResMes('Octubre')"><div class="month-ms-check" id="res-ms-check-Octubre"></div>Octubre</div>
+              <div class="month-ms-footer" id="res-ms-footer">0 / 3 seleccionados</div>
+            </div>
+          </div>
+          <select id="fil-anio-r" onchange="renderResultados()">
+            <option value="">Todos los años</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+          </select>
+          <select id="fil-estado" onchange="renderResultados()">
+            <option value="">Todos</option>
+            <option value="Aprobado">Solo Aprobados</option>
+            <option value="Reprobado">Solo Reprobados</option>
+          </select>
+          <input id="fil-buscar-asesor" type="text" placeholder="🔍 Buscar asesor..." oninput="renderResultados()"
+            style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                   background:var(--surface2);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none;flex:1">
+        </div>
+
+        <!-- Separador -->
+        <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+
+        <!-- Fila 2: tipo de evaluación -->
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:10px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap">Tipo</span>
+          <div style="display:flex;background:var(--surface2);border-radius:8px;padding:3px;gap:2px">
+            <button id="res-mod-all"             onclick="setResModalidad('')"               style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.15)">Todos</button>
+            <button id="res-mod-mensual"         onclick="setResModalidad('mensual')"        style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">📅 Mensual</button>
+            <button id="res-mod-asesor-nuevo"    onclick="setResModalidad('asesor-nuevo')"   style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">🆕 Asesor Nuevo</button>
+            <button id="res-mod-fortalecimiento" onclick="setResModalidad('fortalecimiento')" style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">💪 Fortalecimiento</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Gauges KPI Resultados -->
@@ -1852,131 +1863,136 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <span style="font-size:16px">⬇</span> Descargar Excel
         </button>
       </div>
-      <div class="filters" style="margin-bottom:12px">
-        <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="display:none">
-          <option value="">Todos los supervisores</option>
-        </select>
-        <div class="month-multiselect" id="hist-sup-multiselect">
-          <button class="month-multiselect-btn" id="hist-sup-btn" onclick="toggleHistSupDropdown()">
-            <span id="hist-sup-label">Todos los supervisores</span>
-            <span style="font-size:10px;opacity:0.6">▾</span>
-          </button>
-          <div class="month-multiselect-dropdown" id="hist-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
-            <div class="month-ms-item" onclick="toggleHistSupAll()">
-              <div class="month-ms-check" id="hist-sup-check-all">✓</div>Todos los supervisores
-            </div>
-            <div id="hist-sup-items"></div>
-            <div class="month-ms-footer" id="hist-sup-footer">Todos seleccionados</div>
-          </div>
-        </div>
-        <select id="hist-asesor" onchange="renderHistorico()" style="min-width:200px">
-          <option value="">Todos los asesores</option>
-        </select>
+      <!-- Bloque de filtros unificado Histórico -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
 
-        <!-- Multi-año selector -->
-        <div style="position:relative;display:inline-block" id="hist-anio-dropdown-wrap">
-          <button onclick="toggleHistAnioDropdown()" id="hist-anio-trigger"
-            style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-sm);
-                   border:1px solid var(--border);background:var(--surface);color:var(--text2);
-                   font-family:'Montserrat',sans-serif;font-size:13px;cursor:pointer;
-                   min-width:160px;justify-content:space-between">
-            <div style="display:flex;align-items:center;gap:7px">
-              <span style="font-size:14px">📆</span>
-              <span id="hist-anio-label">Todos los años</span>
+        <!-- Fila 1: supervisor + asesor + año -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="hist-supervisor" onchange="filtrarAsesoresHistorico()" style="display:none">
+            <option value="">Todos los supervisores</option>
+          </select>
+          <div class="month-multiselect" id="hist-sup-multiselect">
+            <button class="month-multiselect-btn" id="hist-sup-btn" onclick="toggleHistSupDropdown()">
+              <span id="hist-sup-label">Todos los supervisores</span>
+              <span style="font-size:10px;opacity:0.6">▾</span>
+            </button>
+            <div class="month-multiselect-dropdown" id="hist-sup-dropdown" style="min-width:240px;max-height:300px;overflow-y:auto">
+              <div class="month-ms-item" onclick="toggleHistSupAll()">
+                <div class="month-ms-check" id="hist-sup-check-all">✓</div>Todos los supervisores
+              </div>
+              <div id="hist-sup-items"></div>
+              <div class="month-ms-footer" id="hist-sup-footer">Todos seleccionados</div>
             </div>
-            <span id="hist-anio-arrow" style="font-size:11px;color:var(--text3);transition:transform .2s">▾</span>
-          </button>
-          <div id="hist-anio-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;
-            z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-            padding:14px;min-width:200px;box-shadow:0 8px 28px rgba(0,0,0,0.13)">
-            <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                        letter-spacing:0.08em;color:var(--text3);margin-bottom:10px">Selecciona años</div>
-            <div style="display:flex;flex-direction:column;gap:4px">
-              <div onclick="toggleHistAnio('')"
-                style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
-                       cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
-                onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-                <span id="hist-anio-check-" style="font-size:13px;color:var(--accent);width:16px">✓</span>Todos los años
+          </div>
+          <select id="hist-asesor" onchange="renderHistorico()" style="min-width:200px">
+            <option value="">Todos los asesores</option>
+          </select>
+          <!-- Multi-mes selector -->
+          <div style="position:relative;display:inline-block" id="hist-mes-dropdown-wrap">
+            <button onclick="toggleHistMesDropdown()" id="hist-mes-trigger"
+              style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-sm);
+                     border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+                     font-family:'Montserrat',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;
+                     min-width:170px;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font-size:13px">📅</span>
+                <span id="hist-mes-label">Todos los meses</span>
               </div>
-              <div onclick="toggleHistAnio('2026')" id="hist-anio-item-2026"
-                style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
-                       cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
-                onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-                <span id="hist-anio-check-2026" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2026
+              <span id="hist-mes-arrow" style="font-size:11px;color:var(--text3);transition:transform .2s">▾</span>
+            </button>
+            <div id="hist-mes-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;
+              z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+              padding:14px;min-width:220px;box-shadow:0 8px 28px rgba(0,0,0,0.13)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                             letter-spacing:0.08em;color:var(--text3)">Meses</span>
+                <div style="display:flex;gap:6px">
+                  <button onclick="selectAllHistMeses()"
+                    style="padding:3px 10px;border-radius:20px;border:1px solid var(--border);
+                           background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;
+                           font-family:'Montserrat',sans-serif">Todos</button>
+                  <button onclick="clearHistMeses()"
+                    style="padding:3px 10px;border-radius:20px;border:1px solid var(--border);
+                           background:var(--surface2);color:var(--fail);font-size:11px;cursor:pointer;
+                           font-family:'Montserrat',sans-serif">Limpiar</button>
+                </div>
               </div>
-              <div onclick="toggleHistAnio('2027')" id="hist-anio-item-2027"
-                style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
-                       cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
-                onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-                <span id="hist-anio-check-2027" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2027
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div onclick="toggleHistMes('Enero')" id="hist-mes-item-Enero" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Enero" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Enero</div>
+                <div onclick="toggleHistMes('Febrero')" id="hist-mes-item-Febrero" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Febrero" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Febrero</div>
+                <div onclick="toggleHistMes('Marzo')" id="hist-mes-item-Marzo" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Marzo" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Marzo</div>
+                <div onclick="toggleHistMes('Abril')" id="hist-mes-item-Abril" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Abril" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Abril</div>
+                <div onclick="toggleHistMes('Mayo')" id="hist-mes-item-Mayo" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Mayo" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Mayo</div>
+                <div onclick="toggleHistMes('Junio')" id="hist-mes-item-Junio" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Junio" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Junio</div>
+                <div onclick="toggleHistMes('Julio')" id="hist-mes-item-Julio" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Julio" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Julio</div>
+                <div onclick="toggleHistMes('Agosto')" id="hist-mes-item-Agosto" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Agosto" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Agosto</div>
+                <div onclick="toggleHistMes('Septiembre')" id="hist-mes-item-Septiembre" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Septiembre" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Septiembre</div>
+                <div onclick="toggleHistMes('Octubre')" id="hist-mes-item-Octubre" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Octubre" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Octubre</div>
               </div>
-              <div onclick="toggleHistAnio('2028')" id="hist-anio-item-2028"
-                style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
-                       cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
-                onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-                <span id="hist-anio-check-2028" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2028
+            </div>
+          </div>
+          <!-- Multi-año selector -->
+          <div style="position:relative;display:inline-block" id="hist-anio-dropdown-wrap">
+            <button onclick="toggleHistAnioDropdown()" id="hist-anio-trigger"
+              style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-sm);
+                     border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+                     font-family:'Montserrat',sans-serif;font-size:13px;cursor:pointer;
+                     min-width:150px;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font-size:13px">📆</span>
+                <span id="hist-anio-label">Todos los años</span>
+              </div>
+              <span id="hist-anio-arrow" style="font-size:11px;color:var(--text3);transition:transform .2s">▾</span>
+            </button>
+            <div id="hist-anio-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;
+              z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+              padding:14px;min-width:200px;box-shadow:0 8px 28px rgba(0,0,0,0.13)">
+              <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                          letter-spacing:0.08em;color:var(--text3);margin-bottom:10px">Selecciona años</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div onclick="toggleHistAnio('')"
+                  style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
+                         cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
+                  onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+                  <span id="hist-anio-check-" style="font-size:13px;color:var(--accent);width:16px">✓</span>Todos los años
+                </div>
+                <div onclick="toggleHistAnio('2026')" id="hist-anio-item-2026"
+                  style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
+                         cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
+                  onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+                  <span id="hist-anio-check-2026" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2026
+                </div>
+                <div onclick="toggleHistAnio('2027')" id="hist-anio-item-2027"
+                  style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
+                         cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
+                  onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+                  <span id="hist-anio-check-2027" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2027
+                </div>
+                <div onclick="toggleHistAnio('2028')" id="hist-anio-item-2028"
+                  style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);
+                         cursor:pointer;font-size:13px;color:var(--text2);transition:background .12s"
+                  onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+                  <span id="hist-anio-check-2028" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>2028
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <!-- Filtros fila 2: meses -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-        <!-- Multi-mes selector -->
-        <div style="position:relative;display:inline-block" id="hist-mes-dropdown-wrap">
-          <button onclick="toggleHistMesDropdown()" id="hist-mes-trigger"
-            style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-sm);
-                   border:1px solid var(--border);background:var(--surface);color:var(--text2);
-                   font-family:'Montserrat',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;
-                   min-width:190px;justify-content:space-between">
-            <div style="display:flex;align-items:center;gap:7px">
-              <span style="font-size:14px">📅</span>
-              <span id="hist-mes-label">Todos los meses</span>
-            </div>
-            <span id="hist-mes-arrow" style="font-size:11px;color:var(--text3);transition:transform .2s">▾</span>
-          </button>
 
-          <div id="hist-mes-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;
-            z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-            padding:14px;min-width:220px;box-shadow:0 8px 28px rgba(0,0,0,0.13)">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-              <span style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.08em;color:var(--text3)">Meses</span>
-              <div style="display:flex;gap:6px">
-                <button onclick="selectAllHistMeses()"
-                  style="padding:3px 10px;border-radius:20px;border:1px solid var(--border);
-                         background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;
-                         font-family:'Montserrat',sans-serif">Todos</button>
-                <button onclick="clearHistMeses()"
-                  style="padding:3px 10px;border-radius:20px;border:1px solid var(--border);
-                         background:var(--surface2);color:var(--fail);font-size:11px;cursor:pointer;
-                         font-family:'Montserrat',sans-serif">Limpiar</button>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:2px">
-              <div onclick="toggleHistMes('Enero')" id="hist-mes-item-Enero" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Enero" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Enero</div>
-              <div onclick="toggleHistMes('Febrero')" id="hist-mes-item-Febrero" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Febrero" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Febrero</div>
-              <div onclick="toggleHistMes('Marzo')" id="hist-mes-item-Marzo" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Marzo" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Marzo</div>
-              <div onclick="toggleHistMes('Abril')" id="hist-mes-item-Abril" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Abril" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Abril</div>
-              <div onclick="toggleHistMes('Mayo')" id="hist-mes-item-Mayo" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Mayo" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Mayo</div>
-              <div onclick="toggleHistMes('Junio')" id="hist-mes-item-Junio" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Junio" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Junio</div>
-              <div onclick="toggleHistMes('Julio')" id="hist-mes-item-Julio" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Julio" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Julio</div>
-              <div onclick="toggleHistMes('Agosto')" id="hist-mes-item-Agosto" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Agosto" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Agosto</div>
-              <div onclick="toggleHistMes('Septiembre')" id="hist-mes-item-Septiembre" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Septiembre" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Septiembre</div>
-              <div onclick="toggleHistMes('Octubre')" id="hist-mes-item-Octubre" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''"><span id="hist-mes-btn-Octubre" style="font-size:13px;color:var(--accent);width:16px;opacity:0">✓</span>Octubre</div>
-              
-              
-            </div>
+        <!-- Separador -->
+        <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+
+        <!-- Fila 2: tipo de evaluación -->
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:10px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap">Tipo</span>
+          <div style="display:flex;background:var(--surface2);border-radius:8px;padding:3px;gap:2px">
+            <button id="hist-mod-all"            onclick="setHistModalidad('')"               style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.15)">Todos</button>
+            <button id="hist-mod-mensual"        onclick="setHistModalidad('mensual')"        style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">📅 Mensual</button>
+            <button id="hist-mod-asesor-nuevo"   onclick="setHistModalidad('asesor-nuevo')"   style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">🆕 Asesor Nuevo</button>
+            <button id="hist-mod-fortalecimiento" onclick="setHistModalidad('fortalecimiento')" style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">💪 Fortalecimiento</button>
           </div>
         </div>
-      </div>
-      <!-- Filtros de modalidad Histórico -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-        <span style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-right:4px">Tipo:</span>
-        <button id="hist-mod-all"            onclick="setHistModalidad('')"               style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .15s">Todos</button>
-        <button id="hist-mod-mensual"        onclick="setHistModalidad('mensual')"        style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">📅 Mensual</button>
-        <button id="hist-mod-asesor-nuevo"   onclick="setHistModalidad('asesor-nuevo')"   style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">🆕 Asesor Nuevo</button>
-        <button id="hist-mod-fortalecimiento" onclick="setHistModalidad('fortalecimiento')" style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">💪 Fortalecimiento</button>
+
       </div>
       <div id="hist-content"></div>
     </div>
@@ -5833,9 +5849,11 @@ function setResModalidad(mod) {
     const el = document.getElementById(id);
     if (!el) return;
     if (val === mod) {
-      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.border = 'none'; el.style.fontWeight = '700';
+      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.fontWeight = '700';
+      el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
     } else {
-      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.border = '1px solid var(--border)'; el.style.fontWeight = '600';
+      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.fontWeight = '600';
+      el.style.boxShadow = 'none';
     }
   });
   renderResultados();
@@ -5846,9 +5864,11 @@ function setHistModalidad(mod) {
     const el = document.getElementById(id);
     if (!el) return;
     if (val === mod) {
-      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.border = 'none'; el.style.fontWeight = '700';
+      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.fontWeight = '700';
+      el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
     } else {
-      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.border = '1px solid var(--border)'; el.style.fontWeight = '600';
+      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.fontWeight = '600';
+      el.style.boxShadow = 'none';
     }
   });
   renderHistorico();
