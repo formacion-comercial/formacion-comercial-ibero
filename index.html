@@ -1730,6 +1730,15 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                  background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;min-width:190px;outline:none">
       </div>
 
+      <!-- Filtros de modalidad Resultados -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <span style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-right:4px">Tipo:</span>
+        <button id="res-mod-all"           onclick="setResModalidad('')"              style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .15s">Todos</button>
+        <button id="res-mod-mensual"       onclick="setResModalidad('mensual')"       style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">📅 Mensual</button>
+        <button id="res-mod-asesor-nuevo"  onclick="setResModalidad('asesor-nuevo')"  style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">🆕 Asesor Nuevo</button>
+        <button id="res-mod-fortalecimiento" onclick="setResModalidad('fortalecimiento')" style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">💪 Fortalecimiento</button>
+      </div>
+
       <!-- Gauges KPI Resultados -->
       <div id="res-gauge-row" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:20px"></div>
 
@@ -1960,6 +1969,14 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             </div>
           </div>
         </div>
+      </div>
+      <!-- Filtros de modalidad Histórico -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <span style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-right:4px">Tipo:</span>
+        <button id="hist-mod-all"            onclick="setHistModalidad('')"               style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .15s">Todos</button>
+        <button id="hist-mod-mensual"        onclick="setHistModalidad('mensual')"        style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">📅 Mensual</button>
+        <button id="hist-mod-asesor-nuevo"   onclick="setHistModalidad('asesor-nuevo')"   style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">🆕 Asesor Nuevo</button>
+        <button id="hist-mod-fortalecimiento" onclick="setHistModalidad('fortalecimiento')" style="padding:6px 14px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);border:1px solid var(--border);font-family:'Montserrat',sans-serif;transition:all .15s">💪 Fortalecimiento</button>
       </div>
       <div id="hist-content"></div>
     </div>
@@ -5447,6 +5464,7 @@ let dbMesesActivos   = [];   // up to 3 months for dashboard
 let rankMesesActivos = [];   // up to 3 months for ranking
 let fiMesesActivos   = [];   // up to 3 months for Formación Inicial
 let resMesesActivos  = [];   // up to 3 months for Resultados
+let resModalidadFil  = '';   // '' | 'mensual' | 'asesor-nuevo' | 'fortalecimiento'
 
 function toggleMonthDropdown(prefix) {
   const drop = document.getElementById(prefix + '-mes-dropdown');
@@ -5808,6 +5826,32 @@ function setProgramaSupervisor(supervisor, prog) {
   if (!state.programaPorSupervisor) state.programaPorSupervisor = {};
   state.programaPorSupervisor[norm(supervisor)] = prog;
   save();
+}
+function setResModalidad(mod) {
+  resModalidadFil = mod;
+  [['','res-mod-all'],['mensual','res-mod-mensual'],['asesor-nuevo','res-mod-asesor-nuevo'],['fortalecimiento','res-mod-fortalecimiento']].forEach(([val, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (val === mod) {
+      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.border = 'none'; el.style.fontWeight = '700';
+    } else {
+      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.border = '1px solid var(--border)'; el.style.fontWeight = '600';
+    }
+  });
+  renderResultados();
+}
+function setHistModalidad(mod) {
+  histModalidadFil = mod;
+  [['','hist-mod-all'],['mensual','hist-mod-mensual'],['asesor-nuevo','hist-mod-asesor-nuevo'],['fortalecimiento','hist-mod-fortalecimiento']].forEach(([val, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (val === mod) {
+      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.border = 'none'; el.style.fontWeight = '700';
+    } else {
+      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.border = '1px solid var(--border)'; el.style.fontWeight = '600';
+    }
+  });
+  renderHistorico();
 }
 function setDbModalidad(mod) {
   dbModalidadFil = mod;
@@ -6588,6 +6632,7 @@ function renderResultados() {
   let evs = state.evaluaciones.filter(e => !supFilArr.length || supFilArr.includes(e.supervisor));
   if (resMesesActivos.length > 0) evs = evs.filter(e => resMesesActivos.includes(e.mes));
   if (anioF) evs = evs.filter(e => String(e.anio) === anioF);
+  if (resModalidadFil) evs = evs.filter(e => (e.modalidad || 'mensual') === resModalidadFil);
 
   if (estado === 'Aprobado')  evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
   if (estado === 'Reprobado') evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
@@ -6618,20 +6663,22 @@ function renderResultados() {
   tbl.innerHTML = `
     <thead><tr>
       <th>Asesor</th><th>Supervisor</th><th>Mes / Año</th><th>Fecha</th>
-      <th>Actividad</th><th>Puntaje</th><th>% Correctas</th><th>Estado</th><th></th>
+      <th>Tipo</th><th>Actividad</th><th>Puntaje</th><th>% Correctas</th><th>Estado</th><th></th>
     </tr></thead>
     <tbody>
       ${evs.map(e => {
-        const t    = e.totalPreguntas || e.respuestas.length || 20;
-        const sc   = calcScore(e.respuestas);
         const _sc  = _getEvalScore(e);
         const pts  = _sc.pts; const pct = _sc.pct; const pass = _sc.pass;
-        const nota = _sc.nota; const escala = _sc.escala;
+        const nota = _sc.nota;
         const ptsLabel = nota !== null ? `${nota}/10` : `${pts}`;
         const pctLabel = nota !== null ? `${nota}/10` : `${pct}%`;
         const fecha = e.fechaRegistro
           ? new Date(e.fechaRegistro).toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})
           : '—';
+        const mod = e.modalidad || 'mensual';
+        const modLabel = mod === 'asesor-nuevo'   ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 7px;font-family:\'Fira Code\',monospace;white-space:nowrap">🆕 Nuevo</span>'
+                       : mod === 'fortalecimiento' ? '<span style="font-size:10px;background:rgba(201,165,69,0.12);color:var(--accent);border-radius:4px;padding:2px 7px;font-family:\'Fira Code\',monospace;white-space:nowrap">💪 Fort.</span>'
+                       : '<span style="font-size:10px;background:rgba(100,120,200,0.10);color:var(--text3);border-radius:4px;padding:2px 7px;font-family:\'Fira Code\',monospace;white-space:nowrap">📅 Mensual</span>';
         return `<tr>
           <td style="color:var(--text);font-weight:500;cursor:pointer" onclick="mostrarPerfilAsesor('${e.asesor.replace(/'/g,"\\'")}')">
             <span style="text-decoration:underline dotted;text-underline-offset:3px">${e.asesor}</span>
@@ -6639,9 +6686,10 @@ function renderResultados() {
           <td style="cursor:pointer" onclick="showDetalle(${e.id})">${e.supervisor || (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(e.asesor))?.supervisor) || '—'}</td>
           <td style="font-family:'Fira Code',monospace;font-size:12px;cursor:pointer" onclick="showDetalle(${e.id})">${e.mes} ${e.anio}</td>
           <td style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3);cursor:pointer" onclick="showDetalle(${e.id})">${fecha}</td>
+          <td onclick="showDetalle(${e.id})">${modLabel}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})">${e.actividad || '—'}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><div class="score-bar-wrap">
-            <div class="score-bar"><div class="score-bar-fill ${pass?'pass':'fail'}" style="width:${_sc.escala===10 ? pts : pts}%"></div></div>
+            <div class="score-bar"><div class="score-bar-fill ${pass?'pass':'fail'}" style="width:${Math.min(pts,100)}%"></div></div>
             <span class="score-val">${ptsLabel}</span>
           </div></td>
           <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pctLabel}</td>
@@ -14795,6 +14843,7 @@ function deshacerFormsImport() {
 let histSelectedMonths = [];
 let segMesesActivos = [];
 let histAniosActivos   = [];
+let histModalidadFil   = '';  // '' | 'mensual' | 'asesor-nuevo' | 'fortalecimiento'
 
 // ── Histórico: multi-año dropdown ────────────────────────────────────────────
 function toggleHistAnioDropdown() {
@@ -14973,22 +15022,27 @@ function filtrarAsesoresHistorico() {
   renderHistorico();
 }
 
-function _histDataForAsesor(asesorNombre) {
+function _histDataForAsesor(asesorNombre, modalidadFil) {
   const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   const normNombre = _nr(asesorNombre);
   const asesor = state.asesores.find(a => _nr(a.nombre) === normNombre);
   const supervisor = asesor ? asesor.supervisor : '';
   const registros = (state.historicoAsesores || {})[asesorNombre + '||' + supervisor] || [];
   const map = {};
-  state.evaluaciones.filter(e => _nr(e.asesor) === normNombre).forEach(e => {
+  let evsAsesor = state.evaluaciones.filter(e => _nr(e.asesor) === normNombre);
+  if (modalidadFil) evsAsesor = evsAsesor.filter(e => (e.modalidad || 'mensual') === modalidadFil);
+  evsAsesor.forEach(e => {
     const k = e.mes + '||' + (e.anio || '2026');
     if (!map[k]) {
-      const t = e.totalPreguntas || (e.respuestas && e.respuestas.length) || 20;
-      const corr = e.correctas !== undefined ? e.correctas : (e.respuestas ? e.respuestas.reduce((a,b)=>a+b,0) : 0);
-      map[k] = { mes: e.mes, anio: e.anio || '2026', pct: e.pct !== undefined ? e.pct : Math.round((corr/t)*100) };
+      const sc = _getEvalScore(e);
+      const pctVal = sc.nota !== null ? Math.round(sc.nota * 10) : sc.pct;
+      map[k] = { mes: e.mes, anio: e.anio || '2026', pct: pctVal, nota: sc.nota, modalidad: e.modalidad || 'mensual' };
     }
   });
-  registros.forEach(r => { map[r.mes + '||' + r.anio] = r; });
+  // Only include historical records if no modalidad filter (they don't carry modalidad info)
+  if (!modalidadFil) {
+    registros.forEach(r => { map[r.mes + '||' + r.anio] = r; });
+  }
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre'];
   return Object.values(map).sort((a,b) =>
     (Number(a.anio)||2026)*12 + MESES.indexOf(a.mes) - ((Number(b.anio)||2026)*12 + MESES.indexOf(b.mes))
@@ -15038,7 +15092,7 @@ function exportHistoricoExcel() {
 
   let rows = '';
   lista.forEach((a, ai) => {
-    const allData = _histDataForAsesor(a.nombre);
+    const allData = _histDataForAsesor(a.nombre, histModalidadFil);
     const dataFil = allData.filter(r =>
       (!histAniosActivos.length || histAniosActivos.includes(String(r.anio)))
     );
@@ -15156,7 +15210,7 @@ function renderHistorico() {
       return;
     }
     const filas = lista.map(a => {
-      const allData = _histDataForAsesor(a.nombre);
+      const allData = _histDataForAsesor(a.nombre, histModalidadFil);
       const data = allData.filter(r =>
         (!histAniosActivos.length || histAniosActivos.includes(String(r.anio))) &&
         (!histSelectedMonths.length || histSelectedMonths.includes(r.mes))
@@ -15197,18 +15251,31 @@ function renderHistorico() {
               ? '<span class="badge badge-pass">✓ Cumple meta</span>'
               : '<span class="badge badge-fail">✗ Bajo meta</span>';
           const periodRows = data.length
-            ? data.map(r => `
+            ? data.map(r => {
+                const esNuevo  = r.modalidad === 'asesor-nuevo';
+                const esFort   = r.modalidad === 'fortalecimiento';
+                const passThreshold = esNuevo ? 60 : 95;
+                const label = esNuevo && r.nota != null
+                  ? `${r.nota}/10`
+                  : `${r.pct}%`;
+                const modBadge = esNuevo
+                  ? `<span style="font-size:9px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:1px 5px;font-family:'Fira Code',monospace;margin-left:4px">Nuevo</span>`
+                  : esFort
+                    ? `<span style="font-size:9px;background:rgba(201,165,69,0.12);color:var(--accent);border-radius:4px;padding:1px 5px;font-family:'Fira Code',monospace;margin-left:4px">Fort.</span>`
+                    : '';
+                return `
                 <div style="display:flex;align-items:center;justify-content:space-between;
                      padding:7px 0;border-bottom:1px solid var(--border)">
-                  <div style="font-size:13px;color:var(--text2)">${r.mes} <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3)">${r.anio}</span></div>
+                  <div style="font-size:13px;color:var(--text2)">${r.mes} <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3)">${r.anio}</span>${modBadge}</div>
                   <div style="display:flex;align-items:center;gap:10px">
                     <div style="width:80px;height:5px;background:var(--surface3);border-radius:100px;overflow:hidden">
-                      <div style="height:100%;width:${r.pct}%;background:${r.pct>=PASS?'var(--pass)':'var(--fail)'};border-radius:100px"></div>
+                      <div style="height:100%;width:${Math.min(r.pct,100)}%;background:${r.pct>=passThreshold?'var(--pass)':'var(--fail)'};border-radius:100px"></div>
                     </div>
                     <span style="font-family:'Fira Code',monospace;font-size:12px;font-weight:600;
-                          color:${r.pct>=PASS?'var(--pass)':'var(--fail)'};min-width:38px;text-align:right">${r.pct}%</span>
+                          color:${r.pct>=passThreshold?'var(--pass)':'var(--fail)'};min-width:44px;text-align:right">${label}</span>
                   </div>
-                </div>`).join('')
+                </div>`;
+              }).join('')
             : '<div style="font-size:12px;color:var(--text3);padding:12px 0;text-align:center">Sin evaluaciones en este período</div>';
 
           return `
@@ -15255,7 +15322,7 @@ function renderHistorico() {
   }
 
   // ── Vista: asesor individual ───────────────────────────────────────────────
-  const allData = _histDataForAsesor(asesorNombre);
+  const allData = _histDataForAsesor(asesorNombre, histModalidadFil);
   const data = allData.filter(r =>
     (!histAniosActivos.length || histAniosActivos.includes(String(r.anio))) &&
     (!histSelectedMonths.length || histSelectedMonths.includes(r.mes))
