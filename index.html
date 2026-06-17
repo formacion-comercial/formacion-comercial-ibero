@@ -2239,6 +2239,18 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           </button>
         </div>
 
+        <!-- Separador + Tipo de evaluación -->
+        <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:10px;font-family:'Fira Code',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:0.09em;white-space:nowrap">Tipo de evaluación</span>
+          <div style="display:flex;background:var(--surface2);border-radius:8px;padding:3px;gap:2px">
+            <button id="rep-mod-all"            onclick="setRepModalidad('')"               style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.15)">Todos</button>
+            <button id="rep-mod-mensual"        onclick="setRepModalidad('mensual')"        style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">📅 Mensual</button>
+            <button id="rep-mod-asesor-nuevo"   onclick="setRepModalidad('asesor-nuevo')"   style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">🆕 Asesor Nuevo</button>
+            <button id="rep-mod-fortalecimiento" onclick="setRepModalidad('fortalecimiento')" style="padding:6px 16px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'Montserrat',sans-serif;transition:all .18s;white-space:nowrap">💪 Fortalecimiento</button>
+          </div>
+        </div>
+
         <!-- Chip resumen de filtros activos -->
         <div id="rep-filtros-activos" style="display:none;margin-top:12px;display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
@@ -5843,6 +5855,21 @@ function setProgramaSupervisor(supervisor, prog) {
   state.programaPorSupervisor[norm(supervisor)] = prog;
   save();
 }
+function setRepModalidad(mod) {
+  repModalidadFil = mod;
+  [['','rep-mod-all'],['mensual','rep-mod-mensual'],['asesor-nuevo','rep-mod-asesor-nuevo'],['fortalecimiento','rep-mod-fortalecimiento']].forEach(([val, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (val === mod) {
+      el.style.background = 'var(--accent)'; el.style.color = '#fff'; el.style.fontWeight = '700';
+      el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)';
+    } else {
+      el.style.background = 'transparent'; el.style.color = 'var(--text2)'; el.style.fontWeight = '600';
+      el.style.boxShadow = 'none';
+    }
+  });
+  renderReporte();
+}
 function setResModalidad(mod) {
   resModalidadFil = mod;
   [['','res-mod-all'],['mensual','res-mod-mensual'],['asesor-nuevo','res-mod-asesor-nuevo'],['fortalecimiento','res-mod-fortalecimiento']].forEach(([val, id]) => {
@@ -7375,6 +7402,7 @@ function limpiarFiltrosReporte() {
   document.getElementById('rep-anio').value = '';
   const repTipo = document.getElementById('rep-tipo-asesor');
   if (repTipo) repTipo.value = '';
+  setRepModalidad('');
   renderReporte();
 }
 
@@ -8351,11 +8379,15 @@ function renderReporte() {
   // Chips de filtros activos
   const chipDiv = document.getElementById('rep-filtros-activos');
   const chips = [];
-  if (sup)        chips.push(_chip(`Supervisor: ${sup}`,      `document.getElementById('rep-supervisor').value='';onRepSupervisorChange()`));
-  if (asesor)     chips.push(_chip(`Asesor: ${asesor}`,       `document.getElementById('rep-asesor').value='';renderReporte()`));
-  if (mes)        chips.push(_chip(`Mes: ${mes}`,             `selRepMes('')`));
-  if (anio)       chips.push(_chip(`Año: ${anio}`,            `document.getElementById('rep-anio').value='';renderReporte()`));
-  if (tipoAsesor) chips.push(_chip(`Tipo: ${tipoAsesor}`,     `document.getElementById('rep-tipo-asesor').value='';renderReporte()`));
+  if (sup)           chips.push(_chip(`Supervisor: ${sup}`,      `document.getElementById('rep-supervisor').value='';onRepSupervisorChange()`));
+  if (asesor)        chips.push(_chip(`Asesor: ${asesor}`,       `document.getElementById('rep-asesor').value='';renderReporte()`));
+  if (mes)           chips.push(_chip(`Mes: ${mes}`,             `selRepMes('')`));
+  if (anio)          chips.push(_chip(`Año: ${anio}`,            `document.getElementById('rep-anio').value='';renderReporte()`));
+  if (tipoAsesor)    chips.push(_chip(`Tipo: ${tipoAsesor}`,     `document.getElementById('rep-tipo-asesor').value='';renderReporte()`));
+  if (repModalidadFil) {
+    const modLabel = repModalidadFil === 'asesor-nuevo' ? '🆕 Asesor Nuevo' : repModalidadFil === 'fortalecimiento' ? '💪 Fortalecimiento' : '📅 Mensual';
+    chips.push(_chip(`Evaluación: ${modLabel}`, `setRepModalidad('')`));
+  }
   if (chipDiv) {
     chipDiv.style.display = chips.length ? 'flex' : 'none';
     chipDiv.innerHTML = chips.join('');
@@ -8363,11 +8395,12 @@ function renderReporte() {
 
   // Filtrar evaluaciones
   let evs = state.evaluaciones.filter(e =>
-    (!sup        || e.supervisor === sup) &&
-    (!asesor     || e.asesor    === asesor) &&
-    (!mes        || e.mes       === mes) &&
-    (!anio       || String(e.anio) === anio) &&
-    (!tipoAsesor || _getTipoAsesor(e.asesor) === tipoAsesor)
+    (!sup           || e.supervisor === sup) &&
+    (!asesor        || e.asesor    === asesor) &&
+    (!mes           || e.mes       === mes) &&
+    (!anio          || String(e.anio) === anio) &&
+    (!tipoAsesor    || _getTipoAsesor(e.asesor) === tipoAsesor) &&
+    (!repModalidadFil || (e.modalidad || 'mensual') === repModalidadFil)
   );
 
   if (!evs.length) {
@@ -14864,6 +14897,7 @@ let histSelectedMonths = [];
 let segMesesActivos = [];
 let histAniosActivos   = [];
 let histModalidadFil   = '';  // '' | 'mensual' | 'asesor-nuevo' | 'fortalecimiento'
+let repModalidadFil    = '';  // '' | 'mensual' | 'asesor-nuevo' | 'fortalecimiento'
 
 // ── Histórico: multi-año dropdown ────────────────────────────────────────────
 function toggleHistAnioDropdown() {
