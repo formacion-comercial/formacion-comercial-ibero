@@ -8477,11 +8477,20 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const _bank = state.preguntasPorSupMes || {};
+    const _bank  = state.preguntasPorSupMes || {};
+    const _bankI = state.preguntasPorSupMesInicial || {};
+    const _supN  = _nr2(e.supervisor || '');
     const pregs = _getPreguntas(e.supervisor, e.mes, e.anio)
                || _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio)
                || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor])
-               || (Object.entries(_bank).find(([k,v]) => k.startsWith((e.supervisor||'')+'||') && v && v.length) || [])[1]
+               // Búsqueda por prefijo exacto
+               || (Object.entries(_bank).find(([k,v])  => k.startsWith((e.supervisor||'').trim()+'||') && v && v.length) || [])[1]
+               // Búsqueda normalizada (sin tildes, minúsculas) en preguntasPorSupMes
+               || (Object.entries(_bank).find(([k,v])  => _nr2(k).startsWith(_supN+'||') && v && v.length) || [])[1]
+               // Búsqueda normalizada en preguntasPorSupMesInicial
+               || (Object.entries(_bankI).find(([k,v]) => _nr2(k).startsWith(_supN+'||') && v && v.length) || [])[1]
+               // Búsqueda normalizada por nombre de asesor
+               || (Object.entries(_bank).find(([k,v])  => _nr2(k).startsWith(_nr2(e.asesor||'')+'||') && v && v.length) || [])[1]
                || null;
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
