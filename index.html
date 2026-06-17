@@ -8434,6 +8434,30 @@ function renderReporte() {
     </div>`;
 
   // ======== RANKING: PREGUNTAS MÁS FALLIDAS POR SUPERVISOR ========
+  const _nr2 = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  function _findBankFuzzy(name, mes, anio) {
+    const bank  = state.preguntasPorSupMes  || {};
+    const abank = state.preguntasPorAsesorMes || {};
+    const nName = _nr2(name);
+    // 1. Exact lookup mes+anio and mes solo
+    const exact = (anio && bank[_supMesKey(name, mes, anio)]) || bank[_supMesKey(name, mes)];
+    if (exact) return exact;
+    // 2. Exact asesor-level lookup
+    const aKey1 = name+'||'+mes+(anio?'||'+anio:'');
+    const aKey2 = name+'||'+mes;
+    const aExact = (anio && abank[aKey1]) || abank[aKey2];
+    if (aExact) return aExact;
+    // 3. Global supervisor bank (legacy)
+    const glob = state.preguntasPorSupervisor && state.preguntasPorSupervisor[name];
+    if (glob) return glob;
+    // 4. Normalized name: any key in preguntasPorSupMes that matches the supervisor
+    const supNorm = Object.entries(bank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
+    if (supNorm) return supNorm[1];
+    // 5. Normalized name: any key in preguntasPorAsesorMes that matches the asesor
+    const asesorNorm = Object.entries(abank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
+    if (asesorNorm) return asesorNorm[1];
+    return null;
+  }
   const _rankSup = {};
   evs.forEach(e => {
     const t = e.totalPreguntas || e.respuestas.length || 20;
@@ -8441,11 +8465,8 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const _bank = state.preguntasPorSupMes || {};
-    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio)
-               || _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio)
-               || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor])
-               || (Object.entries(_bank).find(([k,v]) => k.startsWith((e.supervisor||'')+'||') && v && v.length) || [])[1]
+    const pregs = _findBankFuzzy(e.supervisor, e.mes, e.anio)
+               || _findBankFuzzy(e.asesor, e.mes, e.anio)
                || null;
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
