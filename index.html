@@ -5123,6 +5123,8 @@ function _calcNotaAsesorNuevo(correctas) {
   return Math.round((5 + Math.min(correctas, 10) * 0.5) * 10) / 10;
 }
 function _isPasoAsesorNuevo(nota) { return nota >= 6.0; }
+// Wrapper universal: usa _getEvalScore para respetar la modalidad (asesor-nuevo vs mensual)
+function _evalPaso(e) { return e ? _getEvalScore(e).pass : false; }
 function _isEvalAsesorNuevo(ev)   { return ev && ev.modalidad === 'asesor-nuevo'; }
 // Devuelve { pts (0-100), pct (0-100), pass, nota (0-10 o null), escala (10 o 100) }
 function _getEvalScore(ev) {
@@ -5258,7 +5260,7 @@ let chartPassFail = null, chartSupervisors = null;
 function destroyChart(ch) { if (ch) { try { ch.destroy(); } catch(e){} } }
 
 function renderChartPassFail(evs) {
-  const pass = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+  const pass = evs.filter(e => _evalPaso(e)).length;
   const fail = evs.length - pass;
   const ctx = document.getElementById('chart-pass-fail');
   destroyChart(chartPassFail);
@@ -6005,7 +6007,7 @@ function renderDashboard() {
 
   // ── KPIs ──
   const total    = evs.length;
-  const pass     = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+  const pass     = evs.filter(e => _evalPaso(e)).length;
   const fail     = total - pass;
   const pctPass  = total ? (pass/total)*100 : 0;
   const pctFail  = total ? (fail/total)*100 : 0;
@@ -6052,7 +6054,7 @@ function renderDashboard() {
     (!dbProgramaFil || _getProgramaSupervisor(e.supervisor) === dbProgramaFil)
   );
   const prevTotal    = prevEvs.length;
-  const prevPass     = prevEvs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+  const prevPass     = prevEvs.filter(e => _evalPaso(e)).length;
   const prevFail     = prevTotal - prevPass;
   const prevPctPass  = prevTotal ? Math.round((prevPass/prevTotal)*1000)/10 : null;
   const prevAvg      = prevTotal ? Math.round(avgArr(prevEvs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw)))*10)/10 : null;
@@ -6199,7 +6201,7 @@ function renderDashboard() {
       const grp = evs.filter(e => _getTipoAsesor(e.asesor) === tipo);
       const tot = grp.length;
       if (!tot) return '';
-      const apr = grp.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+      const apr = grp.filter(e => _evalPaso(e)).length;
       const pct = Math.round((apr/tot)*100);
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:8px">
@@ -6241,7 +6243,7 @@ function renderDashboard() {
   if (statsEl) {
     // con100 + aprobMedio + repr = total (siempre cuadra)
     const con100     = evs.filter(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw) >= 99.9).length;
-    const repr       = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+    const repr       = evs.filter(e => !_evalPaso(e)).length;
     const aprobMedio = pass - con100; // aprobados con puntaje entre umbral y 99%
 
     const statCard = (icon, bg, val, valColor, label, sub) => `
@@ -6286,7 +6288,7 @@ function renderDashboard() {
       if (!sevs.length) return null;
       const scores  = sevs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw));
       const avg     = avgArr(scores);
-      const aprobN  = sevs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+      const aprobN  = sevs.filter(e => _evalPaso(e)).length;
       const reprN   = sevs.length - aprobN;
       const pct100  = sevs.filter(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw) >= 99.9).length;
       const pctAp   = sevs.length ? Math.round((aprobN / sevs.length) * 100) : 0;
@@ -6660,7 +6662,7 @@ function guardarEvaluacion() {
   save();
 
   const pts  = calcPts(respFinal, totalPreguntas, aObj.supervisor);
-  const paso = isPaso(respFinal, totalPreguntas, aObj.supervisor);
+  const paso = _evalPaso(_evFormadora);
   showSyncToast(`✓ Evaluación guardada — ${pts}/100 pts — ${paso ? 'APROBADO' : 'REPROBADO'}`);
   initRegistro();
   document.getElementById('reg-asesor').value    = '';
@@ -6681,8 +6683,8 @@ function renderResultados() {
   if (anioF) evs = evs.filter(e => String(e.anio) === anioF);
   if (resModalidadFil) evs = evs.filter(e => (e.modalidad || 'mensual') === resModalidadFil);
 
-  if (estado === 'Aprobado')  evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
-  if (estado === 'Reprobado') evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor));
+  if (estado === 'Aprobado')  evs = evs.filter(e => _evalPaso(e));
+  if (estado === 'Reprobado') evs = evs.filter(e => !_evalPaso(e));
 
   const busqAsesor = ((document.getElementById('fil-buscar-asesor') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   if (busqAsesor) evs = evs.filter(e => (e.asesor||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(busqAsesor));
@@ -6691,7 +6693,7 @@ function renderResultados() {
   const resGaugeEl = document.getElementById('res-gauge-row');
   if (resGaugeEl) {
     const rTotal = evs.length;
-    const rPass  = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+    const rPass  = evs.filter(e => _evalPaso(e)).length;
     const rPct   = rTotal ? Math.round((rPass/rTotal)*100) : 0;
     const rAvg   = rTotal ? Math.round(avgArr(evs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw)))) : 0;
     resGaugeEl.innerHTML = rTotal === 0 ? '' : _kpiMiniCardHTML([
@@ -6787,7 +6789,7 @@ function renderRanking() {
   const supRank = state.supervisores.map(sup => {
     const sevs = evs.filter(e => e.supervisor === sup);
     const avg = sevs.length ? avgArr(sevs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, sup, e.pctRaw))) : 0;
-    const pass = sevs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+    const pass = sevs.filter(e => _evalPaso(e)).length;
     return { sup, avg, pass, total: sevs.length };
   }).filter(s => s.total > 0).sort((a,b) => b.avg - a.avg);
 
@@ -6975,7 +6977,7 @@ function renderRankingAsesores() {
       const nA   = _normR(a.nombre);
       const aevs = evs.filter(e => _normR(e.asesor) === nA);
       const avg  = aevs.length ? avgArr(aevs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, a.supervisor, e.pctRaw))) : 0;
-      const pass = aevs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+      const pass = aevs.filter(e => _evalPaso(e)).length;
       const lastEv = aevs[aevs.length-1];
       const lastScore = lastEv ? calcPctRaw(lastEv.respuestas, lastEv.totalPreguntas || lastEv.respuestas.length, a.supervisor, lastEv.pctRaw) : null;
       return { nombre: a.nombre, supervisor: a.supervisor, avg, pass, total: aevs.length, lastScore };
@@ -7214,7 +7216,7 @@ function renderPodiumPorSupervisor() { return;
         const t = e.totalPreguntas || e.respuestas.length || 20;
         return s + calcPts(e.respuestas, t, sup);
       }, 0) / aevs.length;
-      const aprobados = aevs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, sup)).length;
+      const aprobados = aevs.filter(e => _evalPaso(e)).length;
       return { nombre: a.nombre, avg: Math.round(avg * 10) / 10, total: aevs.length, aprobados };
     })
     .filter(Boolean)
@@ -8177,7 +8179,7 @@ function _sincronizarEvaluacionesEnviadas() {
         (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(ev.asesor)) || {}).supervisor || '';
       const pts  = calcPts(ev.respuestas, t, sup);
       const pct  = calcPct(ev.respuestas, t, sup);
-      const pass = isPaso(ev.respuestas, t, sup);
+      const pass = _evalPaso(ev);
       const corr = ev.respuestas.filter(r => r === 1 || r === true).length;
       state.evaluacionesEnviadas[key] = { pts, pct, pass, correctas: corr, total: t };
       changed = true;
@@ -8414,7 +8416,7 @@ function renderReporte() {
 
   const LETRAS = ['A','B','C','D'];
   const totalEvs = evs.length;
-  const aprobEv  = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+  const aprobEv  = evs.filter(e => _evalPaso(e)).length;
   const pctApro  = totalEvs ? Math.round((aprobEv/totalEvs)*100) : 0;
 
   // Banner resumen
@@ -8517,7 +8519,7 @@ function renderReporte() {
     evsAsesor.forEach(e => {
       const t     = e.totalPreguntas || e.respuestas.length || 20;
       const pts   = calcPct(e.respuestas, t, e.supervisor);
-      const pass  = isPaso(e.respuestas, t, e.supervisor);
+      const pass  = _evalPaso(e);
       const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
       // Para mostrar preguntas individuales: usar máx 20 (evaluaciones manuales)
       // Para sintéticas (100q), no mostrar desglose pregunta a pregunta
@@ -9191,7 +9193,7 @@ function mostrarPerfilAsesor(nombre) {
   const asesorObj = state.asesores.find(a => a.nombre === nombre);
   const sup = asesorObj ? asesorObj.supervisor : (evs[0].supervisor || '—');
   const totales = evs.length;
-  const aprobadas = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+  const aprobadas = evs.filter(e => _evalPaso(e)).length;
   const pctAprob  = Math.round((aprobadas / totales) * 100);
   const avgPts    = Math.round(evs.reduce((s, e) => s + calcPts(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor), 0) / totales);
   const best      = Math.max(...evs.map(e => calcPts(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)));
@@ -9251,7 +9253,7 @@ function mostrarPerfilAsesor(nombre) {
       ${[...evs].reverse().map(e => {
         const t    = e.totalPreguntas || e.respuestas.length || 20;
         const pts  = calcPts(e.respuestas, t, e.supervisor);
-        const pass = isPaso(e.respuestas, t, e.supervisor);
+        const pass = _evalPaso(e);
         const fecha = e.fechaRegistro
           ? new Date(e.fechaRegistro).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})
           : `${e.mes} ${e.anio}`;
@@ -9281,7 +9283,7 @@ function mostrarPerfilAsesor(nombre) {
           data: evs.map(e => calcPts(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)),
           borderColor: '#C9A545', backgroundColor: 'rgba(201,165,69,0.08)',
           borderWidth: 2, pointRadius: 4, pointBackgroundColor: evs.map(e =>
-            isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor) ? '#6af7b8' : '#f76a6a'),
+            _evalPaso(e) ? '#6af7b8' : '#f76a6a'),
           tension: 0.35, fill: true
         }]
       },
@@ -9475,8 +9477,8 @@ function exportarExcelResultados() {
   let evs = state.evaluaciones.filter(e => !supFilExp.length || supFilExp.includes(e.supervisor));
   if (resMesesActivos.length > 0) evs = evs.filter(e => resMesesActivos.includes(e.mes));
   if (anioF2) evs = evs.filter(e => String(e.anio) === anioF2);
-  if (estado === 'Aprobado')   evs = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas, e.supervisor));
-  if (estado === 'Reprobado')  evs = evs.filter(e => !isPaso(e.respuestas, e.totalPreguntas, e.supervisor));
+  if (estado === 'Aprobado')   evs = evs.filter(e => _evalPaso(e));
+  if (estado === 'Reprobado')  evs = evs.filter(e => !_evalPaso(e));
 
   const header = ['Supervisor', 'Asesor', '% Cumplimiento', 'Año', 'Mes'];
   const rows = evs.map(e => [
@@ -9579,7 +9581,7 @@ function exportarCSV() {
 
   const header = 'Asesor,Facultad,Supervisor,Mes,Año,Actividad,Correctas,Puntaje,% Correctas,Estado\n';
   const rows   = evs.map(e =>
-    `${e.asesor},${e.facultad||''},${e.supervisor},${e.mes},${e.anio},${e.actividad},${calcScore(e.respuestas)},${calcScore(e.respuestas)*5},${calcPct(e.respuestas, e.totalPreguntas, e.supervisor)}%,${isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)?'Aprobado':'Reprobado'}`
+    `${e.asesor},${e.facultad||''},${e.supervisor},${e.mes},${e.anio},${e.actividad},${calcScore(e.respuestas)},${calcScore(e.respuestas)*5},${calcPct(e.respuestas, e.totalPreguntas, e.supervisor)}%,${_evalPaso(e)?'Aprobado':'Reprobado'}`
   ).join('\n');
 
   const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -10452,7 +10454,7 @@ function showDetalle(id) {
   const e    = state.evaluaciones.find(ev => ev.id === id);
   if (!e) return;
   const sc   = calcScore(e.respuestas);
-  const pass = isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
+  const pass = _evalPaso(e);
   const pct  = calcPct(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
 
   // Get question bank for this supervisor/mes/anio (if exists)
@@ -14034,7 +14036,7 @@ function renderPerfilAsesor() {
 
   // ── KPIs ──
   const total = evs.length;
-  const aprobadas = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor)).length;
+  const aprobadas = evs.filter(e => _evalPaso(e)).length;
   const pctAprobado = total ? Math.round((aprobadas / total) * 100) : 0;
   const avgPuntaje = total
     ? Math.round(evs.reduce((s, e) => s + calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor), 0) / total)
@@ -14066,7 +14068,7 @@ function renderPerfilAsesor() {
     const cards = modalidades.map(m => {
       const mEvs = evs.filter(e => (e.modalidad || 'mensual') === m.key);
       const mTotal = mEvs.length;
-      const mAprob = mEvs.filter(e => isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor)).length;
+      const mAprob = mEvs.filter(e => _evalPaso(e)).length;
       const mPct   = mTotal ? Math.round((mAprob / mTotal) * 100) : 0;
       const mAvg   = mTotal ? Math.round(mEvs.reduce((s, e) => s + calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor), 0) / mTotal) : 0;
       return `
@@ -14117,7 +14119,7 @@ function renderPerfilAsesor() {
   });
   histEl.innerHTML = sorted.map(e => {
     const pct  = calcPct(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor);
-    const pass = isPaso(e.respuestas, e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20), e.supervisor);
+    const pass = _evalPaso(e);
     const corr = calcScore(e.respuestas || []);
     const tot  = e.totalPreguntas || (e.respuestas ? e.respuestas.length : 20);
     const badgeColor = pass ? 'rgba(78,138,114,0.15)' : 'rgba(224,80,80,0.12)';
@@ -15907,7 +15909,7 @@ function renderFormacionInicialResultados() {
   const kpiEl = document.getElementById('fi-kpis-tipo');
   if (kpiEl) {
     const tot = evs.length;
-    const aprobados = evs.filter(e => isPaso(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor)).length;
+    const aprobados = evs.filter(e => _evalPaso(e)).length;
     const pctPass = tot ? Math.round((aprobados/tot)*100) : 0;
     const avg = tot ? Math.round(avgArr(evs.map(e => calcScore(e.respuestas)*5))) : 0;
     const tipoLabel = tipoAsesor ? `Asesores ${tipoAsesor}s` : 'Todos los asesores';
@@ -15948,7 +15950,7 @@ function renderFormacionInicialResultados() {
     const t = e.totalPreguntas || (e.respuestas && e.respuestas.length) || 20;
     const pts = calcPts(e.respuestas, t, e.supervisor);
     const pct = calcPct(e.respuestas, t, e.supervisor);
-    const pass = isPaso(e.respuestas, t, e.supervisor);
+    const pass = _evalPaso(e);
     const tipo = _getTipoAsesor(e.asesor);
     const tipoStyle = tipo === 'Nuevo'
       ? 'color:#4E8A72;background:rgba(78,138,114,0.10);border:1px solid rgba(78,138,114,0.25)'
