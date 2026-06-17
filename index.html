@@ -8441,14 +8441,19 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+    const _bank = state.preguntasPorSupMes || {};
+    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio)
+               || _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio)
+               || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor])
+               || (Object.entries(_bank).find(([k,v]) => k.startsWith((e.supervisor||'')+'||') && v && v.length) || [])[1]
+               || null;
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
         if (!_rankSup[sk].qs[i]) _rankSup[sk].qs[i] = { cnt: 0, enunc: null };
         _rankSup[sk].qs[i].cnt++;
         if (!_rankSup[sk].qs[i].enunc && pregs) {
           const q = pregs[i];
-          _rankSup[sk].qs[i].enunc = (q && typeof q === 'object') ? q.enunciado : (q || null);
+          _rankSup[sk].qs[i].enunc = (q && typeof q === 'object') ? (q.enunciado || null) : (q || null);
         }
       }
     });
