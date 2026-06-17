@@ -8477,8 +8477,11 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const pregs = _findBankFuzzy(e.supervisor, e.mes, e.anio)
-               || _findBankFuzzy(e.asesor, e.mes, e.anio)
+    const _bank = state.preguntasPorSupMes || {};
+    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio)
+               || _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio)
+               || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor])
+               || (Object.entries(_bank).find(([k,v]) => k.startsWith((e.supervisor||'')+'||') && v && v.length) || [])[1]
                || null;
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
