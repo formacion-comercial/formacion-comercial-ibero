@@ -15271,14 +15271,17 @@ function renderHistorico() {
         (!histAniosActivos.length || histAniosActivos.includes(String(r.anio))) &&
         (!histSelectedMonths.length || histSelectedMonths.includes(r.mes))
       );
-      const avg  = data.length ? data.reduce((s,r) => s+(r.pct||0), 0) / data.length : null;
-      const last = data.length ? data[data.length-1] : null;
-      return { nombre: a.nombre, supervisor: a.supervisor, avg, last, evals: data.length, data };
+      const avg      = data.length ? data.reduce((s,r) => s+(r.pct||0), 0) / data.length : null;
+      const last     = data.length ? data[data.length-1] : null;
+      const allNuevo = data.length > 0 && data.every(r => r.modalidad === 'asesor-nuevo');
+      const avgNota  = allNuevo ? data.reduce((s,r) => s+(r.nota||0), 0) / data.length : null;
+      const isPassed = data.length > 0 && data.every(r => r.modalidad === 'asesor-nuevo' ? (r.nota != null ? r.nota >= 6.0 : r.pct >= 60) : r.pct >= 95);
+      return { nombre: a.nombre, supervisor: a.supervisor, avg, avgNota, allNuevo, isPassed, last, evals: data.length, data };
     }).sort((a,b) => (b.avg||0) - (a.avg||0));
 
-    const aprobados  = filas.filter(f => f.avg !== null && f.avg >= PASS).length;
-    const reprobados = filas.filter(f => f.avg !== null && f.avg <  PASS).length;
-    const sinEval    = filas.filter(f => f.avg === null).length;
+    const aprobados  = filas.filter(f => f.evals > 0 &&  f.isPassed).length;
+    const reprobados = filas.filter(f => f.evals > 0 && !f.isPassed).length;
+    const sinEval    = filas.filter(f => f.evals === 0).length;
 
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
@@ -15299,11 +15302,11 @@ function renderHistorico() {
         ${filas.map(f => {
           const data = f.data;
           const initials = f.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-          const barColor = f.avg === null ? 'var(--border)' : f.avg >= PASS ? 'var(--pass)' : 'var(--fail)';
-          const avgLabel = f.avg === null ? '—' : f.avg.toFixed(1) + '%';
-          const statusBadge = f.avg === null
+          const barColor = f.evals === 0 ? 'var(--border)' : f.isPassed ? 'var(--pass)' : 'var(--fail)';
+          const avgLabel = f.evals === 0 ? '—' : f.allNuevo ? `${f.avgNota.toFixed(1)}/10` : `${f.avg.toFixed(1)}%`;
+          const statusBadge = f.evals === 0
             ? '<span class="badge" style="background:rgba(150,148,158,0.12);color:var(--text3)">Sin evaluaciones</span>'
-            : f.avg >= PASS
+            : f.isPassed
               ? '<span class="badge badge-pass">✓ Cumple meta</span>'
               : '<span class="badge badge-fail">✗ Bajo meta</span>';
           const periodRows = data.length
@@ -15338,9 +15341,9 @@ function renderHistorico() {
             <div class="card" style="border-top:3px solid ${barColor};cursor:default">
               <!-- Cabecera asesor -->
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-                <div style="width:44px;height:44px;border-radius:50%;background:${f.avg===null?'var(--surface3)':f.avg>=PASS?'rgba(78,138,114,0.15)':'rgba(184,80,80,0.12)'};
+                <div style="width:44px;height:44px;border-radius:50%;background:${f.evals===0?'var(--surface3)':f.isPassed?'rgba(78,138,114,0.15)':'rgba(184,80,80,0.12)'};
                      display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
-                     color:${f.avg===null?'var(--text3)':f.avg>=PASS?'var(--pass)':'var(--fail)'};flex-shrink:0">
+                     color:${f.evals===0?'var(--text3)':f.isPassed?'var(--pass)':'var(--fail)'};flex-shrink:0">
                   ${initials}
                 </div>
                 <div style="flex:1;min-width:0">
@@ -15388,9 +15391,19 @@ function renderHistorico() {
     return;
   }
 
-  const avgPct = data.reduce((s,r) => s+(r.pct||0), 0) / data.length;
-  const labels = data.map(r => r.mes.slice(0,3)+' '+r.anio);
-  const values = data.map(r => r.pct||0);
+  const allNuevo  = data.every(r => r.modalidad === 'asesor-nuevo');
+  const _rPaso    = r => r.modalidad === 'asesor-nuevo' ? (r.nota != null ? r.nota >= 6.0 : r.pct >= 60) : r.pct >= 95;
+  const _rLabel   = r => r.modalidad === 'asesor-nuevo' && r.nota != null ? `${r.nota}/10` : `${r.pct}%`;
+  const avgPct    = data.reduce((s,r) => s+(r.pct||0), 0) / data.length;
+  const avgNota   = allNuevo ? data.reduce((s,r) => s+(r.nota||0), 0) / data.length : null;
+  const avgLabel  = allNuevo ? `${avgNota.toFixed(1)}/10` : `${avgPct.toFixed(1)}%`;
+  const avgPass   = allNuevo ? avgNota >= 6.0 : avgPct >= PASS;
+  const metaLabel = allNuevo ? '6.0/10' : `${PASS}%`;
+  const chartPass = allNuevo ? 6.0 : PASS;
+  const chartMax  = allNuevo ? 10 : 100;
+  const labels    = data.map(r => r.mes.slice(0,3)+' '+r.anio);
+  const values    = allNuevo ? data.map(r => r.nota != null ? r.nota : r.pct/10) : data.map(r => r.pct||0);
+  const lastR     = data[data.length-1];
 
   el.innerHTML = `
     <div style="margin-bottom:12px">
@@ -15399,14 +15412,14 @@ function renderHistorico() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
       <div class="card" style="text-align:center">
         <div class="card-title">Promedio acumulado</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:48px;color:${avgPct>=PASS?'var(--pass)':'var(--fail)'}">${avgPct.toFixed(1)}%</div>
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:48px;color:${avgPass?'var(--pass)':'var(--fail)'}">${avgLabel}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">${data.length} evaluación(es) registrada(s)</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'Fira Code',monospace">Meta: ${PASS}%</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'Fira Code',monospace">Meta: ${metaLabel}</div>
       </div>
       <div class="card" style="text-align:center">
         <div class="card-title">Última calificación</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:48px;color:${data[data.length-1].pct>=PASS?'var(--pass)':'var(--fail)'}">${data[data.length-1].pct}%</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${data[data.length-1].mes} ${data[data.length-1].anio}</div>
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:48px;color:${_rPaso(lastR)?'var(--pass)':'var(--fail)'}">${_rLabel(lastR)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${lastR.mes} ${lastR.anio}</div>
       </div>
     </div>
     <div class="card section-gap">
@@ -15416,17 +15429,22 @@ function renderHistorico() {
     <div>
       <div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:12px">Resultados por mes</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
-        ${data.map((r,i) => `
-          <div class="card" style="border-top:3px solid ${r.pct>=PASS?'var(--pass)':'var(--fail)'};padding:18px;text-align:center;position:relative">
+        ${data.map((r,i) => {
+          const rPaso  = _rPaso(r);
+          const rLabel = _rLabel(r);
+          const barW   = r.modalidad === 'asesor-nuevo' ? (r.nota != null ? r.nota * 10 : r.pct) : r.pct;
+          return `
+          <div class="card" style="border-top:3px solid ${rPaso?'var(--pass)':'var(--fail)'};padding:18px;text-align:center;position:relative">
             ${i===data.length-1?`<div style="position:absolute;top:10px;right:10px;font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;background:rgba(201,165,69,0.12);color:var(--accent);padding:2px 6px;border-radius:4px">Último</div>`:''}
             <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">${r.mes}</div>
             <div style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);margin-bottom:12px">${r.anio}</div>
-            <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:38px;line-height:1;color:${r.pct>=PASS?'var(--pass)':'var(--fail)'};margin-bottom:10px">${r.pct}%</div>
+            <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:38px;line-height:1;color:${rPaso?'var(--pass)':'var(--fail)'};margin-bottom:10px">${rLabel}</div>
             <div style="height:6px;background:var(--surface3);border-radius:100px;overflow:hidden;margin-bottom:10px">
-              <div style="height:100%;width:${r.pct}%;background:${r.pct>=PASS?'var(--pass)':'var(--fail)'};border-radius:100px;transition:width 0.4s ease"></div>
+              <div style="height:100%;width:${barW}%;background:${rPaso?'var(--pass)':'var(--fail)'};border-radius:100px;transition:width 0.4s ease"></div>
             </div>
-            <span class="badge ${r.pct>=PASS?'badge-pass':'badge-fail'}" style="font-size:10px">${r.pct>=PASS?'✓ Aprobado':'✗ No aprobado'}</span>
-          </div>`).join('')}
+            <span class="badge ${rPaso?'badge-pass':'badge-fail'}" style="font-size:10px">${rPaso?'✓ Aprobado':'✗ No aprobado'}</span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
 
@@ -15439,18 +15457,18 @@ function renderHistorico() {
       data: {
         labels,
         datasets: [{
-          label: '% Cumplimiento',
+          label: allNuevo ? 'Nota (0-10)' : '% Cumplimiento',
           data: values,
           borderColor: '#C9A545',
           backgroundColor: 'rgba(201,165,69,0.10)',
           borderWidth: 2,
-          pointBackgroundColor: values.map(v => v>=PASS?'#4E8A72':'#B85050'),
+          pointBackgroundColor: values.map(v => v>=chartPass?'#4E8A72':'#B85050'),
           pointRadius: 5,
           tension: 0.35,
           fill: true
         }, {
-          label: 'Meta (95%)',
-          data: values.map(() => PASS),
+          label: allNuevo ? 'Meta (6.0)' : 'Meta (95%)',
+          data: values.map(() => chartPass),
           borderColor: 'rgba(184,80,80,0.45)',
           borderDash: [5,5],
           borderWidth: 1.5,
@@ -15463,7 +15481,7 @@ function renderHistorico() {
         plugins: { legend: { labels: { color: '#96949E', font: { family: 'Fira Code', size: 11 } } } },
         scales: {
           x: { grid: { color: 'rgba(57,54,69,0.12)' }, ticks: { color: '#9896A6', font: { family: 'Fira Code', size: 11 } } },
-          y: { min: 0, max: 100, grid: { color: 'rgba(57,54,69,0.12)' }, ticks: { color: '#9896A6', font: { family: 'Fira Code', size: 11 } } }
+          y: { min: 0, max: chartMax, grid: { color: 'rgba(57,54,69,0.12)' }, ticks: { color: '#9896A6', font: { family: 'Fira Code', size: 11 } } }
         }
       }
     });
