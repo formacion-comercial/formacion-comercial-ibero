@@ -8258,7 +8258,7 @@ let _correccionEvalId  = null;
 let _correccionResp    = [];
 
 function abrirCorreccion(evalId) {
-  const ev = state.evaluaciones.find(e => e.id === evalId);
+  const ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
   if (!ev) return;
   _correccionEvalId = evalId;
   _correccionResp   = ev.respuestas.slice(); // copia temporal
@@ -8271,7 +8271,7 @@ function abrirCorreccion(evalId) {
 }
 
 function _renderCorreccionBody() {
-  const ev     = state.evaluaciones.find(e => e.id === _correccionEvalId);
+  const ev     = state.evaluaciones.find(e => String(e.id) === String(_correccionEvalId));
   const pregs  = ev ? (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || []) : [];
   const LETRAS = ['A','B','C','D'];
   const corr   = _correccionResp.filter(r => r === 1).length;
@@ -8344,7 +8344,7 @@ function toggleCorreccionQ(i, val) {
 }
 
 function guardarCorreccion() {
-  const ev = state.evaluaciones.find(e => e.id === _correccionEvalId);
+  const ev = state.evaluaciones.find(e => String(e.id) === String(_correccionEvalId));
   if (!ev) return;
   const antes = ev.respuestas.filter(r => r === 1).length;
   ev.respuestas     = _correccionResp.slice();
@@ -8375,6 +8375,27 @@ function cerrarCorreccion() {
   document.getElementById('modal-corregir-overlay').style.display = 'none';
   _correccionEvalId = null;
   _correccionResp   = [];
+}
+
+// ==================== HELPERS GLOBALES ====================
+const _nr2 = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function _findBankFuzzy(name, mes, anio) {
+  const bank  = state.preguntasPorSupMes  || {};
+  const abank = state.preguntasPorAsesorMes || {};
+  const nName = _nr2(name);
+  const exact = (anio && bank[_supMesKey(name, mes, anio)]) || bank[_supMesKey(name, mes)];
+  if (exact) return exact;
+  const aKey1 = name+'||'+mes+(anio?'||'+anio:'');
+  const aKey2 = name+'||'+mes;
+  const aExact = (anio && abank[aKey1]) || abank[aKey2];
+  if (aExact) return aExact;
+  const glob = state.preguntasPorSupervisor && state.preguntasPorSupervisor[name];
+  if (glob) return glob;
+  const supNorm = Object.entries(bank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
+  if (supNorm) return supNorm[1];
+  const asesorNorm = Object.entries(abank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
+  if (asesorNorm) return asesorNorm[1];
+  return null;
 }
 
 // ==================== REPORTE ====================
@@ -8449,30 +8470,6 @@ function renderReporte() {
     </div>`;
 
   // ======== RANKING: PREGUNTAS MÁS FALLIDAS POR SUPERVISOR ========
-  const _nr2 = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  function _findBankFuzzy(name, mes, anio) {
-    const bank  = state.preguntasPorSupMes  || {};
-    const abank = state.preguntasPorAsesorMes || {};
-    const nName = _nr2(name);
-    // 1. Exact lookup mes+anio and mes solo
-    const exact = (anio && bank[_supMesKey(name, mes, anio)]) || bank[_supMesKey(name, mes)];
-    if (exact) return exact;
-    // 2. Exact asesor-level lookup
-    const aKey1 = name+'||'+mes+(anio?'||'+anio:'');
-    const aKey2 = name+'||'+mes;
-    const aExact = (anio && abank[aKey1]) || abank[aKey2];
-    if (aExact) return aExact;
-    // 3. Global supervisor bank (legacy)
-    const glob = state.preguntasPorSupervisor && state.preguntasPorSupervisor[name];
-    if (glob) return glob;
-    // 4. Normalized name: any key in preguntasPorSupMes that matches the supervisor
-    const supNorm = Object.entries(bank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
-    if (supNorm) return supNorm[1];
-    // 5. Normalized name: any key in preguntasPorAsesorMes that matches the asesor
-    const asesorNorm = Object.entries(abank).find(([k,v]) => _nr2(k).startsWith(nName+'||') && v && v.length);
-    if (asesorNorm) return asesorNorm[1];
-    return null;
-  }
   const _rankSup = {};
   evs.forEach(e => {
     const t = e.totalPreguntas || e.respuestas.length || 20;
@@ -8602,7 +8599,7 @@ function renderReporte() {
       }
 
       const btnCorregir = (!supervisorActual && !coordinadorActual)
-        ? `<button onclick="abrirCorreccion(${e.id})"
+        ? `<button onclick="abrirCorreccion(${JSON.stringify(e.id)})"
              style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;
                     border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.35);
                     background:rgba(201,165,69,0.07);color:var(--accent);font-size:12px;
