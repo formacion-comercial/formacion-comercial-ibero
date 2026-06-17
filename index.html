@@ -8470,6 +8470,17 @@ function renderReporte() {
     </div>`;
 
   // ======== RANKING: PREGUNTAS MÁS FALLIDAS POR SUPERVISOR ========
+  // DEBUG TEMPORAL — abrir DevTools > Console para ver las claves del banco
+  window._debugBanco = {
+    preguntasPorSupMes:        Object.keys(state.preguntasPorSupMes || {}),
+    preguntasPorAsesorMes:     Object.keys(state.preguntasPorAsesorMes || {}),
+    preguntasPorSupervisor:    Object.keys(state.preguntasPorSupervisor || {}),
+    preguntasPorSupMesInicial: Object.keys(state.preguntasPorSupMesInicial || {}),
+    supervisoresEnEvs:         [...new Set(evs.map(e=>e.supervisor))],
+    mesesEnEvs:                [...new Set(evs.map(e=>e.mes))],
+    aniosEnEvs:                [...new Set(evs.map(e=>String(e.anio)))],
+  };
+  console.log('[BANCO DEBUG]', window._debugBanco);
   const _rankSup = {};
   evs.forEach(e => {
     const t = e.totalPreguntas || e.respuestas.length || 20;
