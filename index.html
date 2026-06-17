@@ -8272,16 +8272,18 @@ function abrirCorreccion(evalId) {
 
 function _renderCorreccionBody() {
   const ev     = state.evaluaciones.find(e => e.id === _correccionEvalId);
-  const pregs  = (state.preguntasPorSupervisor && ev && state.preguntasPorSupervisor[ev.supervisor]) || [];
+  const pregs  = ev ? (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || []) : [];
   const LETRAS = ['A','B','C','D'];
   const corr   = _correccionResp.filter(r => r === 1).length;
   const total  = _correccionResp.length;
-  const pts    = Math.round((corr / total) * 100);
-  const pass   = corr >= total - 1;
+  const esNuevo = ev && _isEvalAsesorNuevo(ev);
+  const nota   = esNuevo ? _calcNotaAsesorNuevo(corr) : null;
+  const pass   = esNuevo ? _isPasoAsesorNuevo(nota) : corr >= Math.ceil(total * 0.95);
+  const ptsStr = esNuevo ? `${nota}/10` : `${Math.round((corr/total)*100)} pts`;
 
   const resEl = document.getElementById('mcr-resumen');
   if (resEl) resEl.innerHTML =
-    `<span style="font-weight:700;color:${pass?'var(--pass)':'var(--fail)'}">${pts} pts</span>
+    `<span style="font-weight:700;color:${pass?'var(--pass)':'var(--fail)'}">${ptsStr}</span>
      &nbsp;·&nbsp; ${corr} correctas &nbsp;·&nbsp;
      <span style="color:var(--fail)">${total - corr} incorrectas</span>
      &nbsp;·&nbsp;
@@ -8345,9 +8347,22 @@ function guardarCorreccion() {
   const ev = state.evaluaciones.find(e => e.id === _correccionEvalId);
   if (!ev) return;
   const antes = ev.respuestas.filter(r => r === 1).length;
-  ev.respuestas      = _correccionResp.slice();
-  ev.totalPreguntas  = _correccionResp.length;
+  ev.respuestas     = _correccionResp.slice();
+  ev.totalPreguntas = _correccionResp.length;
   const despues = ev.respuestas.filter(r => r === 1).length;
+  // Para asesor-nuevo: recalcular nota a partir de las respuestas corregidas
+  if (_isEvalAsesorNuevo(ev)) {
+    ev.nota = _calcNotaAsesorNuevo(despues);
+  }
+  // Actualizar evaluacionesEnviadas si existe la clave
+  const envKey = `${ev.asesor}||${ev.mes}||${ev.anio}`;
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[envKey]) {
+    const sc = _getEvalScore(ev);
+    state.evaluacionesEnviadas[envKey] = Object.assign(
+      {}, state.evaluacionesEnviadas[envKey],
+      { pass: sc.pass, correctas: despues, total: ev.totalPreguntas, nota: ev.nota != null ? ev.nota : undefined }
+    );
+  }
   save();
   cerrarCorreccion();
   renderReporte();
