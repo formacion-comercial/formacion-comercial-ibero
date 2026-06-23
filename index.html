@@ -8312,7 +8312,17 @@ function _renderCorreccionBody() {
   const ev     = state.evaluaciones.find(e => String(e.id) === String(_correccionEvalId));
   const pregs  = ev ? (
     _correccionModoVer
-      ? (_getPreguntas(ev.supervisor, ev.mes, ev.anio) || _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio) || [])
+      ? (
+          // Prioridad 1: preguntas guardadas en la eval (texto guardado al momento de presentar)
+          (ev.preguntas && ev.preguntas.length
+            ? ev.preguntas.map(t => t ? { enunciado: t } : null)
+            : null)
+          // Prioridad 2: banco correcto según modalidad de la evaluación
+          || (_isEvalAsesorNuevo(ev)
+              ? _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio)
+              : _getPreguntas(ev.supervisor, ev.mes, ev.anio))
+          || []
+        )
       : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
   ) : [];
   const LETRAS = ['A','B','C','D'];
