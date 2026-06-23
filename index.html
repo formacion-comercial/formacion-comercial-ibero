@@ -13280,6 +13280,16 @@ function initAsesorForm(asesor) {
 
   // ── Bloquear si ya presentó la evaluación ──
   const submitKey = `${asesor.nombre}||${mesSel}||${anioSel}`;
+  // Si el asesor cambió de Nuevo a Antiguo, limpiar el submitKey previo de asesor-nuevo
+  // para que pueda presentar la evaluación mensual
+  const _prevEntry = state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey];
+  if (_prevEntry && _prevEntry.nota !== undefined && asesor.tipo !== 'Nuevo') {
+    delete state.evaluacionesEnviadas[submitKey];
+    state.evaluaciones = (state.evaluaciones || []).filter(e =>
+      !(e.asesor === asesor.nombre && e.mes === mesSel && String(e.anio) === anioSel && e.modalidad === 'asesor-nuevo')
+    );
+    save();
+  }
   if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
     document.getElementById('asesor-form-section').style.display = 'block';
     document.getElementById('asesor-result-section').classList.remove('show');
