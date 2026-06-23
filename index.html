@@ -4790,8 +4790,13 @@ function save() {
       const cfg = Object.assign({}, state);
       delete cfg.evaluaciones; // guardadas individualmente
       delete cfg.fotosPerfil;  // fotos solo en localStorage — demasiado pesadas para Firestore
+      // Proteger banco de preguntas: si está vacío no sobrescribir lo que hay en Firebase
+      // (evita que una sesión sin banco borre el banco de otra sesión)
+      if (!Object.keys(cfg.preguntasPorSupMes      || {}).length) delete cfg.preguntasPorSupMes;
+      if (!Object.keys(cfg.preguntasPorAsesorMes   || {}).length) delete cfg.preguntasPorAsesorMes;
+      if (!Object.keys(cfg.preguntasPorSupMesInicial || {}).length) delete cfg.preguntasPorSupMesInicial;
       window._fbDb.collection('config').doc('main')
-        .set(cfg)
+        .set(cfg, { merge: true })
         .catch(e => {
           console.warn('Firestore save error:', e);
           showSyncToast('⚠ Error al sincronizar datos. Tus cambios están guardados localmente.');
@@ -4961,7 +4966,11 @@ async function _fbInit() {
       const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
       state.evaluaciones = [...fromFs, ...pending];
       try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
-      localStorage.setItem('evalproState', JSON.stringify(state));
+      // Debounce localStorage write — evita serializar todo el estado en cada snapshot
+      clearTimeout(window._fbSaveTimer);
+      window._fbSaveTimer = setTimeout(() => {
+        localStorage.setItem('evalproState', JSON.stringify(state));
+      }, 800);
       clearTimeout(window._fbRefreshTimer);
       window._fbRefreshTimer = setTimeout(() => { try { updateAllFilters(); } catch(_) {} }, 600);
     }, e => console.warn('Firestore listener error:', e));
@@ -5025,6 +5034,8 @@ window.addEventListener('storage', function(e) {
 
 // Also sync when formadora tab gets focus (in case storage event was missed)
 window.addEventListener('focus', function() {
+  clearTimeout(window._focusTimer);
+  window._focusTimer = setTimeout(function() {
   if (document.querySelector('.app').style.display !== 'none') {
     const before = state.evaluaciones.length;
     reloadState();
@@ -5043,6 +5054,7 @@ window.addEventListener('focus', function() {
       showSyncToast(`✦ ${state.evaluaciones.length - before} evaluación(es) nueva(s) sincronizada(s)`);
     }
   }
+  }, 500);
 });
 
 // Toast notification
@@ -8470,17 +8482,26 @@ function renderReporte() {
     </div>`;
 
   // ======== RANKING: PREGUNTAS MÁS FALLIDAS POR SUPERVISOR ========
-  // DEBUG TEMPORAL — abrir DevTools > Console para ver las claves del banco
-  window._debugBanco = {
-    preguntasPorSupMes:        Object.keys(state.preguntasPorSupMes || {}),
-    preguntasPorAsesorMes:     Object.keys(state.preguntasPorAsesorMes || {}),
-    preguntasPorSupervisor:    Object.keys(state.preguntasPorSupervisor || {}),
-    preguntasPorSupMesInicial: Object.keys(state.preguntasPorSupMesInicial || {}),
-    supervisoresEnEvs:         [...new Set(evs.map(e=>e.supervisor))],
-    mesesEnEvs:                [...new Set(evs.map(e=>e.mes))],
-    aniosEnEvs:                [...new Set(evs.map(e=>String(e.anio)))],
-  };
-  console.log('[BANCO DEBUG]', window._debugBanco);
+  // Pre-computar fuera del loop para evitar work repetido por cada evaluación
+  const _rBank   = state.preguntasPorSupMes || {};
+  const _rBankI  = state.preguntasPorSupMesInicial || {};
+  const _rBankE  = Object.entries(_rBank);
+  const _rBankIE = Object.entries(_rBankI);
+  const _rPregsCache = {};
+  function _getRankedPregs(supervisor, asesor, mes, anio) {
+    const ck = (supervisor||'') + '||' + (asesor||'') + '||' + (mes||'') + '||' + (anio||'');
+    if (ck in _rPregsCache) return _rPregsCache[ck];
+    const supN = _nr2(supervisor || '');
+    const r = _getPreguntas(supervisor, mes, anio)
+           || _getPreguntasParaAsesor(asesor, supervisor, mes, anio)
+           || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[supervisor])
+           || (_rBankE.find(([k,v]) => k.startsWith((supervisor||'').trim()+'||') && v && v.length) || [])[1]
+           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && v && v.length) || [])[1]
+           || (_rBankIE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && v && v.length) || [])[1]
+           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(_nr2(asesor||'')+'||') && v && v.length) || [])[1]
+           || null;
+    return (_rPregsCache[ck] = r);
+  }
   const _rankSup = {};
   evs.forEach(e => {
     const t = e.totalPreguntas || e.respuestas.length || 20;
@@ -8488,21 +8509,7 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const _bank  = state.preguntasPorSupMes || {};
-    const _bankI = state.preguntasPorSupMesInicial || {};
-    const _supN  = _nr2(e.supervisor || '');
-    const pregs = _getPreguntas(e.supervisor, e.mes, e.anio)
-               || _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio)
-               || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor])
-               // Búsqueda por prefijo exacto
-               || (Object.entries(_bank).find(([k,v])  => k.startsWith((e.supervisor||'').trim()+'||') && v && v.length) || [])[1]
-               // Búsqueda normalizada (sin tildes, minúsculas) en preguntasPorSupMes
-               || (Object.entries(_bank).find(([k,v])  => _nr2(k).startsWith(_supN+'||') && v && v.length) || [])[1]
-               // Búsqueda normalizada en preguntasPorSupMesInicial
-               || (Object.entries(_bankI).find(([k,v]) => _nr2(k).startsWith(_supN+'||') && v && v.length) || [])[1]
-               // Búsqueda normalizada por nombre de asesor
-               || (Object.entries(_bank).find(([k,v])  => _nr2(k).startsWith(_nr2(e.asesor||'')+'||') && v && v.length) || [])[1]
-               || null;
+    const pregs = _getRankedPregs(e.supervisor, e.asesor, e.mes, e.anio);
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
         if (!_rankSup[sk].qs[i]) _rankSup[sk].qs[i] = { cnt: 0, enunc: null };
