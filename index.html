@@ -13288,16 +13288,20 @@ function initAsesorForm(asesor) {
   const mesSel  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
   const anioSel = asesorAnioDetectado || String(new Date().getFullYear());
 
-  // ── Bloquear si ya presentó la evaluación ──
-  const submitKey = `${asesor.nombre}||${mesSel}||${anioSel}`;
-  // Si el asesor cambió de Nuevo a Antiguo, limpiar solo el submitKey previo de asesor-nuevo
-  // para que pueda presentar la evaluación mensual — sin borrar la evaluación anterior
-  const _prevEntry = state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey];
-  if (_prevEntry && _prevEntry.nota !== undefined && asesor.tipo !== 'Nuevo') {
-    delete state.evaluacionesEnviadas[submitKey];
-    save();
-  }
-  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
+  // ── Detectar modalidad temprano para usar el submitKey correcto ──
+  const _modalidadAsesorEarly = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
+    || (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesSel + '||' + anioSel]
+    || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+  const _esNuevoEarly = _modalidadAsesorEarly === 'asesor-nuevo';
+
+  // ── Bloquear si ya presentó la evaluación (clave separada por modalidad) ──
+  const submitKey     = `${asesor.nombre}||${mesSel}||${anioSel}`;
+  const submitKeyMod  = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
+  const _enviadas     = state.evaluacionesEnviadas || {};
+  // Compatibilidad hacia atrás: también detectar entradas antiguas con nota en la clave sin sufijo
+  const _yaEnvio = _enviadas[submitKeyMod]
+    || (_esNuevoEarly && _enviadas[submitKey] && _enviadas[submitKey].nota !== undefined);
+  if (_yaEnvio) {
     document.getElementById('asesor-form-section').style.display = 'block';
     document.getElementById('asesor-result-section').classList.remove('show');
     document.getElementById('asesor-score-sticky').style.display = 'none';
@@ -13364,9 +13368,7 @@ function initAsesorForm(asesor) {
 
   if (bancoPregsMes && bancoPregsMes.length) {
     // ── Modo banco: preguntas con opciones A/B/C/D desde Excel ──
-    const _modalidadAsesor = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
-                           || (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesSel + '||' + anioSel]
-                           || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+    const _modalidadAsesor = _modalidadAsesorEarly;
     const _maxPregs = _modalidadAsesor === 'asesor-nuevo' ? 10 : _esSup5Q(asesor.supervisor) ? 5 : 20;
     asesorRespuestas = bancoPregsMes.slice(0, _maxPregs).map(q => q.tipo === 'multiple' ? [] : null);
     const LETRAS = ['A','B','C','D'];
@@ -13737,8 +13739,13 @@ async function enviarEvaluacionAsesor() {
     } catch(e) { console.warn('Sync pre-envío falló:', e); }
   }
   // Verificar nuevamente si ya fue enviada (por si se envió desde otra pestaña)
-  const _submitKeyCheck = `${asesorActual.nombre}||${mes}||${anio}`;
-  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[_submitKeyCheck]) {
+  const _modalidadCheck = (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
+    || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
+    || (asesorActual.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+  const _submitKeyCheck    = `${asesorActual.nombre}||${mes}||${anio}`;
+  const _submitKeyCheckMod = _modalidadCheck === 'asesor-nuevo' ? _submitKeyCheck + '||asesor-nuevo' : _submitKeyCheck;
+  const _enviadas2 = state.evaluacionesEnviadas || {};
+  if (_enviadas2[_submitKeyCheckMod] || (_modalidadCheck === 'asesor-nuevo' && _enviadas2[_submitKeyCheck] && _enviadas2[_submitKeyCheck].nota !== undefined)) {
     initAsesorForm(asesorActual);
     return;
   }
@@ -13871,15 +13878,20 @@ async function enviarEvaluacionAsesor() {
 
   // ── Marcar como enviada con puntaje de respaldo — guardar INMEDIATAMENTE en Firestore ──
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  state.evaluacionesEnviadas[`${asesorActual.nombre}||${mes}||${anio}`] = { pts, pct, pass, correctas: corr, total: respFinal.length };
+  const _skFinal = modalidad === 'asesor-nuevo'
+    ? `${asesorActual.nombre}||${mes}||${anio}||asesor-nuevo`
+    : `${asesorActual.nombre}||${mes}||${anio}`;
+  state.evaluacionesEnviadas[_skFinal] = { pts, pct, pass, correctas: corr, total: respFinal.length, modalidad,
+    ...(modalidad === 'asesor-nuevo' ? { nota } : {}) };
 
   // Register in histórico
   if (!state.historicoAsesores) state.historicoAsesores = {};
   const hKey = asesorActual.nombre + '||' + asesorActual.supervisor;
   if (!state.historicoAsesores[hKey]) state.historicoAsesores[hKey] = [];
-  const alreadyReg = state.historicoAsesores[hKey].some(r => r.mes === mes && r.anio === anio);
+  const alreadyReg = state.historicoAsesores[hKey].some(r =>
+    r.mes === mes && String(r.anio) === String(anio) && (r.modalidad || 'mensual') === modalidad);
   if (!alreadyReg) {
-    state.historicoAsesores[hKey].push({ mes, anio, pct, corrects: corr, total: respFinal.length, tipo: 'continua' });
+    state.historicoAsesores[hKey].push({ mes, anio, pct, corrects: corr, total: respFinal.length, tipo: 'continua', modalidad });
   }
 
   // Guardar evaluacionesEnviadas de forma inmediata (sin debounce) para garantizar persistencia
