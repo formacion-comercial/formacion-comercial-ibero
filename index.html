@@ -12431,10 +12431,11 @@ function _procesarExcelMasivo(file, mes, anio, modalidad) {
       let supNoEncontrados = [];
 
       wb.SheetNames.forEach(sheetName => {
-        // Match sheet name to supervisor (case-insensitive, trimmed)
-        const supMatch = state.supervisores.find(s =>
-          s.trim().toLowerCase() === sheetName.trim().toLowerCase()
-        );
+        // Match sheet name to supervisor: exact first, then normalized partial
+        const _nr = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const nSheet = _nr(sheetName);
+        const supMatch = state.supervisores.find(s => _nr(s) === nSheet)
+          || state.supervisores.find(s => _nr(s).startsWith(nSheet) || nSheet.startsWith(_nr(s)));
         if (!supMatch) {
           supNoEncontrados.push(sheetName);
           return;
