@@ -4329,7 +4329,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <div style="display:flex;justify-content:space-between;align-items:center;
                 padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface2)">
       <div id="mcr-resumen" style="font-size:13px;color:var(--text2)"></div>
-      <div style="display:flex;gap:10px">
+      <div id="mcr-footer-btns" style="display:flex;gap:10px">
         <button onclick="cerrarCorreccion()"
           style="padding:9px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);
                  background:transparent;color:var(--text2);font-size:13px;font-weight:600;
@@ -8276,15 +8276,33 @@ function exportarSeguimientoExcel() {
 // ==================== CORRECCIÓN DE RESPUESTAS ====================
 let _correccionEvalId  = null;
 let _correccionResp    = [];
+let _correccionModoVer = false;
 
 function abrirCorreccion(evalId) {
   const ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
   if (!ev) return;
-  _correccionEvalId = evalId;
-  _correccionResp   = ev.respuestas.slice(); // copia temporal
+  _correccionEvalId  = evalId;
+  _correccionModoVer = false;
+  _correccionResp    = ev.respuestas.slice();
 
   document.getElementById('mcr-titulo').textContent    = `Corregir — ${ev.asesor}`;
   document.getElementById('mcr-subtitulo').textContent = `${ev.mes} ${ev.anio}  ·  ${ev.supervisor}`;
+  document.getElementById('mcr-footer-btns').style.display = 'flex';
+
+  _renderCorreccionBody();
+  document.getElementById('modal-corregir-overlay').style.display = 'flex';
+}
+
+function verPreguntas(evalId) {
+  const ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
+  if (!ev) return;
+  _correccionEvalId  = evalId;
+  _correccionModoVer = true;
+  _correccionResp    = ev.respuestas.slice();
+
+  document.getElementById('mcr-titulo').textContent    = `Preguntas — ${ev.asesor}`;
+  document.getElementById('mcr-subtitulo').textContent = `${ev.mes} ${ev.anio}  ·  ${ev.supervisor}`;
+  document.getElementById('mcr-footer-btns').style.display = 'none';
 
   _renderCorreccionBody();
   document.getElementById('modal-corregir-overlay').style.display = 'flex';
@@ -8340,20 +8358,23 @@ function _renderCorreccionBody() {
             <div style="font-size:12.5px;color:var(--text);line-height:1.4">${enunc}</div>
             ${optsHtml}
           </div>
-          <div style="display:flex;gap:5px;flex-shrink:0">
-            <button onclick="toggleCorreccionQ(${i}, 1)"
-              style="width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid;cursor:pointer;
-                     font-size:14px;font-weight:700;transition:all .12s;
-                     background:${isCorr?'var(--pass)':'transparent'};
-                     border-color:${isCorr?'var(--pass)':'var(--border)'};
-                     color:${isCorr?'#fff':'var(--text3)'}">✓</button>
-            <button onclick="toggleCorreccionQ(${i}, 0)"
-              style="width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid;cursor:pointer;
-                     font-size:14px;font-weight:700;transition:all .12s;
-                     background:${!isCorr?'var(--fail)':'transparent'};
-                     border-color:${!isCorr?'var(--fail)':'var(--border)'};
-                     color:${!isCorr?'#fff':'var(--text3)'}">✗</button>
-          </div>
+          ${_correccionModoVer
+            ? `<span style="font-size:18px;flex-shrink:0">${isCorr ? '✓' : '✗'}</span>`
+            : `<div style="display:flex;gap:5px;flex-shrink:0">
+                <button onclick="toggleCorreccionQ(${i}, 1)"
+                  style="width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid;cursor:pointer;
+                         font-size:14px;font-weight:700;transition:all .12s;
+                         background:${isCorr?'var(--pass)':'transparent'};
+                         border-color:${isCorr?'var(--pass)':'var(--border)'};
+                         color:${isCorr?'#fff':'var(--text3)'}">✓</button>
+                <button onclick="toggleCorreccionQ(${i}, 0)"
+                  style="width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid;cursor:pointer;
+                         font-size:14px;font-weight:700;transition:all .12s;
+                         background:${!isCorr?'var(--fail)':'transparent'};
+                         border-color:${!isCorr?'var(--fail)':'var(--border)'};
+                         color:${!isCorr?'#fff':'var(--text3)'}">✗</button>
+               </div>`
+          }
         </div>`;
     }).join('');
 }
@@ -8393,8 +8414,9 @@ function guardarCorreccion() {
 
 function cerrarCorreccion() {
   document.getElementById('modal-corregir-overlay').style.display = 'none';
-  _correccionEvalId = null;
-  _correccionResp   = [];
+  _correccionEvalId  = null;
+  _correccionResp    = [];
+  _correccionModoVer = false;
 }
 
 // ==================== HELPERS GLOBALES ====================
@@ -8649,7 +8671,15 @@ function renderReporte() {
                     font-weight:600;font-family:'Montserrat',sans-serif;cursor:pointer;
                     transition:all .15s" title="Corregir respuestas de esta evaluación">
              ✏ Corregir respuestas
-           </button>` : '';
+           </button>`
+        : `<button onclick="verPreguntas(${JSON.stringify(e.id)})"
+             style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;
+                    border-radius:var(--radius-sm);border:1px solid rgba(91,130,190,0.35);
+                    background:rgba(91,130,190,0.07);color:var(--accent2);font-size:12px;
+                    font-weight:600;font-family:'Montserrat',sans-serif;cursor:pointer;
+                    transition:all .15s" title="Ver preguntas de esta evaluación">
+             👁 Ver preguntas
+           </button>`;
 
       html += `
         <div class="card section-gap" style="border-left:4px solid ${pass?'var(--accent3)':'var(--fail)'}">
