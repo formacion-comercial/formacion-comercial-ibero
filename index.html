@@ -8549,13 +8549,19 @@ function renderReporte() {
     const ck = (supervisor||'') + '||' + (asesor||'') + '||' + (mes||'') + '||' + (anio||'') + '||' + (modalidad||'');
     if (ck in _rPregsCache) return _rPregsCache[ck];
     const supN = _nr2(supervisor || '');
+    const _isNuevo = modalidad === 'asesor-nuevo';
+    const _bankMatch = ([k,v]) => {
+      if (!v || !v.length) return false;
+      const endsNuevo = k.endsWith('||asesor-nuevo');
+      return _isNuevo ? endsNuevo : !endsNuevo;
+    };
     const r = _getPreguntas(supervisor, mes, anio, modalidad)
            || _getPreguntasParaAsesor(asesor, supervisor, mes, anio, modalidad)
            || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[supervisor])
-           || (_rBankE.find(([k,v]) => k.startsWith((supervisor||'').trim()+'||') && v && v.length) || [])[1]
-           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && v && v.length) || [])[1]
-           || (_rBankIE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && v && v.length) || [])[1]
-           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(_nr2(asesor||'')+'||') && v && v.length) || [])[1]
+           || (_rBankE.find(([k,v]) => k.startsWith((supervisor||'').trim()+'||') && _bankMatch([k,v])) || [])[1]
+           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && _bankMatch([k,v])) || [])[1]
+           || (_rBankIE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && _bankMatch([k,v])) || [])[1]
+           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(_nr2(asesor||'')+'||') && _bankMatch([k,v])) || [])[1]
            || null;
     return (_rPregsCache[ck] = r);
   }
@@ -8563,7 +8569,7 @@ function renderReporte() {
   evs.forEach(e => {
     const t = e.totalPreguntas || e.respuestas.length || 20;
     if (t > 20 || !e.respuestas || !e.respuestas.length) return;
-    const sk = e.supervisor || '—';
+    const sk = (e.supervisor || '—') + '||' + (e.modalidad || 'mensual');
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
     const pregs = _getRankedPregs(e.supervisor, e.asesor, e.mes, e.anio, e.modalidad || 'mensual');
@@ -8594,6 +8600,12 @@ function renderReporte() {
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
         ${_rankSupKeys.map(sk => {
+          const _skParts = sk.split('||');
+          const _supName = _skParts[0];
+          const _supMod  = _skParts[1] || 'mensual';
+          const _modBadge = _supMod === 'asesor-nuevo'
+            ? '<span style="font-size:9px;background:rgba(91,130,190,0.12);color:var(--accent2);border:1px solid rgba(91,130,190,0.25);border-radius:100px;padding:1px 6px;font-family:\'Fira Code\',monospace;white-space:nowrap">🆕 Nuevo</span>'
+            : '<span style="font-size:9px;background:rgba(78,138,114,0.10);color:var(--accent3);border:1px solid rgba(78,138,114,0.20);border-radius:100px;padding:1px 6px;font-family:\'Fira Code\',monospace;white-space:nowrap">📅 Mensual</span>';
           const { qs, total } = _rankSup[sk];
           const sorted = Object.entries(qs)
             .map(([idx, d]) => ({ idx: parseInt(idx), cnt: d.cnt, enunc: d.enunc }))
@@ -8605,9 +8617,10 @@ function renderReporte() {
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
             <div style="padding:10px 14px;background:rgba(184,80,80,0.05);border-bottom:1px solid rgba(184,80,80,0.15);display:flex;align-items:center;gap:8px">
               <div style="width:28px;height:28px;border-radius:50%;background:rgba(184,80,80,0.10);border:1px solid rgba(184,80,80,0.20);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--fail);font-weight:700;flex-shrink:0">
-                ${sk.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+                ${_supName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
               </div>
-              <span style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;color:var(--text);flex:1">${sk}</span>
+              <span style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;color:var(--text);flex:1">${_supName}</span>
+              ${_modBadge}
               <span style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text3)">${total} eval${total!==1?'s':''}</span>
             </div>
             <div>
@@ -12260,10 +12273,9 @@ function _supMesKey(sup, mes, anio, modalidad) {
 function _getPreguntas(sup, mes, anio, modalidad) {
   const bank = state.preguntasPorSupMes || {};
   if (modalidad === 'asesor-nuevo') {
+    // Strict: only asesor-nuevo bank — no fallback to mensual to avoid mixing
     return (anio && bank[_supMesKey(sup, mes, anio, 'asesor-nuevo')])
         || bank[_supMesKey(sup, mes, null, 'asesor-nuevo')]
-        || (anio && bank[_supMesKey(sup, mes, anio)])
-        || bank[_supMesKey(sup, mes)]
         || null;
   }
   return (anio && bank[_supMesKey(sup, mes, anio)]) || bank[_supMesKey(sup, mes)] || null;
