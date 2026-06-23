@@ -12124,9 +12124,13 @@ function impConfirmar() {
     }
     if (!asesor) { omitidos++; return; }
 
-    // Evitar duplicados
     const submitKey = `${asesor.nombre}||${mes}||${anio}`;
-    if (state.evaluacionesEnviadas[submitKey]) { omitidos++; return; }
+    // Remover eval previa del mismo asesor/mes/año (p.ej. auto-enviada como asesor-nuevo)
+    // para que la importación de la formadora siempre pueda sobrescribir
+    state.evaluaciones = state.evaluaciones.filter(e =>
+      !(e.asesor === asesor.nombre && e.mes === mes && parseInt(e.anio) === parseInt(anio))
+    );
+    delete state.evaluacionesEnviadas[submitKey];
 
     // Crear respuestas sintéticas según el tipo de evaluación del supervisor
     let total, correctas, respuestas, pctRawVal;
