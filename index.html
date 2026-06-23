@@ -6551,11 +6551,11 @@ let _regPreguntasActuales = null; // banco activo en el formulario de registro
 function cargarPreguntasRegistro() {
   const asesorNombre = document.getElementById('reg-asesor').value;
   const mes          = document.getElementById('reg-mes').value;
+  const modalidad    = (document.getElementById('reg-modalidad') || {}).value || 'mensual';
   const asesorObj    = state.asesores.find(a => a.nombre === asesorNombre);
   const supervisor   = asesorObj ? asesorObj.supervisor : '';
-  const key          = _supMesKey(supervisor, mes);
   const preguntas    = supervisor && mes
-    ? (state.preguntasPorSupMes && state.preguntasPorSupMes[key])
+    ? _getPreguntasParaAsesor(asesorNombre, supervisor, mes, null, modalidad)
     : null;
 
   const grid = document.getElementById('questions-grid');
@@ -8332,8 +8332,8 @@ function _renderCorreccionBody() {
             : null)
           // Prioridad 2: banco correcto según modalidad de la evaluación
           || (_isEvalAsesorNuevo(ev)
-              ? _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio)
-              : _getPreguntas(ev.supervisor, ev.mes, ev.anio))
+              ? _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio, 'asesor-nuevo')
+              : _getPreguntas(ev.supervisor, ev.mes, ev.anio, ev.modalidad || 'mensual'))
           || []
         )
       : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
@@ -8545,12 +8545,12 @@ function renderReporte() {
   const _rBankE  = Object.entries(_rBank);
   const _rBankIE = Object.entries(_rBankI);
   const _rPregsCache = {};
-  function _getRankedPregs(supervisor, asesor, mes, anio) {
-    const ck = (supervisor||'') + '||' + (asesor||'') + '||' + (mes||'') + '||' + (anio||'');
+  function _getRankedPregs(supervisor, asesor, mes, anio, modalidad) {
+    const ck = (supervisor||'') + '||' + (asesor||'') + '||' + (mes||'') + '||' + (anio||'') + '||' + (modalidad||'');
     if (ck in _rPregsCache) return _rPregsCache[ck];
     const supN = _nr2(supervisor || '');
-    const r = _getPreguntas(supervisor, mes, anio)
-           || _getPreguntasParaAsesor(asesor, supervisor, mes, anio)
+    const r = _getPreguntas(supervisor, mes, anio, modalidad)
+           || _getPreguntasParaAsesor(asesor, supervisor, mes, anio, modalidad)
            || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[supervisor])
            || (_rBankE.find(([k,v]) => k.startsWith((supervisor||'').trim()+'||') && v && v.length) || [])[1]
            || (_rBankE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && v && v.length) || [])[1]
@@ -8566,7 +8566,7 @@ function renderReporte() {
     const sk = e.supervisor || '—';
     if (!_rankSup[sk]) _rankSup[sk] = { qs: {}, total: 0 };
     _rankSup[sk].total++;
-    const pregs = _getRankedPregs(e.supervisor, e.asesor, e.mes, e.anio);
+    const pregs = _getRankedPregs(e.supervisor, e.asesor, e.mes, e.anio, e.modalidad || 'mensual');
     e.respuestas.forEach((r, i) => {
       if (r === 0) {
         if (!_rankSup[sk].qs[i]) _rankSup[sk].qs[i] = { cnt: 0, enunc: null };
@@ -8654,7 +8654,7 @@ function renderReporte() {
       const ptsLabel = esNuevo ? `${sc.nota != null ? sc.nota : pts}/10` : `${pts}/100`;
       const ptsUnit  = esNuevo ? 'NOTA / 10' : 'PTS / 100';
       const pass  = _evalPaso(e);
-      const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+      const pregs = _getPreguntas(e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
       const esSintetica = t > 20;
       const correctas = e.respuestas.filter(r => r === 1).length;
 
@@ -10551,7 +10551,7 @@ function showDetalle(id) {
   const pct  = calcPct(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
 
   // Get question bank for this supervisor/mes/anio (if exists)
-  const pregs   = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+  const pregs   = _getPreguntas(e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
   const LETRAS  = ['A','B','C','D'];
   const fallidas = e.respuestas
     .map((r, i) => ({ r, i }))
@@ -11822,8 +11822,15 @@ function renderSupervisorQuestionCards() {
   state.supervisores.forEach(sup => {
     const entradas = Object.entries(banco)
       .filter(([k]) => k.startsWith(sup + '||'))
-      .map(([k, v]) => ({ mes: k.split('||')[1], anio: k.split('||')[2] || '', count: v.length }));
-    entradas.forEach(e => filas.push({ sup, mes: e.mes, anio: e.anio, count: e.count }));
+      .map(([k, v]) => {
+        const parts = k.split('||');
+        // parts: [sup, mes] o [sup, mes, anio] o [sup, mes, anio, modalidad]
+        const mes      = parts[1] || '';
+        const anio     = (parts[2] && parts[2] !== 'asesor-nuevo') ? parts[2] : '';
+        const modalidad= parts[parts.length - 1] === 'asesor-nuevo' ? 'asesor-nuevo' : 'mensual';
+        return { mes, anio, modalidad, count: v.length };
+      });
+    entradas.forEach(e => filas.push({ sup, mes: e.mes, anio: e.anio, modalidad: e.modalidad, count: e.count }));
   });
 
   if (!filas.length) {
@@ -11848,30 +11855,37 @@ function renderSupervisorQuestionCards() {
               <th>Supervisor</th>
               <th>Mes</th>
               <th>Año</th>
+              <th>Tipo</th>
               <th style="text-align:center">Preguntas</th>
               <th style="text-align:center">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            ${filas.map(f => `
+            ${filas.map(f => {
+              const modLabel = f.modalidad === 'asesor-nuevo'
+                ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 7px;font-weight:600">🆕 Nuevo</span>'
+                : '<span style="font-size:10px;background:rgba(100,120,200,0.10);color:var(--text3);border-radius:4px;padding:2px 7px;font-weight:600">📅 Mensual</span>';
+              return `
               <tr>
                 <td style="font-weight:600">${f.sup}</td>
                 <td>${f.mes}</td>
                 <td style="font-family:'Fira Code',monospace;font-size:12px">${f.anio || '—'}</td>
+                <td>${modLabel}</td>
                 <td style="text-align:center;font-family:'Fira Code',monospace;color:var(--accent);font-weight:600">
                   ${f.count}
                 </td>
                 <td style="text-align:center">
                   <div style="display:flex;justify-content:center;gap:6px">
-                    <button onclick="verBancoPreguntas('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}')"
+                    <button onclick="verBancoPreguntas('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}','${f.modalidad}')"
                       style="padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
                              background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px">👁 Ver</button>
-                    <button onclick="eliminarBancoMes('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}')"
+                    <button onclick="eliminarBancoMes('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}','${f.modalidad}')"
                       style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
                              background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕</button>
                   </div>
                 </td>
-              </tr>`).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -12235,23 +12249,33 @@ function impReset() {
 }
 
 // ==================== BANCO DE PREGUNTAS POR MES ====================
-function _supMesKey(sup, mes, anio) {
+function _supMesKey(sup, mes, anio, modalidad) {
   const base = (sup || '') + '||' + (mes || '');
-  return anio ? base + '||' + anio : base;
+  const withAnio = anio ? base + '||' + anio : base;
+  // Solo asesor-nuevo lleva sufijo; mensual/fortalecimiento usan clave base
+  return (modalidad === 'asesor-nuevo') ? withAnio + '||asesor-nuevo' : withAnio;
 }
 // Try with year first, fall back to key without year (backward compat)
-function _getPreguntas(sup, mes, anio) {
+// modalidad: 'asesor-nuevo' busca clave específica, con fallback a clave compartida
+function _getPreguntas(sup, mes, anio, modalidad) {
   const bank = state.preguntasPorSupMes || {};
+  if (modalidad === 'asesor-nuevo') {
+    return (anio && bank[_supMesKey(sup, mes, anio, 'asesor-nuevo')])
+        || bank[_supMesKey(sup, mes, null, 'asesor-nuevo')]
+        || (anio && bank[_supMesKey(sup, mes, anio)])
+        || bank[_supMesKey(sup, mes)]
+        || null;
+  }
   return (anio && bank[_supMesKey(sup, mes, anio)]) || bank[_supMesKey(sup, mes)] || null;
 }
 // Individual asesor questions take priority over group questions
-function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio) {
+function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio, modalidad) {
   const bank = state.preguntasPorAsesorMes || {};
   const keyConAnio = (asesorNombre || '') + '||' + (mes || '') + (anio ? '||' + anio : '');
   const keySinAnio = (asesorNombre || '') + '||' + (mes || '');
   const individual = (anio && bank[keyConAnio]) || bank[keySinAnio] || null;
   if (individual) return individual;
-  return _getPreguntas(supervisor, mes, anio);
+  return _getPreguntas(supervisor, mes, anio, modalidad);
 }
 
 // ==================== CARGA MASIVA DE PREGUNTAS ====================
@@ -12474,10 +12498,10 @@ function _procesarExcelMasivo(file, mes, anio, modalidad) {
 
         if (preguntas.length) {
           if (!state.preguntasPorSupMes) state.preguntasPorSupMes = {};
-          state.preguntasPorSupMes[_supMesKey(supMatch, mes, anio)] = preguntas;
-          // Guardar modalidad por clave supervisor||mes||anio
+          // Guardar con clave que incluye modalidad para separar nuevo/antiguo
+          state.preguntasPorSupMes[_supMesKey(supMatch, mes, anio, modalidad)] = preguntas;
           if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
-          state.modalidadPorSupMes[_supMesKey(supMatch, mes, anio)] = modalidad;
+          state.modalidadPorSupMes[_supMesKey(supMatch, mes, anio, modalidad)] = modalidad;
           totalPregs += preguntas.length;
           resultados.push(`✓ ${supMatch}: ${preguntas.length} pregunta(s)`);
         } else {
@@ -12780,12 +12804,12 @@ function _setBancoStatus(id, type, msg) {
   if (type !== 'loading') setTimeout(() => { if (el) el.style.display = 'none'; }, 4000);
 }
 
-function eliminarBancoMes(supervisor, mes, anio) {
-  if (!confirm('¿Eliminar las preguntas de ' + mes + (anio ? ' ' + anio : '') + ' para ' + supervisor + '?')) return;
+function eliminarBancoMes(supervisor, mes, anio, modalidad) {
+  const modLabel = modalidad === 'asesor-nuevo' ? ' (Asesor Nuevo)' : '';
+  if (!confirm('¿Eliminar las preguntas' + modLabel + ' de ' + mes + (anio ? ' ' + anio : '') + ' para ' + supervisor + '?')) return;
   if (state.preguntasPorSupMes) {
-    // Intentar con año primero, luego sin año (compatibilidad)
-    const keyConAnio = _supMesKey(supervisor, mes, anio);
-    const keySinAnio = _supMesKey(supervisor, mes);
+    const keyConAnio = _supMesKey(supervisor, mes, anio, modalidad);
+    const keySinAnio = _supMesKey(supervisor, mes, null, modalidad);
     if (state.preguntasPorSupMes[keyConAnio] !== undefined) delete state.preguntasPorSupMes[keyConAnio];
     else if (state.preguntasPorSupMes[keySinAnio] !== undefined) delete state.preguntasPorSupMes[keySinAnio];
   }
@@ -12793,8 +12817,10 @@ function eliminarBancoMes(supervisor, mes, anio) {
   renderSupervisorQuestionCards();
 }
 
-function verBancoPreguntas(supervisor, mes, anio) {
+function verBancoPreguntas(supervisor, mes, anio, modalidad) {
   const pregs = state.preguntasPorSupMes && (
+    state.preguntasPorSupMes[_supMesKey(supervisor, mes, anio, modalidad)] ||
+    state.preguntasPorSupMes[_supMesKey(supervisor, mes, null, modalidad)] ||
     state.preguntasPorSupMes[_supMesKey(supervisor, mes, anio)] ||
     state.preguntasPorSupMes[_supMesKey(supervisor, mes)]
   );
@@ -13347,7 +13373,7 @@ function initAsesorForm(asesor) {
   document.getElementById('asesor-score-sticky').style.display = 'flex';
 
   const formsLink  = state.formsPorSupervisor && state.formsPorSupervisor[asesor.supervisor];
-  const bancoPregsMes = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel);
+  const bancoPregsMes = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
   const list = document.getElementById('asesor-questions-list');
 
   // Update read-only display
@@ -13806,8 +13832,8 @@ async function enviarEvaluacionAsesor() {
     if (card) { card.style.border = ''; card.style.background = ''; }
   });
 
-  // Calcular respuestas: prioridad banco individual, luego grupal, luego banco genérico
-  const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio)
+  // Calcular respuestas: prioridad banco individual, luego grupal por modalidad, luego banco genérico
+  const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, _modalidadCheck)
                 || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[asesorActual.supervisor]);
   const LETRAS   = ['A','B','C','D'];
   let respFinal;
