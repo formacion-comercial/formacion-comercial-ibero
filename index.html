@@ -12825,7 +12825,15 @@ function eliminarBancoMes(supervisor, mes, anio, modalidad) {
     if (state.preguntasPorSupMes[keyConAnio] !== undefined) delete state.preguntasPorSupMes[keyConAnio];
     else if (state.preguntasPorSupMes[keySinAnio] !== undefined) delete state.preguntasPorSupMes[keySinAnio];
   }
-  save();
+  // Guardar en localStorage
+  localStorage.setItem('evalproState', JSON.stringify(state));
+  // Reemplazar el mapa completo en Firestore con update() — save() usa merge:true
+  // que NO borra claves existentes en mapas anidados, por eso el banco reaparece al recargar
+  if (window._fbDb) {
+    window._fbDb.collection('config').doc('main')
+      .update({ preguntasPorSupMes: state.preguntasPorSupMes || {} })
+      .catch(e => console.warn('Error eliminando banco en Firestore:', e));
+  }
   renderSupervisorQuestionCards();
 }
 
