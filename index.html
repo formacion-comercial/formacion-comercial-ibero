@@ -8296,16 +8296,52 @@ function abrirCorreccion(evalId) {
 function verPreguntas(evalId) {
   const ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
   if (!ev) return;
-  _correccionEvalId  = evalId;
-  _correccionModoVer = true;
-  _correccionResp    = ev.respuestas.slice();
+  const pregs = _findBankFuzzy(ev.supervisor, ev.mes, ev.anio)
+             || _findBankFuzzy(ev.asesor, ev.mes, ev.anio)
+             || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor])
+             || [];
+  const LETRAS = ['A','B','C','D'];
 
-  document.getElementById('mcr-titulo').textContent    = `Preguntas — ${ev.asesor}`;
-  document.getElementById('mcr-subtitulo').textContent = `${ev.mes} ${ev.anio}  ·  ${ev.supervisor}`;
-  document.getElementById('mcr-footer-btns').style.display = 'none';
+  document.getElementById('modal-title').textContent = `Preguntas ${ev.mes} ${ev.anio} — ${ev.supervisor}`;
+  document.getElementById('modal-body').innerHTML = !pregs.length
+    ? `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">
+         No hay preguntas cargadas para este mes.
+       </div>`
+    : `<div style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);margin-bottom:14px">
+         ${pregs.length} pregunta(s) · ${ev.mes} ${ev.anio}
+       </div>
+       ${pregs.map((q, i) => {
+         const esObj = q && typeof q === 'object';
+         const enunc = esObj ? (q.enunciado || '') : (q || '');
+         const opts  = esObj && q.opciones ? q.opciones : [];
+         const tipo  = esObj ? (q.tipo || 'unica') : 'unica';
+         let optsHtml = '';
+         if (tipo === 'verdaderofalso') {
+           optsHtml = `<div style="display:flex;gap:8px;margin-top:6px">
+             <span style="font-size:12px;padding:3px 10px;border-radius:4px;background:var(--surface2);color:var(--text2)">Verdadero</span>
+             <span style="font-size:12px;padding:3px 10px;border-radius:4px;background:var(--surface2);color:var(--text2)">Falso</span>
+           </div>`;
+         } else if (opts.length) {
+           optsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px">
+             ${opts.map((op, oi) => `
+               <div style="display:flex;gap:6px;padding:4px 8px;border-radius:4px;background:var(--surface2)">
+                 <span style="font-family:'Fira Code',monospace;font-size:10px;font-weight:700;color:var(--text3);flex-shrink:0">${LETRAS[oi]})</span>
+                 <span style="font-size:11.5px;color:var(--text2)">${_escHtml ? _escHtml(op) : op}</span>
+               </div>`).join('')}
+           </div>`;
+         }
+         return `
+           <div style="margin-bottom:10px;padding:12px;background:var(--surface2);
+                       border-radius:var(--radius-sm);border:1px solid var(--border)">
+             <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:${optsHtml?'0':'0'}">
+               <span style="font-family:'Fira Code',monospace;font-size:10px;font-weight:700;color:var(--text3);flex-shrink:0">P${String(i+1).padStart(2,'0')}</span>
+               <span style="font-size:13px;color:var(--text);line-height:1.45">${_escHtml ? _escHtml(enunc) : enunc}</span>
+             </div>
+             ${optsHtml}
+           </div>`;
+       }).join('')}`;
 
-  _renderCorreccionBody();
-  document.getElementById('modal-corregir-overlay').style.display = 'flex';
+  document.getElementById('modal-overlay').classList.add('open');
 }
 
 function _renderCorreccionBody() {
