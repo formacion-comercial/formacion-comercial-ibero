@@ -8310,7 +8310,11 @@ function verPreguntas(evalId) {
 
 function _renderCorreccionBody() {
   const ev     = state.evaluaciones.find(e => String(e.id) === String(_correccionEvalId));
-  const pregs  = ev ? (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || []) : [];
+  const pregs  = ev ? (
+    _correccionModoVer
+      ? (_getPreguntas(ev.supervisor, ev.mes, ev.anio) || _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio) || [])
+      : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
+  ) : [];
   const LETRAS = ['A','B','C','D'];
   const corr   = _correccionResp.filter(r => r === 1).length;
   const total  = _correccionResp.length;
