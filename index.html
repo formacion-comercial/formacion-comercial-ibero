@@ -4879,6 +4879,8 @@ async function _fbInit() {
           if (!state.supervisorPasswords[s]) state.supervisorPasswords[s] = _pwdsLocales[s];
         });
       }
+      // Persistir inmediatamente a localStorage para que reloadState() siempre tenga el banco
+      localStorage.setItem('evalproState', JSON.stringify(state));
     } else {
       const cfg = Object.assign({}, state);
       delete cfg.evaluaciones;
@@ -4992,9 +4994,9 @@ function reloadState() {
     state.mesesPorSupervisor     = fresh.mesesPorSupervisor     || {};
     state.formsPorSupervisor     = fresh.formsPorSupervisor     || {};
     state.sheetsPorSupervisor    = fresh.sheetsPorSupervisor    || {};
-    state.preguntasPorSupMes          = fresh.preguntasPorSupMes          || {};
-    state.preguntasPorSupMesInicial   = fresh.preguntasPorSupMesInicial   || {};
-    state.preguntasPorAsesorMes       = fresh.preguntasPorAsesorMes       || {};
+    if (Object.keys(fresh.preguntasPorSupMes       || {}).length) state.preguntasPorSupMes       = fresh.preguntasPorSupMes;
+    if (Object.keys(fresh.preguntasPorSupMesInicial|| {}).length) state.preguntasPorSupMesInicial = fresh.preguntasPorSupMesInicial;
+    if (Object.keys(fresh.preguntasPorAsesorMes    || {}).length) state.preguntasPorAsesorMes     = fresh.preguntasPorAsesorMes;
     state.evaluacionesEnviadas        = fresh.evaluacionesEnviadas        || {};
     state.historicoAsesores           = fresh.historicoAsesores           || {};
     state.plazos                      = fresh.plazos                      || {};
