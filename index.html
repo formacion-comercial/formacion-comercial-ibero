@@ -6546,6 +6546,7 @@ function limpiarDeadline() {
 
 // ── Carga el banco de preguntas (supervisor+mes) en el formulario de registro ──
 let _regConPreguntas = false; // true cuando el grid muestra preguntas del banco
+let _regPreguntasActuales = null; // banco activo en el formulario de registro
 
 function cargarPreguntasRegistro() {
   const asesorNombre = document.getElementById('reg-asesor').value;
@@ -6560,9 +6561,11 @@ function cargarPreguntasRegistro() {
   const grid = document.getElementById('questions-grid');
   regRespuestas = new Array(20).fill(null);
   _regConPreguntas = false;
+  _regPreguntasActuales = null;
 
   if (preguntas && preguntas.length) {
     _regConPreguntas = true;
+    _regPreguntasActuales = preguntas;
     const LETRAS = ['A','B','C','D'];
     const total  = Math.min(preguntas.length, 20);
     regRespuestas = new Array(total).fill(null);
@@ -6670,7 +6673,10 @@ function guardarEvaluacion() {
     tipo: tipoEval,
     modalidad,
     fechaRegistro: new Date().toISOString(),
-    registradoPor: 'formadora'
+    registradoPor: 'formadora',
+    preguntas: _regPreguntasActuales
+      ? _regPreguntasActuales.map(q => typeof q === 'object' ? (q.enunciado || q.texto || null) : (q || null))
+      : null
   };
   _pushEval(_evFormadora);
   save();
@@ -8516,9 +8522,14 @@ function renderReporte() {
       if (r === 0) {
         if (!_rankSup[sk].qs[i]) _rankSup[sk].qs[i] = { cnt: 0, enunc: null };
         _rankSup[sk].qs[i].cnt++;
-        if (!_rankSup[sk].qs[i].enunc && pregs) {
-          const q = pregs[i];
-          _rankSup[sk].qs[i].enunc = (q && typeof q === 'object') ? (q.enunciado || null) : (q || null);
+        if (!_rankSup[sk].qs[i].enunc) {
+          if (pregs) {
+            const q = pregs[i];
+            _rankSup[sk].qs[i].enunc = (q && typeof q === 'object') ? (q.enunciado || null) : (q || null);
+          }
+          if (!_rankSup[sk].qs[i].enunc && e.preguntas && e.preguntas[i]) {
+            _rankSup[sk].qs[i].enunc = e.preguntas[i];
+          }
         }
       }
     });
@@ -13831,7 +13842,10 @@ async function enviarEvaluacionAsesor() {
     modalidad,
     nota,   // null para mensuales, 0-10 para asesor-nuevo
     pct, correctas: corr, total: respFinal.length,
-    fechaRegistro: new Date().toISOString()
+    fechaRegistro: new Date().toISOString(),
+    preguntas: rawPregs
+      ? rawPregs.map(q => typeof q === 'object' ? (q.enunciado || q.texto || null) : (q || null))
+      : null
   };
 
   // ── Guardar evaluación en Firestore (con reintentos) y esperar confirmación ──
