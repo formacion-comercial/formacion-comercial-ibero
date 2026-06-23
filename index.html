@@ -13294,13 +13294,21 @@ function initAsesorForm(asesor) {
     || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
   const _esNuevoEarly = _modalidadAsesorEarly === 'asesor-nuevo';
 
+  // ── Migrar entradas antiguas de asesor-nuevo a la clave con sufijo ──
+  // (antes del cambio de claves, las entradas de Nuevo usaban la clave sin sufijo con campo nota)
+  const submitKey    = `${asesor.nombre}||${mesSel}||${anioSel}`;
+  const _enviadas    = state.evaluacionesEnviadas || {};
+  const _entradaVieja = _enviadas[submitKey];
+  if (_entradaVieja && _entradaVieja.nota !== undefined && !_enviadas[submitKey + '||asesor-nuevo']) {
+    // Mover a la clave con sufijo y liberar la clave mensual
+    state.evaluacionesEnviadas[submitKey + '||asesor-nuevo'] = _entradaVieja;
+    delete state.evaluacionesEnviadas[submitKey];
+    save();
+  }
+
   // ── Bloquear si ya presentó la evaluación (clave separada por modalidad) ──
-  const submitKey     = `${asesor.nombre}||${mesSel}||${anioSel}`;
-  const submitKeyMod  = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
-  const _enviadas     = state.evaluacionesEnviadas || {};
-  // Compatibilidad hacia atrás: también detectar entradas antiguas con nota en la clave sin sufijo
-  const _yaEnvio = _enviadas[submitKeyMod]
-    || (_esNuevoEarly && _enviadas[submitKey] && _enviadas[submitKey].nota !== undefined);
+  const submitKeyMod = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
+  const _yaEnvio = (state.evaluacionesEnviadas || {})[submitKeyMod];
   if (_yaEnvio) {
     document.getElementById('asesor-form-section').style.display = 'block';
     document.getElementById('asesor-result-section').classList.remove('show');
