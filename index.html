@@ -8326,15 +8326,23 @@ function _renderCorreccionBody() {
   const pregs  = ev ? (
     _correccionModoVer
       ? (
-          // Prioridad 1: preguntas guardadas en la eval (texto guardado al momento de presentar)
-          (ev.preguntas && ev.preguntas.length
-            ? ev.preguntas.map(t => t ? { enunciado: t } : null)
-            : null)
-          // Prioridad 2: banco correcto según modalidad de la evaluación
-          || (_isEvalAsesorNuevo(ev)
-              ? _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio, 'asesor-nuevo')
-              : _getPreguntas(ev.supervisor, ev.mes, ev.anio, ev.modalidad || 'mensual'))
-          || []
+          _isEvalAsesorNuevo(ev)
+          // Asesor Nuevo: banco específico primero — ev.preguntas puede tener texto del banco mensual anterior
+          ? (
+              _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio, 'asesor-nuevo')
+              || (ev.preguntas && ev.preguntas.length
+                  ? ev.preguntas.map(t => t ? { enunciado: t } : null)
+                  : null)
+              || []
+            )
+          // Mensual: ev.preguntas primero (preserva lo que el asesor respondió), luego banco
+          : (
+              (ev.preguntas && ev.preguntas.length
+                ? ev.preguntas.map(t => t ? { enunciado: t } : null)
+                : null)
+              || _getPreguntas(ev.supervisor, ev.mes, ev.anio, ev.modalidad || 'mensual')
+              || []
+            )
         )
       : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
   ) : [];
