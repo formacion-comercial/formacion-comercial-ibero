@@ -8629,39 +8629,7 @@ function renderReporte() {
       const pass  = _evalPaso(e);
       const pregs = _getPreguntas(e.supervisor, e.mes, e.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
       const esSintetica = t > 20;
-      const aprobadas = esSintetica ? [] : e.respuestas.map((r,i) => ({r,i})).filter(x => x.r === 1);
-      const fallidas  = esSintetica ? [] : e.respuestas.map((r,i) => ({r,i})).filter(x => x.r === 0);
       const correctas = e.respuestas.filter(r => r === 1).length;
-
-      function renderPregRow(idx, correcto) {
-        const q     = pregs && pregs[idx];
-        const esObj = q && typeof q === 'object';
-        const enunc = esObj ? q.enunciado : (q || `Pregunta ${idx + 1}`);
-        const corrL = esObj && q.correcta ? q.correcta.toUpperCase() : null;
-        const selIdx = e.selecciones ? e.selecciones[idx] : null;
-        const selL   = (selIdx !== null && selIdx !== undefined) ? LETRAS[selIdx] : null;
-        const optsHtml = esObj && q.opciones ? `
-          <div style="margin-top:5px;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding-left:6px">
-            ${q.opciones.map((op,oi) => {
-              const L=LETRAS[oi]; const isCorr=corrL===L; const isSel=selL===L;
-              return `<div style="display:flex;gap:5px;font-size:11px;padding:3px 6px;border-radius:4px;
-                background:${isCorr?'rgba(78,138,114,0.08)':isSel&&!isCorr?'rgba(184,80,80,0.08)':'transparent'};
-                color:${isCorr?'var(--pass)':isSel&&!isCorr?'var(--fail)':'var(--text3)'}">
-                <span style="font-family:'Fira Code',monospace;font-weight:700;flex-shrink:0">${L})</span>
-                <span>${op}${isCorr?' ✓':''}</span></div>`;
-            }).join('')}
-          </div>` : '';
-        const selInfo = selL && corrL && !correcto
-          ? `<span style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text3);margin-left:6px">Respondió: <span style="color:var(--fail)">${selL}</span> · Correcta: <span style="color:var(--pass)">${corrL}</span></span>` : '';
-        return `
-          <div style="padding:8px 10px;border-bottom:1px solid rgba(57,54,69,0.15);background:${correcto?'rgba(78,138,114,0.02)':'rgba(184,80,80,0.02)'}">
-            <div style="display:flex;align-items:flex-start;gap:8px">
-              <span style="font-family:'Fira Code',monospace;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px;min-width:26px;color:${correcto?'var(--pass)':'var(--fail)'}">P${String(idx+1).padStart(2,'0')}</span>
-              <div style="flex:1;min-width:0"><span style="font-size:12.5px;color:var(--text);line-height:1.4">${enunc}</span>${selInfo}</div>
-              <span style="font-size:13px;flex-shrink:0">${correcto?'✓':'✗'}</span>
-            </div>${optsHtml}
-          </div>`;
-      }
 
       const btnCorregir = (!supervisorActual && !coordinadorActual)
         ? `<button onclick="abrirCorreccion(${JSON.stringify(e.id)})"
@@ -8731,22 +8699,7 @@ function renderReporte() {
                   </div>`).join('')}
                </div>`
           }
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div>
-              <div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent3);padding:8px 10px;font-weight:700;background:rgba(78,138,114,0.07);border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid rgba(78,138,114,0.15);border-bottom:none">✓ Aprobadas (${aprobadas.length})</div>
-              <div style="border:1px solid rgba(78,138,114,0.15);border-radius:0 0 var(--radius-sm) var(--radius-sm);overflow:hidden;max-height:380px;overflow-y:auto">
-                ${aprobadas.length ? aprobadas.map(({i}) => renderPregRow(i,true)).join('') : `<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Sin preguntas aprobadas</div>`}
-              </div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--fail);padding:8px 10px;font-weight:700;background:rgba(184,80,80,0.07);border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid rgba(184,80,80,0.15);border-bottom:none">✗ No aprobadas (${fallidas.length})</div>
-              <div style="border:1px solid rgba(184,80,80,0.15);border-radius:0 0 var(--radius-sm) var(--radius-sm);overflow:hidden;max-height:380px;overflow-y:auto">
-                ${fallidas.length ? fallidas.map(({i}) => renderPregRow(i,false)).join('') : `<div style="padding:16px;text-align:center;color:var(--accent3);font-size:12px">✓ ¡Todas las preguntas aprobadas!</div>`}
-              </div>
-            </div>
-          </div>
-
-          <!-- Gemini pitch removed -->
+          <!-- paneles aprobadas/no aprobadas removidos -->
         </div>`;
     });
   });
