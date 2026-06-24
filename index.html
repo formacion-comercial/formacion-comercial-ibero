@@ -11796,10 +11796,11 @@ async function loginAsesor() {
     // La ÚNICA razón para bloquear la mensual es que el asesor la haya presentado
     // directamente él mismo (la entrada tiene modalidad:'mensual').
     // Entradas de formadora, artefactos de sync, o entradas sin modalidad NO bloquean.
-    const _menDirecta = _enviadasLP[submitKey]
-      && _enviadasLP[submitKey].modalidad === 'mensual';
-    const _nuevoDirecta = _enviadasLP[submitKeyNuevo]
-      && _enviadasLP[submitKeyNuevo].modalidad === 'asesor-nuevo';
+    // Detectar por CLAVE: _sincronizarEvaluacionesEnviadas nunca guarda modalidad
+    // en evaluacionesEnviadas, así que .modalidad es undefined en entradas sincronizadas.
+    const _menDirecta  = _enviadasLP[submitKey]
+      && _enviadasLP[submitKey].modalidad === 'mensual'; // solo enviarEvaluacionAsesor lo pone
+    const _nuevoDirecta = !!_enviadasLP[submitKeyNuevo]; // clave ||asesor-nuevo existe → es asesor-nuevo
 
     if (_menDirecta) {
       soloVistaPerfil = true;
@@ -13510,12 +13511,16 @@ function initAsesorForm(asesor) {
     // ÚNICO indicador fiable de que la mensual fue presentada directamente:
     // enviarEvaluacionAsesor siempre guarda modalidad:'mensual'.
     // Entradas de formadora (registradoPor:'formadora') y artefactos de sync no tienen modalidad:'mensual'.
-    const _nuevoDirecta = _esNuevoEarly && _yaEnvio.modalidad === 'asesor-nuevo';
-    const _menDirecta   = !_esNuevoEarly && _yaEnvio.modalidad === 'mensual';
+    // Detectar por CLAVE, no por campo modalidad:
+    // _sincronizarEvaluacionesEnviadas nunca guarda el campo modalidad en evaluacionesEnviadas,
+    // así que _yaEnvio.modalidad siempre es undefined cuando viene de la sincronización.
+    // Si submitKeyMod lleva el sufijo ||asesor-nuevo, el entry ES de asesor-nuevo por definición.
+    const _nuevoDirecta = _esNuevoEarly; // yaEnvio está en la clave ||asesor-nuevo
+    const _menDirecta   = !_esNuevoEarly && _yaEnvio.modalidad === 'mensual'; // solo enviarEvaluacionAsesor lo pone
 
     if (_nuevoDirecta) {
-      // Envió asesor-nuevo. Bloquear solo si el asesor también presentó la mensual directamente.
-      // Una entrada de formadora (registradoPor:'formadora') NO cuenta como mensual presentada.
+      // Envió asesor-nuevo. Solo bloquear si el asesor también envió la mensual directamente
+      // (enviarEvaluacionAsesor guarda modalidad:'mensual' en la clave sin sufijo).
       const _menTambienDirecta = _enviadas[submitKey] && _enviadas[submitKey].modalidad === 'mensual';
       if (_menTambienDirecta) {
         setTimeout(() => asesorShowTab('perfil'), 80);
@@ -13536,13 +13541,15 @@ function initAsesorForm(asesor) {
       setTimeout(() => asesorShowTab('perfil'), 80);
       return;
     } else {
-      // Entrada existe pero NO es una presentación directa del asesor → verificar banco
-      const _bancoChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
+      // Entrada en clave mensual pero NO presentada directamente (formadora, sync, artefacto)
+      // → verificar banco mensual; si existe, mostrar formulario
+      const _bancoChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
       if (!_bancoChk || !_bancoChk.length) {
         setTimeout(() => asesorShowTab('perfil'), 80);
         return;
       }
       // Banco encontrado → continúa sin return para mostrar el formulario
+      _modalidadAsesorEarly = 'mensual';
     }
   }
 
