@@ -3815,7 +3815,11 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <div style="font-size:11px;color:rgba(255,255,255,0.60);font-family:'Fira Code',monospace" id="topbar-sup"></div>
       </div>
       <div class="asesor-avatar" id="topbar-avatar"></div>
-      <button onclick="cerrarSesion()" style="background:transparent;border:1px solid var(--border);color:var(--text3);padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-family:'Montserrat',sans-serif;margin-left:8px">Salir</button>
+      <button onclick="abrirCambioPasswordPerfil()" title="Cambiar contraseña"
+        style="background:transparent;border:1px solid var(--border);color:var(--text3);padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-family:'Montserrat',sans-serif;margin-left:8px;display:flex;align-items:center;gap:5px">
+        🔑 Contraseña
+      </button>
+      <button onclick="cerrarSesion()" style="background:transparent;border:1px solid var(--border);color:var(--text3);padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-family:'Montserrat',sans-serif;margin-left:4px">Salir</button>
     </div>
   </div>
 
