@@ -11780,7 +11780,18 @@ async function loginAsesor() {
   const submitKeyNuevo = `${nombre}||${mesDet}||${anioDet}||asesor-nuevo`;
   const _enviadasLP = state.evaluacionesEnviadas || {};
   if (_enviadasLP[submitKey] || _enviadasLP[submitKeyNuevo]) {
-    soloVistaPerfil = true;
+    // Si envió como asesor-nuevo pero NO la mensual, verificar si hay banco mensual
+    // En ese caso NO forzar soloVistaPerfil — dejar que initAsesorForm muestre la mensual
+    if (_enviadasLP[submitKeyNuevo] && !_enviadasLP[submitKey]) {
+      const _asesorLP = state.asesores.find(a => a.nombre === nombre);
+      const _bancoMensualLP = _asesorLP
+        ? _getPreguntasParaAsesor(nombre, _asesorLP.supervisor, mesDet, anioDet, 'mensual')
+        : null;
+      if (!_bancoMensualLP || !_bancoMensualLP.length) soloVistaPerfil = true;
+      // Si hay banco mensual → soloVistaPerfil queda false → initAsesorForm mostrará la mensual
+    } else {
+      soloVistaPerfil = true;
+    }
   }
 
   // Venció el plazo
@@ -13450,10 +13461,10 @@ function initAsesorForm(asesor) {
   const anioSel = asesorAnioDetectado || String(new Date().getFullYear());
 
   // ── Detectar modalidad temprano para usar el submitKey correcto ──
-  const _modalidadAsesorEarly = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
+  let _modalidadAsesorEarly = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
     || (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesSel + '||' + anioSel]
     || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
-  const _esNuevoEarly = _modalidadAsesorEarly === 'asesor-nuevo';
+  let _esNuevoEarly = _modalidadAsesorEarly === 'asesor-nuevo';
 
   // ── Migrar entradas antiguas de asesor-nuevo a la clave con sufijo ──
   // (antes del cambio de claves, las entradas de Nuevo usaban la clave sin sufijo con campo nota)
@@ -13471,9 +13482,23 @@ function initAsesorForm(asesor) {
   const submitKeyMod = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
   const _yaEnvio = (state.evaluacionesEnviadas || {})[submitKeyMod];
   if (_yaEnvio) {
-    // Redirigir directamente a Mi Perfil para que el asesor vea sus evaluaciones
-    setTimeout(() => asesorShowTab('perfil'), 80);
-    return;
+    // Si envió como asesor-nuevo pero NO la mensual, verificar si hay banco mensual disponible
+    if (_esNuevoEarly && !_enviadas[submitKey]) {
+      const _bancoMensual = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
+      if (_bancoMensual && _bancoMensual.length > 0) {
+        // Hay evaluación mensual pendiente — cambiar a modo mensual y continuar
+        _modalidadAsesorEarly = 'mensual';
+        _esNuevoEarly = false;
+        // (no return — continúa con el formulario en modo mensual)
+      } else {
+        setTimeout(() => asesorShowTab('perfil'), 80);
+        return;
+      }
+    } else {
+      // Ambas modalidades enviadas (o solo mensual) — ir al perfil
+      setTimeout(() => asesorShowTab('perfil'), 80);
+      return;
+    }
   }
 
   document.getElementById('asesor-form-section').style.display = 'block';
