@@ -3850,6 +3850,22 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <!-- Historial de evaluaciones -->
       <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Historial de Evaluaciones</div>
       <div id="perfil-historial"></div>
+
+      <!-- Seguridad: cambio de contraseña -->
+      <div style="margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(78,138,114,0.12);border:1px solid rgba(78,138,114,0.25);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🔑</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px">Contraseña de acceso</div>
+            <div style="font-size:12px;color:var(--text3)">Puedes cambiar tu contraseña en cualquier momento</div>
+          </div>
+        </div>
+        <button onclick="abrirCambioPasswordPerfil()"
+          style="flex-shrink:0;padding:9px 18px;border-radius:var(--radius-sm);border:1px solid rgba(78,138,114,0.35);background:rgba(78,138,114,0.10);color:var(--accent3);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .18s"
+          onmouseover="this.style.background='rgba(78,138,114,0.20)'" onmouseout="this.style.background='rgba(78,138,114,0.10)'">
+          Cambiar contraseña
+        </button>
+      </div>
     </div>
 
     <!-- ===== TAB: CARGUE MASIVO ===== -->
@@ -11878,6 +11894,45 @@ async function loginAsesor() {
 
 // ---- Variable temporal para primer acceso ----
 let _asesorPendienteAcceso = null;
+let _cambioPasswordDesde   = 'login'; // 'login' | 'perfil'
+
+function abrirCambioPasswordPerfil() {
+  if (!asesorActual) return;
+  _asesorPendienteAcceso = asesorActual.nombre;
+  _cambioPasswordDesde   = 'perfil';
+  // Ajustar textos del modal para cambio voluntario
+  const badge = document.querySelector('#modal-cambiar-pwd .cpwd-badge');
+  const title = document.querySelector('#modal-cambiar-pwd .cpwd-title');
+  const sub   = document.querySelector('#modal-cambiar-pwd .cpwd-sub');
+  const gLabel = document.querySelector('#modal-cambiar-pwd .cpwd-generic-label');
+  const gBox   = document.querySelector('#modal-cambiar-pwd .cpwd-generic-box');
+  if (badge)  badge.textContent = '🔑 Seguridad';
+  if (title)  title.textContent = 'Cambiar contraseña';
+  if (sub)    sub.textContent   = 'Ingresa y confirma tu nueva contraseña personal.';
+  if (gLabel) gLabel.style.display = 'none';
+  if (gBox)   gBox.style.display   = 'none';
+  // Valor sentinel para que la validación "igual a temporal" nunca bloquee
+  document.getElementById('cpwd-generic-display').textContent = '​__PERFIL__';
+  document.getElementById('cpwd-nueva').value      = '';
+  document.getElementById('cpwd-confirmar').value  = '';
+  document.getElementById('cpwd-error').style.display = 'none';
+  document.getElementById('modal-cambiar-pwd').classList.add('visible');
+  setTimeout(() => document.getElementById('cpwd-nueva').focus(), 120);
+}
+
+function _restaurarModalPwd() {
+  const badge = document.querySelector('#modal-cambiar-pwd .cpwd-badge');
+  const title = document.querySelector('#modal-cambiar-pwd .cpwd-title');
+  const sub   = document.querySelector('#modal-cambiar-pwd .cpwd-sub');
+  const gLabel = document.querySelector('#modal-cambiar-pwd .cpwd-generic-label');
+  const gBox   = document.querySelector('#modal-cambiar-pwd .cpwd-generic-box');
+  if (badge)  badge.textContent = '🔐 Primer acceso';
+  if (title)  title.textContent = 'Crea tu contraseña personal';
+  if (sub)    sub.textContent   = 'Tu cuenta fue creada con una contraseña temporal. Por seguridad, debes reemplazarla antes de continuar.';
+  if (gLabel) gLabel.style.display = '';
+  if (gBox)   gBox.style.display   = '';
+  _cambioPasswordDesde = 'login';
+}
 
 function copiarPwdGenerica() {
   const val = document.getElementById('cpwd-generic-display').textContent;
@@ -11918,9 +11973,17 @@ function confirmarCambioPassword() {
     asesor.passwordPersonalizada = true;
     save();
 
-    // Cerrar modal y entrar a la app
     document.getElementById('modal-cambiar-pwd').classList.remove('visible');
 
+    if (_cambioPasswordDesde === 'perfil') {
+      // Cambio voluntario desde el perfil → solo cerrar y notificar, sin re-navegar
+      _restaurarModalPwd();
+      _asesorPendienteAcceso = null;
+      showSyncToast('✓ Contraseña actualizada correctamente');
+      return;
+    }
+
+    // Primer acceso → entrar a la app
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('asesor-mode').style.display = 'block';
     document.querySelector('.app').style.display = 'none';
