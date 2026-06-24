@@ -13415,23 +13415,8 @@ function initAsesorForm(asesor) {
   const submitKeyMod = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
   const _yaEnvio = (state.evaluacionesEnviadas || {})[submitKeyMod];
   if (_yaEnvio) {
-    document.getElementById('asesor-form-section').style.display = 'block';
-    document.getElementById('asesor-result-section').classList.remove('show');
-    document.getElementById('asesor-score-sticky').style.display = 'none';
-    const list = document.getElementById('asesor-questions-list');
-    if (list) list.innerHTML = `
-      <div style="text-align:center;padding:48px 24px">
-        <div style="font-size:56px;margin-bottom:16px">✅</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:10px">
-          Evaluación ya presentada
-        </div>
-        <div style="font-size:14px;color:var(--text2);max-width:400px;margin:0 auto;line-height:1.7">
-          Ya presentaste tu evaluación de <strong style="color:var(--accent)">${mesSel} ${anioSel}</strong>.<br>
-          Puedes revisar tu resultado en <strong>Mi Perfil</strong>.
-        </div>
-      </div>`;
-    const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
-    if (btnEnviar) btnEnviar.style.display = 'none';
+    // Redirigir directamente a Mi Perfil para que el asesor vea sus evaluaciones
+    setTimeout(() => asesorShowTab('perfil'), 80);
     return;
   }
 
@@ -14195,7 +14180,23 @@ function asesorShowTab(tab) {
   const activeBtn = tab === 'eval' ? btnEval : tab === 'perfil' ? btnPerfil : btnCargue;
   if (activeBtn) { activeBtn.style.background = 'var(--accent)'; activeBtn.style.color = '#fff'; }
 
-  if (tab === 'perfil') renderPerfilAsesor();
+  if (tab === 'perfil') {
+    // Re-traer evaluaciones frescas de Firestore antes de renderizar el perfil
+    if (window._fbDb && asesorActual) {
+      window._fbDb.collection('evaluaciones').where('asesor', '==', asesorActual.nombre).get()
+        .then(snap => {
+          if (!snap.empty) {
+            const frescos = snap.docs.map(d => d.data());
+            const otros   = (state.evaluaciones || []).filter(e => e.asesor !== asesorActual.nombre);
+            state.evaluaciones = [...otros, ...frescos];
+          }
+          renderPerfilAsesor();
+        })
+        .catch(() => renderPerfilAsesor());
+    } else {
+      renderPerfilAsesor();
+    }
+  }
 }
 
 // ==================== PERFIL ASESOR ====================
