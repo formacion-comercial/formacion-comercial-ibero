@@ -13513,8 +13513,15 @@ function initAsesorForm(asesor) {
     const _nuevoDirecta = _esNuevoEarly && _yaEnvio.modalidad === 'asesor-nuevo';
     const _menDirecta   = !_esNuevoEarly && _yaEnvio.modalidad === 'mensual';
 
-    if (_nuevoDirecta && !_enviadas[submitKey]) {
-      // Envió asesor-nuevo, mensual aún no — verificar si hay banco mensual
+    if (_nuevoDirecta) {
+      // Envió asesor-nuevo. Bloquear solo si el asesor también presentó la mensual directamente.
+      // Una entrada de formadora (registradoPor:'formadora') NO cuenta como mensual presentada.
+      const _menTambienDirecta = _enviadas[submitKey] && _enviadas[submitKey].modalidad === 'mensual';
+      if (_menTambienDirecta) {
+        setTimeout(() => asesorShowTab('perfil'), 80);
+        return;
+      }
+      // Mensual no presentada → verificar si hay banco mensual disponible
       const _bancoMensual = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
       if (_bancoMensual && _bancoMensual.length > 0) {
         _modalidadAsesorEarly = 'mensual';
