@@ -8466,18 +8466,54 @@ function _renderCorreccionBody() {
       const esObj  = q && typeof q === 'object';
       const enunc  = esObj ? q.enunciado : (q || `Pregunta ${i + 1}`);
       const corrL  = esObj && q.correcta ? q.correcta.toUpperCase() : null;
+      const tipo   = esObj ? (q.tipo || 'unica') : 'unica';
+      // Selección real del asesor (guardada en ev.selecciones)
+      const _evSel = ev && ev.selecciones;
+      const _sel   = _evSel ? _evSel[i] : undefined;
+      const _tieneSelec = _sel !== undefined && _sel !== null && !(_correccionModoVer === false && !_evSel);
+
       const optsHtml = esObj && q.opciones && q.opciones.length
-        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:5px;padding-left:4px">
+        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;padding-left:4px">
             ${q.opciones.map((op, oi) => {
-              const L = LETRAS[oi]; const isCorr = corrL === L;
-              return `<div style="font-size:11px;padding:3px 7px;border-radius:4px;display:flex;gap:5px;
-                background:${isCorr?'rgba(78,138,114,0.07)':'transparent'};
-                color:${isCorr?'var(--pass)':'var(--text3)'}">
-                <span style="font-family:'Fira Code',monospace;font-weight:700">${L})</span>
-                <span>${op}${isCorr?' ✓':''}</span>
+              const L = LETRAS[oi];
+              const isCorrOpt = corrL === L;
+              let isSelOpt = false;
+              if (_tieneSelec) {
+                if (tipo === 'multiple') isSelOpt = Array.isArray(_sel) && _sel.includes(oi);
+                else isSelOpt = _sel === oi;
+              }
+              const bg  = (isCorrOpt && isSelOpt) ? 'rgba(78,138,114,0.18)'
+                        : isCorrOpt               ? 'rgba(78,138,114,0.08)'
+                        : isSelOpt                ? 'rgba(184,80,80,0.12)'
+                        : 'transparent';
+              const col = isCorrOpt ? 'var(--pass)' : isSelOpt ? 'var(--fail)' : 'var(--text3)';
+              const brd = isCorrOpt ? '1px solid rgba(78,138,114,0.28)'
+                        : isSelOpt  ? '1px solid rgba(184,80,80,0.25)'
+                        : '1px solid transparent';
+              const mark = isCorrOpt && isSelOpt ? ' ✓'
+                         : isCorrOpt             ? ' ✓'
+                         : isSelOpt              ? ' ✗'
+                         : '';
+              return `<div style="font-size:11px;padding:4px 7px;border-radius:4px;display:flex;gap:5px;
+                background:${bg};color:${col};border:${brd}">
+                <span style="font-family:'Fira Code',monospace;font-weight:700;flex-shrink:0">${L})</span>
+                <span style="flex:1">${op}<b>${mark}</b></span>
               </div>`;
             }).join('')}
-           </div>` : '';
+           </div>`
+        : (tipo === 'verdaderofalso' && _tieneSelec && corrL)
+          ? `<div style="display:flex;gap:8px;margin-top:6px;padding-left:4px">
+              ${['V','F'].map(ltr => {
+                const isCorrOpt = corrL === ltr;
+                const isSelOpt  = _sel === ltr;
+                const bg  = isCorrOpt ? 'rgba(78,138,114,0.10)' : isSelOpt ? 'rgba(184,80,80,0.10)' : 'transparent';
+                const col = isCorrOpt ? 'var(--pass)' : isSelOpt ? 'var(--fail)' : 'var(--text3)';
+                const brd = isCorrOpt ? '1px solid rgba(78,138,114,0.28)' : isSelOpt ? '1px solid rgba(184,80,80,0.25)' : '1px solid transparent';
+                const mark = isCorrOpt ? ' ✓' : isSelOpt ? ' ✗' : '';
+                return `<div style="font-size:11px;padding:3px 10px;border-radius:4px;font-family:'Fira Code',monospace;font-weight:700;background:${bg};color:${col};border:${brd}">${ltr}${mark}</div>`;
+              }).join('')}
+             </div>`
+          : '';
       const isCorr = r === 1;
       return `
         <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;margin-bottom:6px;
