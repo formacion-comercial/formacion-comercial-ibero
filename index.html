@@ -8572,6 +8572,9 @@ function guardarCorreccion() {
     );
   }
   save();
+  // Actualizar el documento individual en la colección 'evaluaciones' de Firestore
+  // para que el asesor vea los resultados corregidos en su perfil
+  _fbSaveEval(ev);
   cerrarCorreccion();
   renderReporte();
   const diff = despues - antes;
