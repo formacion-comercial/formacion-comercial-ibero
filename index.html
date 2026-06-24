@@ -11808,6 +11808,15 @@ async function loginAsesor() {
         : null;
       if (!_bancoMensualLP || !_bancoMensualLP.length) soloVistaPerfil = true;
       // Si hay banco mensual → soloVistaPerfil queda false → initAsesorForm mostrará la mensual
+    } else if (_mensualArtifact) {
+      // Entrada mensual es artefacto de sync (sin modalidad ni registradoPor).
+      // Puede ser un eval asesor-nuevo antiguo mal clasificado (sin campo nota/modalidad).
+      // Si hay banco mensual disponible, permitir que el asesor lo presente.
+      const _asesorLP2 = state.asesores.find(a => a.nombre === nombre);
+      const _bancoMensualLP2 = _asesorLP2
+        ? _getPreguntasParaAsesor(nombre, _asesorLP2.supervisor, mesDet, anioDet, 'mensual')
+        : null;
+      if (!_bancoMensualLP2 || !_bancoMensualLP2.length) soloVistaPerfil = true;
     } else {
       soloVistaPerfil = true;
     }
@@ -13515,9 +13524,10 @@ function initAsesorForm(asesor) {
         setTimeout(() => asesorShowTab('perfil'), 80);
         return;
       }
-    } else if (!_esNuevoEarly && _yaEnvioArtifact && _enviadas[submitKey + '||asesor-nuevo']) {
-      // La clave mensual es un artefacto de _sincronizarEvaluacionesEnviadas que clasificó
-      // mal un eval asesor-nuevo antiguo (sin campo modalidad). Verificar si hay banco mensual.
+    } else if (!_esNuevoEarly && _yaEnvioArtifact) {
+      // La clave mensual es un artefacto de _sincronizarEvaluacionesEnviadas (sin modalidad
+      // ni registradoPor): eval asesor-nuevo antiguo mal clasificado. Si hay banco mensual,
+      // continuar sin bloquear — el asesor presentará la mensual normalmente.
       const _bancoMensualChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
       if (!_bancoMensualChk || !_bancoMensualChk.length) {
         setTimeout(() => asesorShowTab('perfil'), 80);
