@@ -4941,6 +4941,9 @@ async function _fbInit() {
 
     // Cargar evaluaciones
     const _MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
+    // Capturar las evaluaciones de config/main ANTES de que la colección las sobreescriba.
+    // Esto permite recuperar evals que llegaron a config/main pero cuyo _fbSaveEval falló.
+    const _cfgMainEvs = (state.evaluaciones || []).slice();
     const evSnap = await window._fbDb.collection('evaluaciones').get();
     if (!evSnap.empty) {
       // Eliminar de Firestore los docs de Nov/Dic
@@ -4953,6 +4956,14 @@ async function _fbInit() {
         }
       }
       state.evaluaciones = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+      // Recuperar evaluaciones que están en config/main pero faltan en la colección
+      const _collIds = new Set(state.evaluaciones.map(e => String(e.id)));
+      const _faltantes = _cfgMainEvs.filter(e => e.id && !_collIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
+      if (_faltantes.length) {
+        state.evaluaciones = [...state.evaluaciones, ..._faltantes];
+        // Auto-corrección: subir las evaluaciones faltantes a la colección
+        _faltantes.forEach(ev => _fbSaveEval(ev));
+      }
     } else if (state.evaluaciones && state.evaluaciones.length > 0) {
       const evs = state.evaluaciones.filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
       state.evaluaciones = evs;
