@@ -6667,7 +6667,7 @@ function toggleRegQ(i, val) {
   updateScorePanel();
 }
 
-function guardarEvaluacion() {
+async function guardarEvaluacion() {
   const asesor    = document.getElementById('reg-asesor').value;
   const mes       = document.getElementById('reg-mes').value;
   const anio      = document.getElementById('reg-anio').value;
@@ -6695,7 +6695,6 @@ function guardarEvaluacion() {
   const deadFecha = (document.getElementById('reg-deadline-fecha') || {}).value || '';
   const deadHora  = (document.getElementById('reg-deadline-hora') || {}).value || '';
 
-  // Save deadline if set (may already be saved independently; only overwrite if fields have values)
   if (deadFecha) {
     if (!state.plazos) state.plazos = {};
     const supName = aObj ? aObj.supervisor : '';
@@ -6717,7 +6716,30 @@ function guardarEvaluacion() {
       : null
   };
 
-  // Marcar como enviada para que el asesor vea "ya presentada" y el perfil se active
+  // Deshabilitar botón mientras se guarda
+  const _btnGuardar = document.getElementById('btn-guardar-eval') || document.querySelector('button[onclick="guardarEvaluacion()"]');
+  if (_btnGuardar) { _btnGuardar.disabled = true; _btnGuardar.textContent = '⏳ Guardando...'; }
+
+  // Guardar en Firestore primero y esperar confirmación (igual que enviarEvaluacionAsesor)
+  // Esto garantiza que el eval existe en la colección ANTES de marcarlo como enviado
+  state.evaluaciones.push(_evFormadora);
+  localStorage.setItem('evalproState', JSON.stringify(state));
+  const _guardadoOk = await _fbSaveEval(_evFormadora);
+
+  if (!_btnGuardar || _guardadoOk) {
+    // Restaurar botón solo si hay error (si no hay botón o si guardó bien, continuar)
+  }
+  if (_btnGuardar) { _btnGuardar.disabled = false; _btnGuardar.textContent = 'Guardar evaluación'; }
+
+  if (!_guardadoOk) {
+    // Revertir push local y mostrar error
+    state.evaluaciones = state.evaluaciones.filter(e => e.id !== _evFormadora.id);
+    localStorage.setItem('evalproState', JSON.stringify(state));
+    showSyncToast('⚠ Error al guardar la evaluación en Firestore. Verifica tu conexión e intenta de nuevo.');
+    return;
+  }
+
+  // Marcar como enviada solo después de confirmar que el eval está en Firestore
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
   const _gueKey = modalidad === 'asesor-nuevo'
     ? `${asesor}||${mes}||${anio}||asesor-nuevo`
@@ -6728,11 +6750,10 @@ function guardarEvaluacion() {
     registradoPor: 'formadora'
   };
 
-  // Backup en config/main: si _fbSaveEval falla, _fbInit lo recupera en la próxima sesión
+  // Backup adicional en config/main (medida de seguridad extra)
   if (!state.evalBackup) state.evalBackup = {};
   state.evalBackup[String(_evFormadora.id)] = _evFormadora;
 
-  _pushEval(_evFormadora);
   save();
 
   const pts  = calcPts(respFinal, totalPreguntas, aObj.supervisor);
