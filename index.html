@@ -11793,32 +11793,29 @@ async function loginAsesor() {
   const submitKeyNuevo = `${nombre}||${mesDet}||${anioDet}||asesor-nuevo`;
   const _enviadasLP = state.evaluacionesEnviadas || {};
   if (_enviadasLP[submitKey] || _enviadasLP[submitKeyNuevo]) {
-    // ¿La entrada mensual es una presentación real (tiene modalidad o registradoPor) o un
-    // artefacto de _sincronizarEvaluacionesEnviadas que clasificó un eval asesor-nuevo antiguo?
-    const _mensualArtifact = _enviadasLP[submitKey]
-      && !_enviadasLP[submitKey].modalidad
-      && !_enviadasLP[submitKey].registradoPor;
+    // La ÚNICA razón para bloquear la mensual es que el asesor la haya presentado
+    // directamente él mismo (la entrada tiene modalidad:'mensual').
+    // Entradas de formadora, artefactos de sync, o entradas sin modalidad NO bloquean.
+    const _menDirecta = _enviadasLP[submitKey]
+      && _enviadasLP[submitKey].modalidad === 'mensual';
+    const _nuevoDirecta = _enviadasLP[submitKeyNuevo]
+      && _enviadasLP[submitKeyNuevo].modalidad === 'asesor-nuevo';
 
-    if (_enviadasLP[submitKeyNuevo] && (!_enviadasLP[submitKey] || _mensualArtifact)) {
-      // Solo envió asesor-nuevo (entrada mensual ausente o es artefacto de sync)
-      // → verificar si hay banco mensual disponible
+    if (_menDirecta) {
+      soloVistaPerfil = true;
+    } else {
+      // Mensual no presentada directamente → verificar si hay banco mensual disponible
       const _asesorLP = state.asesores.find(a => a.nombre === nombre);
       const _bancoMensualLP = _asesorLP
         ? _getPreguntasParaAsesor(nombre, _asesorLP.supervisor, mesDet, anioDet, 'mensual')
         : null;
-      if (!_bancoMensualLP || !_bancoMensualLP.length) soloVistaPerfil = true;
-      // Si hay banco mensual → soloVistaPerfil queda false → initAsesorForm mostrará la mensual
-    } else if (_mensualArtifact) {
-      // Entrada mensual es artefacto de sync (sin modalidad ni registradoPor).
-      // Puede ser un eval asesor-nuevo antiguo mal clasificado (sin campo nota/modalidad).
-      // Si hay banco mensual disponible, permitir que el asesor lo presente.
-      const _asesorLP2 = state.asesores.find(a => a.nombre === nombre);
-      const _bancoMensualLP2 = _asesorLP2
-        ? _getPreguntasParaAsesor(nombre, _asesorLP2.supervisor, mesDet, anioDet, 'mensual')
-        : null;
-      if (!_bancoMensualLP2 || !_bancoMensualLP2.length) soloVistaPerfil = true;
-    } else {
-      soloVistaPerfil = true;
+      if (_bancoMensualLP && _bancoMensualLP.length) {
+        // Hay banco mensual → permitir (soloVistaPerfil queda false)
+      } else if (_nuevoDirecta) {
+        // Envió asesor-nuevo y no hay banco mensual → solo perfil
+        soloVistaPerfil = true;
+      }
+      // Si nada enviado directamente y sin banco: la verificación de banco abajo lo decide
     }
   }
 
@@ -13510,10 +13507,13 @@ function initAsesorForm(asesor) {
   const submitKeyMod = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
   const _yaEnvio = (state.evaluacionesEnviadas || {})[submitKeyMod];
   if (_yaEnvio) {
-    // ¿Es una presentación real (tiene modalidad o registradoPor) o artefacto de sync?
-    const _yaEnvioArtifact = !_yaEnvio.modalidad && !_yaEnvio.registradoPor;
+    // ÚNICO indicador fiable de que la mensual fue presentada directamente:
+    // enviarEvaluacionAsesor siempre guarda modalidad:'mensual'.
+    // Entradas de formadora (registradoPor:'formadora') y artefactos de sync no tienen modalidad:'mensual'.
+    const _nuevoDirecta = _esNuevoEarly && _yaEnvio.modalidad === 'asesor-nuevo';
+    const _menDirecta   = !_esNuevoEarly && _yaEnvio.modalidad === 'mensual';
 
-    if (_esNuevoEarly && !_enviadas[submitKey]) {
+    if (_nuevoDirecta && !_enviadas[submitKey]) {
       // Envió asesor-nuevo, mensual aún no — verificar si hay banco mensual
       const _bancoMensual = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
       if (_bancoMensual && _bancoMensual.length > 0) {
@@ -13524,20 +13524,18 @@ function initAsesorForm(asesor) {
         setTimeout(() => asesorShowTab('perfil'), 80);
         return;
       }
-    } else if (!_esNuevoEarly && _yaEnvioArtifact) {
-      // La clave mensual es un artefacto de _sincronizarEvaluacionesEnviadas (sin modalidad
-      // ni registradoPor): eval asesor-nuevo antiguo mal clasificado. Si hay banco mensual,
-      // continuar sin bloquear — el asesor presentará la mensual normalmente.
-      const _bancoMensualChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
-      if (!_bancoMensualChk || !_bancoMensualChk.length) {
+    } else if (_menDirecta) {
+      // Mensual ya presentada directamente por el asesor → solo perfil
+      setTimeout(() => asesorShowTab('perfil'), 80);
+      return;
+    } else {
+      // Entrada existe pero NO es una presentación directa del asesor → verificar banco
+      const _bancoChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
+      if (!_bancoChk || !_bancoChk.length) {
         setTimeout(() => asesorShowTab('perfil'), 80);
         return;
       }
       // Banco encontrado → continúa sin return para mostrar el formulario
-    } else {
-      // Ambas modalidades enviadas (o solo mensual real) — ir al perfil
-      setTimeout(() => asesorShowTab('perfil'), 80);
-      return;
     }
   }
 
