@@ -11675,7 +11675,7 @@ async function loginAsesor() {
         const remoto = snap.data();
         // Mezclar selectivamente campos críticos sin pisar estado local completo
         ['preguntasPorSupMes','preguntasPorAsesorMes','plazos','evaluacionesEnviadas','asesores','supervisores',
-         'modalidadPorSupMes','notifConfig'].forEach(k => {
+         'modalidadPorSupMes','notifConfig','evalBackup'].forEach(k => {
           if (remoto[k] === undefined) return;
           // Bancos de preguntas: COMBINAR local + remoto para no perder preguntas
           // recién guardadas que aún no llegaron a Firestore
@@ -11692,14 +11692,18 @@ async function loginAsesor() {
     // desactualizado si la formadora registró una evaluación desde otra sesión
     try {
       const evSnap = await window._fbDb.collection('evaluaciones').where('asesor', '==', nombre).get();
-      if (!evSnap.empty) {
-        const asesorEvs = evSnap.docs.map(d => d.data());
-        const otrosEvs  = (state.evaluaciones || []).filter(e => e.asesor !== nombre);
-        state.evaluaciones = [...otrosEvs, ...asesorEvs];
-        // También re-sincronizar evaluacionesEnviadas con los datos frescos
-        try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
-        localStorage.setItem('evalproState', JSON.stringify(state));
-      }
+      const asesorEvs = evSnap.empty ? [] : evSnap.docs.map(d => d.data());
+      const otrosEvs  = (state.evaluaciones || []).filter(e => (e.asesor || '').trim() !== nombre.trim());
+      // Agregar también evals del backup (por si _fbSaveEval falló al registrar)
+      const _bkParaAsesor = state.evalBackup
+        ? Object.values(state.evalBackup).filter(e => (e.asesor || '').trim() === nombre.trim())
+        : [];
+      const _asesorIds = new Set(asesorEvs.map(e => String(e.id)));
+      const _bkFaltantes = _bkParaAsesor.filter(e => !_asesorIds.has(String(e.id)));
+      state.evaluaciones = [...otrosEvs, ...asesorEvs, ..._bkFaltantes];
+      if (_bkFaltantes.length) _bkFaltantes.forEach(ev => _fbSaveEval(ev)); // auto-corrección
+      try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+      localStorage.setItem('evalproState', JSON.stringify(state));
     } catch(e) { console.warn('Sync evaluaciones asesor falló:', e); }
   }
   const asesor = state.asesores.find(a => a.nombre === nombre);
