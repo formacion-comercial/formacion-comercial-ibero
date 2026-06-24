@@ -8194,11 +8194,12 @@ function _sincronizarEvaluacionesEnviadas() {
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
   let changed = false;
 
-  // Agrupar por asesor||mes||anio — quedarse con la más reciente (mayor id)
+  // Agrupar por asesor||mes||anio[||asesor-nuevo] — quedarse con la más reciente (mayor id)
   const grupos = {};
   state.evaluaciones.forEach(ev => {
     if (!ev.asesor || !ev.mes || !ev.anio) return;
-    const key = ev.asesor + '||' + ev.mes + '||' + ev.anio;
+    const modSuffix = ev.modalidad === 'asesor-nuevo' ? '||asesor-nuevo' : '';
+    const key = ev.asesor + '||' + ev.mes + '||' + ev.anio + modSuffix;
     if (!grupos[key] || Number(ev.id) > Number(grupos[key].id)) grupos[key] = ev;
   });
 
@@ -11682,9 +11683,11 @@ async function loginAsesor() {
   // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
   let soloVistaPerfil = false;
 
-  // Ya envió la evaluación este mes — bloquear para todas las modalidades
+  // Ya envió la evaluación este mes — bloquear si presentó cualquier modalidad
   const submitKey = `${nombre}||${mesDet}||${anioDet}`;
-  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[submitKey]) {
+  const submitKeyNuevo = `${nombre}||${mesDet}||${anioDet}||asesor-nuevo`;
+  const _enviadasLP = state.evaluacionesEnviadas || {};
+  if (_enviadasLP[submitKey] || _enviadasLP[submitKeyNuevo]) {
     soloVistaPerfil = true;
   }
 
@@ -14318,8 +14321,10 @@ function renderPerfilAsesor() {
             <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;
               ${(e.modalidad||'mensual')==='fortalecimiento'
                 ? 'background:rgba(78,138,114,0.12);color:var(--accent3)'
+                : (e.modalidad||'mensual')==='asesor-nuevo'
+                ? 'background:rgba(120,86,176,0.12);color:#7856B0'
                 : 'background:rgba(91,143,176,0.12);color:var(--accent4)'}">
-              ${(e.modalidad||'mensual')==='fortalecimiento' ? '💪 Fortalecimiento' : '📅 Mensual'}
+              ${(e.modalidad||'mensual')==='fortalecimiento' ? '💪 Fortalecimiento' : (e.modalidad||'mensual')==='asesor-nuevo' ? '🆕 Asesor Nuevo' : '📅 Mensual'}
             </span>
           </div>
           <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
