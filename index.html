@@ -4437,6 +4437,7 @@ if (!state.preguntasPorAsesorMes)     state.preguntasPorAsesorMes = {};
 if (!state.ultimosAccesos)            state.ultimosAccesos = {};
 if (!state.programaPorSupervisor)     state.programaPorSupervisor = {};
 if (!state.notifConfig)               state.notifConfig = {};
+if (!state.evalBackup)                state.evalBackup = {};
 
 // ── Eliminar evaluaciones de supervisores no requeridos (una sola vez) ───────
 try {
@@ -4956,13 +4957,22 @@ async function _fbInit() {
         }
       }
       state.evaluaciones = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
-      // Recuperar evaluaciones que están en config/main pero faltan en la colección
+      // Recuperar evaluaciones que están en el estado local (localStorage) pero faltan en la colección
       const _collIds = new Set(state.evaluaciones.map(e => String(e.id)));
       const _faltantes = _cfgMainEvs.filter(e => e.id && !_collIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
       if (_faltantes.length) {
         state.evaluaciones = [...state.evaluaciones, ..._faltantes];
-        // Auto-corrección: subir las evaluaciones faltantes a la colección
         _faltantes.forEach(ev => _fbSaveEval(ev));
+      }
+      // Recuperar evaluaciones del backup explícito en config/main (por si _fbSaveEval falló)
+      if (state.evalBackup && Object.keys(state.evalBackup).length) {
+        const _collIds2 = new Set(state.evaluaciones.map(e => String(e.id)));
+        const _backupFaltantes = Object.values(state.evalBackup)
+          .filter(e => e.id && !_collIds2.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
+        if (_backupFaltantes.length) {
+          state.evaluaciones = [...state.evaluaciones, ..._backupFaltantes];
+          _backupFaltantes.forEach(ev => _fbSaveEval(ev));
+        }
       }
     } else if (state.evaluaciones && state.evaluaciones.length > 0) {
       const evs = state.evaluaciones.filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
@@ -4988,6 +4998,12 @@ async function _fbInit() {
       // Mantener en memoria cualquier evaluación local que Firestore aún no confirme
       const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
       state.evaluaciones = [...fromFs, ...pending];
+      // Limpiar backup de evals ya confirmadas en la colección
+      if (state.evalBackup && Object.keys(state.evalBackup).length) {
+        let _bkChg = false;
+        Object.keys(state.evalBackup).forEach(id => { if (fsIds.has(id)) { delete state.evalBackup[id]; _bkChg = true; } });
+        if (_bkChg) clearTimeout(_saveTimer), save();
+      }
       try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
       // Debounce localStorage write — evita serializar todo el estado en cada snapshot
       clearTimeout(window._fbSaveTimer);
@@ -6711,6 +6727,10 @@ function guardarEvaluacion() {
     fecha: new Date().toISOString(),
     registradoPor: 'formadora'
   };
+
+  // Backup en config/main: si _fbSaveEval falla, _fbInit lo recupera en la próxima sesión
+  if (!state.evalBackup) state.evalBackup = {};
+  state.evalBackup[String(_evFormadora.id)] = _evFormadora;
 
   _pushEval(_evFormadora);
   save();
