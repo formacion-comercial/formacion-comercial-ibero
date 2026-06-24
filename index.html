@@ -11578,30 +11578,39 @@ function guardarNuevaPassword() {
   if (nueva !== confirmar) { errEl.textContent = '✗ Las contraseñas no coinciden'; errEl.style.display = 'block'; return; }
   if (_pwdChangeRole === 'supervisor' && supervisorActual) {
     if (!state.supervisorPasswords) state.supervisorPasswords = {};
+    const _supNombre = supervisorActual;
     sha256hex(nueva).then(async h => {
-      state.supervisorPasswords[supervisorActual] = h;
-      localStorage.setItem('evalproState', JSON.stringify(state));
+      state.supervisorPasswords[_supNombre] = h;
+      // Guardar en localStorage inmediatamente (siempre)
+      save();
       cerrarCambiarPassword();
-      // Guardar inmediatamente en Firestore (sin esperar el debounce)
+      // Guardar en Firestore directamente (sin esperar el debounce de save)
       if (window._fbDb) {
         try {
           await window._fbDb.collection('config').doc('main').update({ supervisorPasswords: state.supervisorPasswords });
-        } catch(e) { save(); }
-      } else { save(); }
+        } catch(e) {
+          // Reintentar una vez
+          try { await window._fbDb.collection('config').doc('main').update({ supervisorPasswords: state.supervisorPasswords }); }
+          catch(e2) { console.warn('No se pudo guardar pwd supervisor en Firestore:', e2); }
+        }
+      }
       showSyncToast('✓ Contraseña actualizada correctamente');
     });
   } else if (_pwdChangeRole === 'coordinador' && coordinadorActual) {
     if (!state.coordinadorPasswords) state.coordinadorPasswords = {};
+    const _coordNombre = coordinadorActual;
     sha256hex(nueva).then(async h => {
-      state.coordinadorPasswords[coordinadorActual] = h;
-      localStorage.setItem('evalproState', JSON.stringify(state));
+      state.coordinadorPasswords[_coordNombre] = h;
+      save();
       cerrarCambiarPassword();
-      // Guardar inmediatamente en Firestore (sin esperar el debounce)
       if (window._fbDb) {
         try {
           await window._fbDb.collection('config').doc('main').update({ coordinadorPasswords: state.coordinadorPasswords });
-        } catch(e) { save(); }
-      } else { save(); }
+        } catch(e) {
+          try { await window._fbDb.collection('config').doc('main').update({ coordinadorPasswords: state.coordinadorPasswords }); }
+          catch(e2) { console.warn('No se pudo guardar pwd coordinador en Firestore:', e2); }
+        }
+      }
       showSyncToast('✓ Contraseña actualizada correctamente');
     });
   }
