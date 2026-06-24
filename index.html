@@ -14253,7 +14253,32 @@ function renderPerfilAsesor() {
   }
 
   // ── Evaluaciones propias ──
-  const evs = (state.evaluaciones || []).filter(e => e.asesor === asesorActual.nombre);
+  const _nomA = (asesorActual.nombre || '').trim();
+  let evs = (state.evaluaciones || []).filter(e => (e.asesor || '').trim() === _nomA);
+
+  // Si no hay evaluaciones locales pero hay keys en evaluacionesEnviadas,
+  // traer directamente de Firestore y re-renderizar
+  if (!evs.length && window._fbDb && !renderPerfilAsesor._cargando) {
+    const _tieneEnviada = Object.keys(state.evaluacionesEnviadas || {}).some(k => k.startsWith(_nomA + '||'));
+    if (_tieneEnviada) {
+      renderPerfilAsesor._cargando = true;
+      const histEl2 = document.getElementById('perfil-historial');
+      if (histEl2) histEl2.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text3)">⏳ Cargando evaluaciones...</div>';
+      window._fbDb.collection('evaluaciones').where('asesor', '==', _nomA).get()
+        .then(snap => {
+          renderPerfilAsesor._cargando = false;
+          if (!snap.empty) {
+            const fromFS = snap.docs.map(d => d.data());
+            const otros = (state.evaluaciones || []).filter(e => (e.asesor||'').trim() !== _nomA);
+            state.evaluaciones = [...otros, ...fromFS];
+          }
+          renderPerfilAsesor();
+        })
+        .catch(() => { renderPerfilAsesor._cargando = false; renderPerfilAsesor(); });
+      return;
+    }
+  }
+  renderPerfilAsesor._cargando = false;
 
   // ── KPIs ──
   const total = evs.length;
