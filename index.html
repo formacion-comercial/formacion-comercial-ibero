@@ -3657,6 +3657,16 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <div id="asesor-login-error" style="color:var(--fail);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">
           ✗ Contraseña incorrecta
         </div>
+        <div id="asesor-reset-link" style="display:none;margin-top:8px;text-align:right">
+          <button type="button" onclick="_abrirResetPwdAsesor()"
+            style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);
+                   font-size:11px;font-family:'Fira Code',monospace;text-decoration:underline;
+                   padding:0;transition:color .15s"
+            onmouseover="this.style.color='rgba(255,255,255,0.85)'"
+            onmouseout="this.style.color='rgba(255,255,255,0.5)'">
+            ¿Olvidaste tu contraseña? Restablecerla
+          </button>
+        </div>
         <div id="asesor-bloqueado-msg" style="color:var(--accent2);font-size:12px;font-family:'Fira Code',monospace;margin-top:6px;display:none">
           ⚠ Ya presentaste la evaluación de este mes. Consulta a tu formadora.
         </div>
@@ -3709,7 +3719,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
     <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:17px;color:#fff;
                 text-align:center;margin-bottom:8px">Establece una nueva contraseña</div>
     <div style="font-size:12px;color:rgba(255,255,255,0.50);text-align:center;margin-bottom:22px;line-height:1.6">
-      Superaste el límite de intentos.<br>Crea una nueva contraseña para ingresar.
+      Crea una nueva contraseña para ingresar.<br>Tus evaluaciones y datos no se borran.
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:11px;color:rgba(255,255,255,0.45);font-family:'Fira Code',monospace;
@@ -9510,6 +9520,11 @@ function _limpiarFallos(key) { try { localStorage.removeItem('_lk_' + key); } ca
 
 // ── Modal: restablecer contraseña por exceso de intentos ──
 let _resetPwdRole = null, _resetPwdNombre = null;
+function _abrirResetPwdAsesor() {
+  const nombre = document.getElementById('asesor-select-login').value;
+  if (!nombre) { alert('Primero selecciona tu nombre en la lista'); return; }
+  _mostrarResetPwdIntentos('asesor', nombre);
+}
 function _mostrarResetPwdIntentos(role, nombre) {
   _resetPwdRole = role; _resetPwdNombre = nombre;
   document.getElementById('reset-int-nueva').value = '';
@@ -11292,6 +11307,11 @@ function seleccionarAsesorLogin(nombre) {
     info.style.display = 'block';
     document.getElementById('asesor-login-sup').textContent = a.supervisor;
   }
+  // Limpiar errores al cambiar de asesor
+  const errEl = document.getElementById('asesor-login-error');
+  const rlnk  = document.getElementById('asesor-reset-link');
+  if (errEl) errEl.style.display = 'none';
+  if (rlnk)  rlnk.style.display  = 'none';
   document.getElementById('asesor-pwd-login').focus();
 }
 
@@ -11668,7 +11688,10 @@ async function loginAsesor() {
   }
   if (!pwdOkAs) {
     if (_registrarFallo(_lkKeyAs, errEl)) { _mostrarResetPwdIntentos('asesor', nombre); return; }
-    errEl.style.display = 'block'; return;
+    errEl.style.display = 'block';
+    const _rlnk = document.getElementById('asesor-reset-link');
+    if (_rlnk) _rlnk.style.display = 'block';
+    return;
   }
   _limpiarFallos(_lkKeyAs);
 
