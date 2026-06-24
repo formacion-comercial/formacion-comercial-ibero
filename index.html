@@ -11657,6 +11657,19 @@ async function loginAsesor() {
         localStorage.setItem('evalproState', JSON.stringify(state));
       }
     } catch(e) { console.warn('Sync Firebase login asesor falló:', e); }
+    // Re-traer evaluaciones propias desde Firestore — el localStorage puede estar
+    // desactualizado si la formadora registró una evaluación desde otra sesión
+    try {
+      const evSnap = await window._fbDb.collection('evaluaciones').where('asesor', '==', nombre).get();
+      if (!evSnap.empty) {
+        const asesorEvs = evSnap.docs.map(d => d.data());
+        const otrosEvs  = (state.evaluaciones || []).filter(e => e.asesor !== nombre);
+        state.evaluaciones = [...otrosEvs, ...asesorEvs];
+        // También re-sincronizar evaluacionesEnviadas con los datos frescos
+        try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+        localStorage.setItem('evalproState', JSON.stringify(state));
+      }
+    } catch(e) { console.warn('Sync evaluaciones asesor falló:', e); }
   }
   const asesor = state.asesores.find(a => a.nombre === nombre);
   if (!asesor) return;
