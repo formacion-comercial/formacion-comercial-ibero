@@ -13698,25 +13698,39 @@ function _detectarMesAsesor(asesor) {
     return { mes, anio, orden: anio * 12 + (_MESES_ORD.indexOf(mes)) };
   };
 
-  // 1. Buscar en banco individual del asesor (preguntasPorAsesorMes)
+  // Banco individual del asesor
   const bancoIndiv  = state.preguntasPorAsesorMes || {};
   const prefixIndiv = asesor.nombre + '||';
   const entradasIndiv = Object.keys(bancoIndiv)
     .filter(k => k.startsWith(prefixIndiv))
     .map(k => toEntrada(k.split('||')))
+    .filter(e => e.mes)
     .sort((a, b) => b.orden - a.orden);
-  if (entradasIndiv.length) return { mes: entradasIndiv[0].mes, anio: entradasIndiv[0].anio };
+  const masRecienteIndiv = entradasIndiv[0] || null;
 
-  // 2. Buscar en banco grupal del supervisor (preguntasPorSupMes)
+  // Banco grupal del supervisor (excluir claves con sufijo modalidad para no mezclar tipos)
   const banco  = state.preguntasPorSupMes || {};
   const prefix = asesor.supervisor + '||';
   const entradas = Object.keys(banco)
     .filter(k => k.startsWith(prefix))
     .map(k => toEntrada(k.split('||')))
+    .filter(e => e.mes)
     .sort((a, b) => b.orden - a.orden);
-  if (entradas.length) return { mes: entradas[0].mes, anio: entradas[0].anio };
+  const masRecienteSup = entradas[0] || null;
 
-  // 3. Fallback: mes actual
+  // Usar el más reciente entre individual y supervisor.
+  // El banco individual solo tiene prioridad si es del MISMO mes o más reciente que el supervisor.
+  // Así, preguntas individuales de un mes anterior no bloquean la evaluación del mes actual.
+  if (masRecienteIndiv && masRecienteSup) {
+    if (masRecienteIndiv.orden >= masRecienteSup.orden) {
+      return { mes: masRecienteIndiv.mes, anio: masRecienteIndiv.anio };
+    }
+    return { mes: masRecienteSup.mes, anio: masRecienteSup.anio };
+  }
+  if (masRecienteIndiv) return { mes: masRecienteIndiv.mes, anio: masRecienteIndiv.anio };
+  if (masRecienteSup)   return { mes: masRecienteSup.mes,   anio: masRecienteSup.anio };
+
+  // Fallback: mes actual
   return { mes: _MESES_ORD[new Date().getMonth()], anio: new Date().getFullYear() };
 }
 
