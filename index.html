@@ -12770,10 +12770,18 @@ function _procesarExcelMasivo(file, mes, anio, modalidad) {
 
         if (preguntas.length) {
           if (!state.preguntasPorSupMes) state.preguntasPorSupMes = {};
+          const _mKey = _supMesKey(supMatch, mes, anio, modalidad);
           // Guardar con clave que incluye modalidad para separar nuevo/antiguo
-          state.preguntasPorSupMes[_supMesKey(supMatch, mes, anio, modalidad)] = preguntas;
+          state.preguntasPorSupMes[_mKey] = preguntas;
           if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
-          state.modalidadPorSupMes[_supMesKey(supMatch, mes, anio, modalidad)] = modalidad;
+          state.modalidadPorSupMes[_mKey] = modalidad;
+          // Actualizar solo esta clave en Firestore — evita borrar otros meses
+          if (window._fbDb) {
+            window._fbDb.collection('config').doc('main').update({
+              [`preguntasPorSupMes.${_mKey}`]: preguntas,
+              [`modalidadPorSupMes.${_mKey}`]: modalidad
+            }).catch(e => console.warn('Error guardando preguntas masivo:', e));
+          }
           totalPregs += preguntas.length;
           resultados.push(`✓ ${supMatch}: ${preguntas.length} pregunta(s)`);
         } else {
@@ -12786,7 +12794,7 @@ function _procesarExcelMasivo(file, mes, anio, modalidad) {
         return;
       }
 
-      save();
+      localStorage.setItem('evalproState', JSON.stringify(state));
       let msg = `✅ Carga completada — ${totalPregs} pregunta(s) en ${mes} ${anio}`;
       if (supNoEncontrados.length) {
         msg += ` | ⚠ Pestañas no reconocidas: ${supNoEncontrados.join(', ')}`;
@@ -12992,19 +13000,21 @@ function descargarPlantillaPreguntas() {
 }
 
 function subirExcelPreguntas(supervisor, supKey) {
-  const mesVal = (document.getElementById('banco-mes-' + supKey) || {}).value;
+  const mesVal  = (document.getElementById('banco-mes-'  + supKey) || {}).value;
+  const anioVal = (document.getElementById('sup-anio-'   + supKey) || {}).value || new Date().getFullYear();
   if (!mesVal) { alert('Selecciona un mes antes de subir el archivo.'); return; }
   const inp = document.getElementById('banco-file-' + supKey);
-  if (inp) { inp.dataset.mes = mesVal; inp.value = ''; inp.click(); }
+  if (inp) { inp.dataset.mes = mesVal; inp.dataset.anio = String(anioVal); inp.value = ''; inp.click(); }
 }
 
 function _onBancoFileChange(input, supervisor, supKey) {
   if (!input.files[0]) return;
-  const mes = input.dataset.mes;
-  _procesarExcelPreguntas(input.files[0], supervisor, mes, supKey);
+  const mes  = input.dataset.mes;
+  const anio = input.dataset.anio || String(new Date().getFullYear());
+  _procesarExcelPreguntas(input.files[0], supervisor, mes, anio, supKey);
 }
 
-function _procesarExcelPreguntas(file, supervisor, mes, supKey) {
+function _procesarExcelPreguntas(file, supervisor, mes, anio, supKey) {
   if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
   _setBancoStatus('banco-status-' + supKey, 'loading', 'Procesando archivo…');
 
@@ -13040,8 +13050,15 @@ function _procesarExcelPreguntas(file, supervisor, mes, supKey) {
         return;
       }
       if (!state.preguntasPorSupMes) state.preguntasPorSupMes = {};
-      state.preguntasPorSupMes[_supMesKey(supervisor, mes)] = preguntas;
-      save();
+      const _indKey = _supMesKey(supervisor, mes, anio);
+      state.preguntasPorSupMes[_indKey] = preguntas;
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      // Actualizar solo esta clave en Firestore — evita sobrescribir otros meses
+      if (window._fbDb) {
+        window._fbDb.collection('config').doc('main').update({
+          [`preguntasPorSupMes.${_indKey}`]: preguntas
+        }).catch(e => console.warn('Error guardando preguntas individual:', e));
+      }
       _setBancoStatus('banco-status-' + supKey, 'ok',
         '✓ ' + preguntas.length + ' pregunta(s) cargadas para ' + mes);
       // Mostrar botón de notificación
