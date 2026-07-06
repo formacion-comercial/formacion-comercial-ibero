@@ -12090,23 +12090,37 @@ function renderSupervisorQuestionCards() {
   if (!container) return;
 
   const banco = state.preguntasPorSupMes || {};
-  const filas = [];
+  const ORDEN_MESES = { Enero:1,Febrero:2,Marzo:3,Abril:4,Mayo:5,Junio:6,
+                        Julio:7,Agosto:8,Septiembre:9,Octubre:10,Noviembre:11,Diciembre:12 };
 
-  state.supervisores.forEach(sup => {
-    const entradas = Object.entries(banco)
-      .filter(([k]) => k.startsWith(sup + '||'))
-      .map(([k, v]) => {
-        const parts = k.split('||');
-        // parts: [sup, mes] o [sup, mes, anio] o [sup, mes, anio, modalidad]
-        const mes      = parts[1] || '';
-        const anio     = (parts[2] && parts[2] !== 'asesor-nuevo') ? parts[2] : '';
-        const modalidad= parts[parts.length - 1] === 'asesor-nuevo' ? 'asesor-nuevo' : 'mensual';
-        return { mes, anio, modalidad, count: v.length };
-      });
-    entradas.forEach(e => filas.push({ sup, mes: e.mes, anio: e.anio, modalidad: e.modalidad, count: e.count }));
+  // Build grouped structure: { supName: [ {mes, anio, modalidad, count, key} ] }
+  const porSup = {};
+  Object.entries(banco).forEach(([k, v]) => {
+    const parts    = k.split('||');
+    const sup      = parts[0] || '';
+    const mes      = parts[1] || '';
+    const lastPart = parts[parts.length - 1];
+    const modalidad = lastPart === 'asesor-nuevo'    ? 'asesor-nuevo'
+                    : lastPart === 'fortalecimiento' ? 'fortalecimiento'
+                    : 'mensual';
+    const anio = (parts[2] && parts[2] !== 'asesor-nuevo' && parts[2] !== 'fortalecimiento')
+                 ? parts[2] : '';
+    if (!sup || !mes) return;
+    if (!porSup[sup]) porSup[sup] = [];
+    porSup[sup].push({ mes, anio, modalidad, count: v.length, key: k });
   });
 
-  if (!filas.length) {
+  // Sort supervisors alphabetically; within each, sort by año desc then mes cronológico
+  const supsSorted = Object.keys(porSup).sort((a, b) => a.localeCompare(b, 'es'));
+  supsSorted.forEach(sup => {
+    porSup[sup].sort((a, b) => {
+      const anioA = parseInt(a.anio) || 0, anioB = parseInt(b.anio) || 0;
+      if (anioB !== anioA) return anioB - anioA;
+      return (ORDEN_MESES[a.mes] || 0) - (ORDEN_MESES[b.mes] || 0);
+    });
+  });
+
+  if (!supsSorted.length) {
     container.innerHTML = `
       <div class="card section-gap" style="text-align:center;padding:32px;color:var(--text3)">
         <div style="font-size:32px;margin-bottom:10px">📭</div>
@@ -12115,53 +12129,77 @@ function renderSupervisorQuestionCards() {
     return;
   }
 
+  const totalEntradas = supsSorted.reduce((s, sup) => s + porSup[sup].length, 0);
+
+  const modBadge = m => m === 'asesor-nuevo'
+    ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">🆕 Nuevo</span>'
+    : m === 'fortalecimiento'
+    ? '<span style="font-size:10px;background:rgba(201,165,69,0.13);color:var(--accent);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">💪 Fortalec.</span>'
+    : '<span style="font-size:10px;background:rgba(91,130,190,0.12);color:var(--accent2);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">📅 Mensual</span>';
+
   container.innerHTML = `
     <div class="card section-gap">
-      <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text3);margin-bottom:14px">
-        📋 Preguntas cargadas — resumen
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                    letter-spacing:0.08em;color:var(--text3)">
+          📋 Preguntas cargadas — resumen
+        </div>
+        <div style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">
+          ${supsSorted.length} supervisor${supsSorted.length !== 1 ? 'es' : ''} · ${totalEntradas} banco${totalEntradas !== 1 ? 's' : ''}
+        </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Supervisor</th>
-              <th>Mes</th>
-              <th>Año</th>
-              <th>Tipo</th>
-              <th style="text-align:center">Preguntas</th>
-              <th style="text-align:center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filas.map(f => {
-              const modLabel = f.modalidad === 'asesor-nuevo'
-                ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 7px;font-weight:600">🆕 Nuevo</span>'
-                : '<span style="font-size:10px;background:rgba(100,120,200,0.10);color:var(--text3);border-radius:4px;padding:2px 7px;font-weight:600">📅 Mensual</span>';
-              return `
-              <tr>
-                <td style="font-weight:600">${f.sup}</td>
-                <td>${f.mes}</td>
-                <td style="font-family:'Fira Code',monospace;font-size:12px">${f.anio || '—'}</td>
-                <td>${modLabel}</td>
-                <td style="text-align:center;font-family:'Fira Code',monospace;color:var(--accent);font-weight:600">
-                  ${f.count}
-                </td>
-                <td style="text-align:center">
-                  <div style="display:flex;justify-content:center;gap:6px">
-                    <button onclick="verBancoPreguntas('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}','${f.modalidad}')"
-                      style="padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
+      ${supsSorted.map(sup => {
+        const entradas = porSup[sup];
+        const esc = sup.replace(/'/g, "\\'");
+        return `
+        <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,165,69,0.12);border:1px solid rgba(201,165,69,0.25);
+                        display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--accent);flex-shrink:0">
+              ${sup.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()}
+            </div>
+            <span style="font-weight:700;font-size:13px;color:var(--text)">${sup}</span>
+            <span style="margin-left:auto;font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">
+              ${entradas.length} banco${entradas.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--surface)">
+                <th style="padding:6px 14px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Mes</th>
+                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Año</th>
+                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Tipo</th>
+                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:center;border-bottom:1px solid var(--border)">Preguntas</th>
+                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
+                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:center;border-bottom:1px solid var(--border)">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${entradas.map((e, idx) => `
+              <tr style="border-bottom:${idx < entradas.length - 1 ? '1px solid var(--border)' : 'none'}">
+                <td style="padding:7px 14px;font-size:12.5px;color:var(--text);font-weight:600">${e.mes}</td>
+                <td style="padding:7px 8px;font-size:12px;font-family:'Fira Code',monospace;color:var(--text2)">${e.anio || '—'}</td>
+                <td style="padding:7px 8px">${modBadge(e.modalidad)}</td>
+                <td style="padding:7px 8px;text-align:center;font-family:'Fira Code',monospace;font-weight:800;font-size:14px;color:var(--accent)">${e.count}</td>
+                <td style="padding:7px 8px;text-align:center">
+                  <div style="display:flex;justify-content:center;gap:5px">
+                    <button onclick="verBancoPreguntas('${esc}','${e.mes}','${e.anio}','${e.modalidad}')"
+                      style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
                              background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px">👁 Ver</button>
-                    <button onclick="eliminarBancoMes('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}','${f.modalidad}')"
-                      style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
+                    <button onclick="eliminarBancoMes('${esc}','${e.mes}','${e.anio}','${e.modalidad}')"
+                      style="padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
                              background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕</button>
                   </div>
                 </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }).join('')}
     </div>`;
 }
 
@@ -12525,17 +12563,22 @@ function impReset() {
 function _supMesKey(sup, mes, anio, modalidad) {
   const base = (sup || '') + '||' + (mes || '');
   const withAnio = anio ? base + '||' + anio : base;
-  // Solo asesor-nuevo lleva sufijo; mensual/fortalecimiento usan clave base
-  return (modalidad === 'asesor-nuevo') ? withAnio + '||asesor-nuevo' : withAnio;
+  if (modalidad === 'asesor-nuevo')    return withAnio + '||asesor-nuevo';
+  if (modalidad === 'fortalecimiento') return withAnio + '||fortalecimiento';
+  return withAnio;
 }
 // Try with year first, fall back to key without year (backward compat)
 // modalidad: 'asesor-nuevo' busca clave específica, con fallback a clave compartida
 function _getPreguntas(sup, mes, anio, modalidad) {
   const bank = state.preguntasPorSupMes || {};
   if (modalidad === 'asesor-nuevo') {
-    // Strict: only asesor-nuevo bank — no fallback to mensual to avoid mixing
     return (anio && bank[_supMesKey(sup, mes, anio, 'asesor-nuevo')])
         || bank[_supMesKey(sup, mes, null, 'asesor-nuevo')]
+        || null;
+  }
+  if (modalidad === 'fortalecimiento') {
+    return (anio && bank[_supMesKey(sup, mes, anio, 'fortalecimiento')])
+        || bank[_supMesKey(sup, mes, null, 'fortalecimiento')]
         || null;
   }
   return (anio && bank[_supMesKey(sup, mes, anio)]) || bank[_supMesKey(sup, mes)] || null;
