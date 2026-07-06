@@ -12089,12 +12089,18 @@ function renderSupervisorQuestionCards() {
   const container = document.getElementById('supervisor-question-cards');
   if (!container) return;
 
-  const banco = state.preguntasPorSupMes || {};
-  const ORDEN_MESES = { Enero:1,Febrero:2,Marzo:3,Abril:4,Mayo:5,Junio:6,
-                        Julio:7,Agosto:8,Septiembre:9,Octubre:10,Noviembre:11,Diciembre:12 };
+  const ORDEN_MESES = {Enero:1,Febrero:2,Marzo:3,Abril:4,Mayo:5,Junio:6,
+                       Julio:7,Agosto:8,Septiembre:9,Octubre:10,Noviembre:11,Diciembre:12};
 
-  // Build grouped structure: { supName: [ {mes, anio, modalidad, count, key} ] }
-  const porSup = {};
+  // Preserve filter values before re-render
+  const fSup  = (document.getElementById('sqc-f-sup')  || {}).value || '';
+  const fMes  = (document.getElementById('sqc-f-mes')  || {}).value || '';
+  const fAnio = (document.getElementById('sqc-f-anio') || {}).value || '';
+  const fTipo = (document.getElementById('sqc-f-tipo') || {}).value || '';
+
+  // Build flat rows from banco
+  const banco = state.preguntasPorSupMes || {};
+  const allRows = [];
   Object.entries(banco).forEach(([k, v]) => {
     const parts    = k.split('||');
     const sup      = parts[0] || '';
@@ -12103,24 +12109,11 @@ function renderSupervisorQuestionCards() {
     const modalidad = lastPart === 'asesor-nuevo'    ? 'asesor-nuevo'
                     : lastPart === 'fortalecimiento' ? 'fortalecimiento'
                     : 'mensual';
-    const anio = (parts[2] && parts[2] !== 'asesor-nuevo' && parts[2] !== 'fortalecimiento')
-                 ? parts[2] : '';
-    if (!sup || !mes) return;
-    if (!porSup[sup]) porSup[sup] = [];
-    porSup[sup].push({ mes, anio, modalidad, count: v.length, key: k });
+    const anio = (parts[2] && parts[2] !== 'asesor-nuevo' && parts[2] !== 'fortalecimiento') ? parts[2] : '';
+    if (sup && mes) allRows.push({ sup, mes, anio, modalidad, count: v.length, key: k });
   });
 
-  // Sort supervisors alphabetically; within each, sort by año desc then mes cronológico
-  const supsSorted = Object.keys(porSup).sort((a, b) => a.localeCompare(b, 'es'));
-  supsSorted.forEach(sup => {
-    porSup[sup].sort((a, b) => {
-      const anioA = parseInt(a.anio) || 0, anioB = parseInt(b.anio) || 0;
-      if (anioB !== anioA) return anioB - anioA;
-      return (ORDEN_MESES[a.mes] || 0) - (ORDEN_MESES[b.mes] || 0);
-    });
-  });
-
-  if (!supsSorted.length) {
+  if (!allRows.length) {
     container.innerHTML = `
       <div class="card section-gap" style="text-align:center;padding:32px;color:var(--text3)">
         <div style="font-size:32px;margin-bottom:10px">📭</div>
@@ -12129,77 +12122,91 @@ function renderSupervisorQuestionCards() {
     return;
   }
 
-  const totalEntradas = supsSorted.reduce((s, sup) => s + porSup[sup].length, 0);
+  // Unique filter options
+  const uSups  = [...new Set(allRows.map(r => r.sup))].sort((a,b) => a.localeCompare(b,'es'));
+  const uAnios = [...new Set(allRows.map(r => r.anio).filter(Boolean))].sort().reverse();
+  const uMeses = [...new Set(allRows.map(r => r.mes))].sort((a,b) => (ORDEN_MESES[a]||0)-(ORDEN_MESES[b]||0));
+  const uTipos = [...new Set(allRows.map(r => r.modalidad))];
+  const tipoLabel = { 'mensual':'📅 Mensual', 'asesor-nuevo':'🆕 Nuevo', 'fortalecimiento':'💪 Fortalecimiento' };
+
+  // Apply filters
+  const filtered = allRows.filter(r =>
+    (!fSup  || r.sup === fSup) &&
+    (!fMes  || r.mes === fMes) &&
+    (!fAnio || r.anio === fAnio) &&
+    (!fTipo || r.modalidad === fTipo)
+  ).sort((a, b) => {
+    const sc = a.sup.localeCompare(b.sup, 'es');
+    if (sc !== 0) return sc;
+    const ad = parseInt(b.anio)||0, bd = parseInt(a.anio)||0;
+    if (ad !== bd) return ad - bd;
+    return (ORDEN_MESES[a.mes]||0) - (ORDEN_MESES[b.mes]||0);
+  });
 
   const modBadge = m => m === 'asesor-nuevo'
-    ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">🆕 Nuevo</span>'
+    ? '<span style="font-size:10px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:2px 8px;font-weight:700">🆕 Nuevo</span>'
     : m === 'fortalecimiento'
-    ? '<span style="font-size:10px;background:rgba(201,165,69,0.13);color:var(--accent);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">💪 Fortalec.</span>'
-    : '<span style="font-size:10px;background:rgba(91,130,190,0.12);color:var(--accent2);border-radius:4px;padding:2px 8px;font-weight:700;white-space:nowrap">📅 Mensual</span>';
+    ? '<span style="font-size:10px;background:rgba(201,165,69,0.13);color:var(--accent);border-radius:4px;padding:2px 8px;font-weight:700">💪 Fortalec.</span>'
+    : '<span style="font-size:10px;background:rgba(91,130,190,0.12);color:var(--accent2);border-radius:4px;padding:2px 8px;font-weight:700">📅 Mensual</span>';
+
+  const selStyle = 'padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:"Montserrat",sans-serif;cursor:pointer;min-width:120px';
 
   container.innerHTML = `
     <div class="card section-gap">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                    letter-spacing:0.08em;color:var(--text3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3)">
           📋 Preguntas cargadas — resumen
         </div>
-        <div style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">
-          ${supsSorted.length} supervisor${supsSorted.length !== 1 ? 'es' : ''} · ${totalEntradas} banco${totalEntradas !== 1 ? 's' : ''}
-        </div>
+        <span style="font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">${filtered.length} de ${allRows.length} banco${allRows.length!==1?'s':''}</span>
       </div>
-      ${supsSorted.map(sup => {
-        const entradas = porSup[sup];
-        const esc = sup.replace(/'/g, "\\'");
-        return `
-        <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-          <div style="background:var(--surface2);padding:8px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
-            <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,165,69,0.12);border:1px solid rgba(201,165,69,0.25);
-                        display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--accent);flex-shrink:0">
-              ${sup.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()}
-            </div>
-            <span style="font-weight:700;font-size:13px;color:var(--text)">${sup}</span>
-            <span style="margin-left:auto;font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">
-              ${entradas.length} banco${entradas.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="background:var(--surface)">
-                <th style="padding:6px 14px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Mes</th>
-                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Año</th>
-                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:left;border-bottom:1px solid var(--border)">Tipo</th>
-                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:center;border-bottom:1px solid var(--border)">Preguntas</th>
-                <th style="padding:6px 8px;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                           letter-spacing:0.06em;color:var(--text3);font-weight:600;text-align:center;border-bottom:1px solid var(--border)">Acciones</th>
-              </tr>
-            </thead>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+        <select id="sqc-f-sup"  onchange="renderSupervisorQuestionCards()" style="${selStyle}">
+          <option value="">— Todos los supervisores —</option>
+          ${uSups.map(s => `<option value="${s.replace(/"/g,'&quot;')}" ${fSup===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <select id="sqc-f-anio" onchange="renderSupervisorQuestionCards()" style="${selStyle}">
+          <option value="">— Año —</option>
+          ${uAnios.map(a => `<option value="${a}" ${fAnio===a?'selected':''}>${a}</option>`).join('')}
+        </select>
+        <select id="sqc-f-mes"  onchange="renderSupervisorQuestionCards()" style="${selStyle}">
+          <option value="">— Mes —</option>
+          ${uMeses.map(m => `<option value="${m}" ${fMes===m?'selected':''}>${m}</option>`).join('')}
+        </select>
+        <select id="sqc-f-tipo" onchange="renderSupervisorQuestionCards()" style="${selStyle}">
+          <option value="">— Tipo —</option>
+          ${uTipos.map(t => `<option value="${t}" ${fTipo===t?'selected':''}>${tipoLabel[t]||t}</option>`).join('')}
+        </select>
+        ${(fSup||fMes||fAnio||fTipo) ? `<button onclick="document.getElementById('sqc-f-sup').value='';document.getElementById('sqc-f-mes').value='';document.getElementById('sqc-f-anio').value='';document.getElementById('sqc-f-tipo').value='';renderSupervisorQuestionCards()" style="padding:5px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.07);color:var(--fail);font-size:11px;cursor:pointer">✕ Limpiar</button>` : ''}
+      </div>
+      ${filtered.length === 0
+        ? `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin resultados para los filtros seleccionados.</div>`
+        : `<div class="table-wrap"><table>
+            <thead><tr>
+              <th>Supervisor</th><th>Mes</th><th>Año</th><th>Tipo</th>
+              <th style="text-align:center">Preguntas</th><th style="text-align:center">Acciones</th>
+            </tr></thead>
             <tbody>
-              ${entradas.map((e, idx) => `
-              <tr style="border-bottom:${idx < entradas.length - 1 ? '1px solid var(--border)' : 'none'}">
-                <td style="padding:7px 14px;font-size:12.5px;color:var(--text);font-weight:600">${e.mes}</td>
-                <td style="padding:7px 8px;font-size:12px;font-family:'Fira Code',monospace;color:var(--text2)">${e.anio || '—'}</td>
-                <td style="padding:7px 8px">${modBadge(e.modalidad)}</td>
-                <td style="padding:7px 8px;text-align:center;font-family:'Fira Code',monospace;font-weight:800;font-size:14px;color:var(--accent)">${e.count}</td>
-                <td style="padding:7px 8px;text-align:center">
-                  <div style="display:flex;justify-content:center;gap:5px">
-                    <button onclick="verBancoPreguntas('${esc}','${e.mes}','${e.anio}','${e.modalidad}')"
-                      style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
-                             background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px">👁 Ver</button>
-                    <button onclick="eliminarBancoMes('${esc}','${e.mes}','${e.anio}','${e.modalidad}')"
-                      style="padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
-                             background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕</button>
-                  </div>
-                </td>
-              </tr>`).join('')}
+              ${filtered.map(f => {
+                const esc = f.sup.replace(/'/g,"\\'");
+                return `<tr>
+                  <td style="font-weight:600">${f.sup}</td>
+                  <td>${f.mes}</td>
+                  <td style="font-family:'Fira Code',monospace;font-size:12px">${f.anio||'—'}</td>
+                  <td>${modBadge(f.modalidad)}</td>
+                  <td style="text-align:center;font-family:'Fira Code',monospace;font-weight:800;color:var(--accent)">${f.count}</td>
+                  <td style="text-align:center">
+                    <div style="display:flex;justify-content:center;gap:5px">
+                      <button onclick="verBancoPreguntas('${esc}','${f.mes}','${f.anio}','${f.modalidad}')"
+                        style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px">👁 Ver</button>
+                      <button onclick="eliminarBancoMes('${esc}','${f.mes}','${f.anio}','${f.modalidad}')"
+                        style="padding:3px 7px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
             </tbody>
-          </table>
-        </div>`;
-      }).join('')}
+          </table></div>`
+      }
     </div>`;
 }
 
@@ -12734,31 +12741,85 @@ function renderIndivCards() {
   const cont = document.getElementById('indiv-cards');
   if (!cont) return;
   const bank = state.preguntasPorAsesorMes || {};
-  const keys = Object.keys(bank).sort();
-  if (!keys.length) { cont.innerHTML = ''; return; }
+
+  const ORDEN_MESES = {Enero:1,Febrero:2,Marzo:3,Abril:4,Mayo:5,Junio:6,
+                       Julio:7,Agosto:8,Septiembre:9,Octubre:10,Noviembre:11,Diciembre:12};
+
+  // Preserve filter values
+  const fNombre = (document.getElementById('ic-f-nombre') || {}).value || '';
+  const fMes    = (document.getElementById('ic-f-mes')    || {}).value || '';
+  const fAnio   = (document.getElementById('ic-f-anio')   || {}).value || '';
+
+  // Build flat rows
+  const allRows = Object.entries(bank).map(([key, v]) => {
+    const parts = key.split('||');
+    return { nombre: parts[0]||'', mes: parts[1]||'', anio: parts[2]||'', count: v.length, key };
+  }).filter(r => r.nombre && r.mes);
+
+  if (!allRows.length) { cont.innerHTML = ''; return; }
+
+  // Unique filter options
+  const uNombres = [...new Set(allRows.map(r => r.nombre))].sort((a,b) => a.localeCompare(b,'es'));
+  const uAnios   = [...new Set(allRows.map(r => r.anio).filter(Boolean))].sort().reverse();
+  const uMeses   = [...new Set(allRows.map(r => r.mes))].sort((a,b) => (ORDEN_MESES[a]||0)-(ORDEN_MESES[b]||0));
+
+  // Apply filters and sort
+  const filtered = allRows.filter(r =>
+    (!fNombre || r.nombre === fNombre) &&
+    (!fMes    || r.mes    === fMes)    &&
+    (!fAnio   || r.anio   === fAnio)
+  ).sort((a, b) => {
+    const sc = a.nombre.localeCompare(b.nombre, 'es');
+    if (sc !== 0) return sc;
+    const ad = parseInt(b.anio)||0, bd = parseInt(a.anio)||0;
+    if (ad !== bd) return ad - bd;
+    return (ORDEN_MESES[a.mes]||0) - (ORDEN_MESES[b.mes]||0);
+  });
+
+  const selStyle = 'padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:"Montserrat",sans-serif;cursor:pointer;min-width:120px';
+
   cont.innerHTML = `
     <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;
                 color:var(--text3);margin-bottom:10px">Preguntas individuales cargadas</div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${keys.map(key => {
-        const parts = key.split('||');
-        const nombre = parts[0], mes = parts[1], anio = parts[2] || '';
-        const cnt = bank[key] ? bank[key].length : 0;
-        return `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);
-                    border-radius:var(--radius-sm);background:var(--surface2)">
-          <span style="font-size:14px">🎯</span>
-          <div style="flex:1">
-            <span style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;color:var(--text)">${nombre}</span>
-            <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3);margin-left:8px">${mes}${anio ? ' ' + anio : ''}</span>
-          </div>
-          <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent3)">${cnt} preguntas</span>
-          <button onclick="eliminarBancoIndividual('${key.replace(/'/g,"\\'")}')"
-            style="background:none;border:none;color:var(--fail);cursor:pointer;font-size:13px;padding:2px 6px"
-            title="Eliminar">✕</button>
-        </div>`;
-      }).join('')}
-    </div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <select id="ic-f-nombre" onchange="renderIndivCards()" style="${selStyle}">
+        <option value="">— Todos los asesores —</option>
+        ${uNombres.map(n => `<option value="${n.replace(/"/g,'&quot;')}" ${fNombre===n?'selected':''}>${n}</option>`).join('')}
+      </select>
+      <select id="ic-f-anio" onchange="renderIndivCards()" style="${selStyle}">
+        <option value="">— Año —</option>
+        ${uAnios.map(a => `<option value="${a}" ${fAnio===a?'selected':''}>${a}</option>`).join('')}
+      </select>
+      <select id="ic-f-mes" onchange="renderIndivCards()" style="${selStyle}">
+        <option value="">— Mes —</option>
+        ${uMeses.map(m => `<option value="${m}" ${fMes===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      ${(fNombre||fMes||fAnio) ? `<button onclick="document.getElementById('ic-f-nombre').value='';document.getElementById('ic-f-mes').value='';document.getElementById('ic-f-anio').value='';renderIndivCards()" style="padding:5px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.07);color:var(--fail);font-size:11px;cursor:pointer">✕ Limpiar</button>` : ''}
+      <span style="margin-left:auto;font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">${filtered.length} de ${allRows.length}</span>
+    </div>
+    ${filtered.length === 0
+      ? `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Sin resultados para los filtros seleccionados.</div>`
+      : `<div class="table-wrap"><table>
+          <thead><tr>
+            <th>Asesor</th><th>Mes</th><th>Año</th>
+            <th style="text-align:center">Preguntas</th>
+            <th style="text-align:center">Acción</th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map(r => `<tr>
+              <td style="font-weight:600">${r.nombre}</td>
+              <td>${r.mes}</td>
+              <td style="font-family:'Fira Code',monospace;font-size:12px">${r.anio||'—'}</td>
+              <td style="text-align:center;font-family:'Fira Code',monospace;font-weight:800;color:var(--accent)">${r.count}</td>
+              <td style="text-align:center">
+                <button onclick="eliminarBancoIndividual('${r.key.replace(/'/g,"\\'")}')"
+                  style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
+                         background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕ Eliminar</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`
+    }`;
 }
 
 function eliminarBancoIndividual(key) {
