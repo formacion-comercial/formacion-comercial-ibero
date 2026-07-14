@@ -12578,11 +12578,24 @@ function _getPreguntas(sup, mes, anio, modalidad) {
 }
 // Individual asesor questions take priority over group questions
 function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio, modalidad) {
-  const bank = state.preguntasPorAsesorMes || {};
-  const keyConAnio = (asesorNombre || '') + '||' + (mes || '') + (anio ? '||' + anio : '');
-  const keySinAnio = (asesorNombre || '') + '||' + (mes || '');
-  const individual = (anio && bank[keyConAnio]) || bank[keySinAnio] || null;
-  if (individual) return individual;
+  const bank   = state.preguntasPorAsesorMes || {};
+  const modMap = state.modalidadPorSupMes    || {};
+  const suffix = (modalidad && modalidad !== 'mensual') ? '||' + modalidad : '';
+
+  // 1. Clave con sufijo de modalidad (datos nuevos)
+  const keyMod     = `${asesorNombre}||${mes}${anio ? '||' + anio : ''}${suffix}`;
+  const keyModBase = `${asesorNombre}||${mes}${suffix}`;
+  if (suffix && (bank[keyMod] || bank[keyModBase])) return bank[keyMod] || bank[keyModBase];
+
+  // 2. Clave sin sufijo (legacy): solo si su modalidad registrada coincide
+  const keyBase    = `${asesorNombre}||${mes}${anio ? '||' + anio : ''}`;
+  const keyBaseSin = `${asesorNombre}||${mes}`;
+  const legKey = (anio && bank[keyBase]) ? keyBase : bank[keyBaseSin] ? keyBaseSin : null;
+  if (legKey) {
+    const legMod = modMap[legKey] || 'mensual';
+    if (legMod === (modalidad || 'mensual')) return bank[legKey];
+  }
+
   return _getPreguntas(supervisor, mes, anio, modalidad);
 }
 
@@ -12701,7 +12714,9 @@ function _procesarExcelIndividual(file, asesorNombre, mes, anio, modalidad) {
       if (!preguntas.length) { _setIndivStatus('error', '⚠ No se encontraron preguntas válidas en el archivo.'); return; }
 
       if (!state.preguntasPorAsesorMes) state.preguntasPorAsesorMes = {};
-      const key = asesorNombre + '||' + mes + '||' + anio;
+      const key = (modalidad && modalidad !== 'mensual')
+        ? `${asesorNombre}||${mes}||${anio}||${modalidad}`
+        : `${asesorNombre}||${mes}||${anio}`;
       state.preguntasPorAsesorMes[key] = preguntas;
       if (!state.modalidadPorSupMes) state.modalidadPorSupMes = {};
       state.modalidadPorSupMes[key] = modalidad;
@@ -12735,11 +12750,17 @@ function renderIndivCards() {
   const fNombre = (document.getElementById('ic-f-nombre') || {}).value || '';
   const fMes    = (document.getElementById('ic-f-mes')    || {}).value || '';
   const fAnio   = (document.getElementById('ic-f-anio')   || {}).value || '';
+  const fTipo   = (document.getElementById('ic-f-tipo')   || {}).value || '';
 
-  // Build flat rows
+  // Build flat rows — key format: nombre||mes||anio  OR  nombre||mes||anio||modalidad
+  const _MODS = ['asesor-nuevo', 'fortalecimiento', 'mensual'];
   const allRows = Object.entries(bank).map(([key, v]) => {
-    const parts = key.split('||');
-    return { nombre: parts[0]||'', mes: parts[1]||'', anio: parts[2]||'', count: v.length, key };
+    const parts    = key.split('||');
+    const lastPart = parts[parts.length - 1];
+    const hasModSuffix = _MODS.includes(lastPart) && parts.length >= 4;
+    const modalidad = hasModSuffix ? lastPart : ((state.modalidadPorSupMes || {})[key] || 'mensual');
+    const anio      = hasModSuffix ? (parts[2] || '') : (lastPart !== parts[1] ? lastPart : '');
+    return { nombre: parts[0]||'', mes: parts[1]||'', anio, modalidad, count: v.length, key };
   }).filter(r => r.nombre && r.mes);
 
   if (!allRows.length) { cont.innerHTML = ''; return; }
@@ -12751,9 +12772,10 @@ function renderIndivCards() {
 
   // Apply filters and sort
   const filtered = allRows.filter(r =>
-    (!fNombre || r.nombre === fNombre) &&
-    (!fMes    || r.mes    === fMes)    &&
-    (!fAnio   || r.anio   === fAnio)
+    (!fNombre || r.nombre   === fNombre) &&
+    (!fMes    || r.mes      === fMes)    &&
+    (!fAnio   || r.anio     === fAnio)   &&
+    (!fTipo   || r.modalidad === fTipo)
   ).sort((a, b) => {
     const sc = a.nombre.localeCompare(b.nombre, 'es');
     if (sc !== 0) return sc;
@@ -12780,29 +12802,40 @@ function renderIndivCards() {
         <option value="">— Mes —</option>
         ${uMeses.map(m => `<option value="${m}" ${fMes===m?'selected':''}>${m}</option>`).join('')}
       </select>
-      ${(fNombre||fMes||fAnio) ? `<button onclick="document.getElementById('ic-f-nombre').value='';document.getElementById('ic-f-mes').value='';document.getElementById('ic-f-anio').value='';renderIndivCards()" style="padding:5px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.07);color:var(--fail);font-size:11px;cursor:pointer">✕ Limpiar</button>` : ''}
+      <select id="ic-f-tipo" onchange="renderIndivCards()" style="${selStyle}">
+        <option value="">— Tipo —</option>
+        <option value="mensual"         ${fTipo==='mensual'        ?'selected':''}>Evaluación Mensual</option>
+        <option value="asesor-nuevo"    ${fTipo==='asesor-nuevo'   ?'selected':''}>Asesor Nuevo</option>
+        <option value="fortalecimiento" ${fTipo==='fortalecimiento'?'selected':''}>Sesión de Fortalecimiento</option>
+      </select>
+      ${(fNombre||fMes||fAnio||fTipo) ? `<button onclick="document.getElementById('ic-f-nombre').value='';document.getElementById('ic-f-mes').value='';document.getElementById('ic-f-anio').value='';document.getElementById('ic-f-tipo').value='';renderIndivCards()" style="padding:5px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.07);color:var(--fail);font-size:11px;cursor:pointer">✕ Limpiar</button>` : ''}
       <span style="margin-left:auto;font-size:11px;font-family:'Fira Code',monospace;color:var(--text3)">${filtered.length} de ${allRows.length}</span>
     </div>
     ${filtered.length === 0
       ? `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Sin resultados para los filtros seleccionados.</div>`
       : `<div class="table-wrap"><table>
           <thead><tr>
-            <th>Asesor</th><th>Mes</th><th>Año</th>
+            <th>Asesor</th><th>Mes</th><th>Año</th><th>Tipo</th>
             <th style="text-align:center">Preguntas</th>
             <th style="text-align:center">Acción</th>
           </tr></thead>
           <tbody>
-            ${filtered.map(r => `<tr>
+            ${filtered.map(r => {
+              const tipoLabel = r.modalidad === 'asesor-nuevo' ? 'Asesor Nuevo'
+                              : r.modalidad === 'fortalecimiento' ? 'Fortalecimiento'
+                              : 'Mensual';
+              return `<tr>
               <td style="font-weight:600">${r.nombre}</td>
               <td>${r.mes}</td>
               <td style="font-family:'Fira Code',monospace;font-size:12px">${r.anio||'—'}</td>
+              <td style="font-size:11px;color:var(--text2)">${tipoLabel}</td>
               <td style="text-align:center;font-family:'Fira Code',monospace;font-weight:800;color:var(--accent)">${r.count}</td>
               <td style="text-align:center">
                 <button onclick="eliminarBancoIndividual('${r.key.replace(/'/g,"\\'")}')"
                   style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
                          background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕ Eliminar</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;}).join('')}
           </tbody>
         </table></div>`
     }`;
@@ -12810,7 +12843,10 @@ function renderIndivCards() {
 
 function eliminarBancoIndividual(key) {
   const parts = key.split('||');
-  if (!confirm(`¿Eliminar las preguntas individuales de "${parts[0]}" para ${parts[1]}${parts[2] ? ' ' + parts[2] : ''}?`)) return;
+  const _mods = ['asesor-nuevo','fortalecimiento','mensual'];
+  const hasMod = _mods.includes(parts[parts.length-1]) && parts.length >= 4;
+  const modLabel = hasMod ? ` (${parts[parts.length-1]})` : '';
+  if (!confirm(`¿Eliminar las preguntas individuales de "${parts[0]}" para ${parts[1]}${parts[2] && !hasMod ? ' '+parts[2] : parts[2] ? ' '+parts[2] : ''}${modLabel}?`)) return;
   if (state.preguntasPorAsesorMes) delete state.preguntasPorAsesorMes[key];
   save();
   renderIndivCards();
