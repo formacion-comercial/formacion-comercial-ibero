@@ -4032,6 +4032,21 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
 
     <!-- Formulario evaluación -->
     <div id="asesor-tab-eval" style="display:block">
+
+    <!-- Selector de tipo de evaluación -->
+    <div id="asesor-selector-section" class="asesor-form-wrap" style="display:none">
+      <div class="eval-header">
+        <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Mis evaluaciones</div>
+        <div class="eval-header-title">¿Qué quieres presentar?</div>
+        <div style="font-size:13px;color:var(--text3)">Cada evaluación tiene sus propias preguntas y se registra por separado</div>
+      </div>
+      <div id="asesor-selector-mes-label" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18);border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;color:var(--text2)">
+        <span style="font-size:15px">📅</span>
+        <span id="asesor-sel-periodo">—</span>
+      </div>
+      <div id="asesor-selector-cards" style="display:flex;flex-direction:column;gap:14px;margin-top:20px"></div>
+    </div>
+
     <div id="asesor-form-section" class="asesor-form-wrap">
       <div class="eval-header">
         <div style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Evaluación Comercial</div>
@@ -4155,6 +4170,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       </div>
 
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="mostrarSelectorEvaluaciones()" id="btn-volver-selector">Mis evaluaciones</button>
         <button class="btn btn-secondary" onclick="cerrarSesion()">Salir</button>
       </div>
 
@@ -11861,38 +11877,6 @@ async function loginAsesor() {
   // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
   let soloVistaPerfil = false;
 
-  // Ya envió la evaluación este mes — bloquear si presentó cualquier modalidad
-  const submitKey = `${nombre}||${mesDet}||${anioDet}`;
-  const submitKeyNuevo = `${nombre}||${mesDet}||${anioDet}||asesor-nuevo`;
-  const _enviadasLP = state.evaluacionesEnviadas || {};
-  if (_enviadasLP[submitKey] || _enviadasLP[submitKeyNuevo]) {
-    // La ÚNICA razón para bloquear la mensual es que el asesor la haya presentado
-    // directamente él mismo (la entrada tiene modalidad:'mensual').
-    // Entradas de formadora, artefactos de sync, o entradas sin modalidad NO bloquean.
-    // Detectar por CLAVE: _sincronizarEvaluacionesEnviadas nunca guarda modalidad
-    // en evaluacionesEnviadas, así que .modalidad es undefined en entradas sincronizadas.
-    const _menDirecta  = _enviadasLP[submitKey]
-      && _enviadasLP[submitKey].modalidad === 'mensual'; // solo enviarEvaluacionAsesor lo pone
-    const _nuevoDirecta = !!_enviadasLP[submitKeyNuevo]; // clave ||asesor-nuevo existe → es asesor-nuevo
-
-    if (_menDirecta) {
-      soloVistaPerfil = true;
-    } else {
-      // Mensual no presentada directamente → verificar si hay banco mensual disponible
-      const _asesorLP = state.asesores.find(a => a.nombre === nombre);
-      const _bancoMensualLP = _asesorLP
-        ? _getPreguntasParaAsesor(nombre, _asesorLP.supervisor, mesDet, anioDet, 'mensual')
-        : null;
-      if (_bancoMensualLP && _bancoMensualLP.length) {
-        // Hay banco mensual → permitir (soloVistaPerfil queda false)
-      } else if (_nuevoDirecta) {
-        // Envió asesor-nuevo y no hay banco mensual → solo perfil
-        soloVistaPerfil = true;
-      }
-      // Si nada enviado directamente y sin banco: la verificación de banco abajo lo decide
-    }
-  }
-
   // Venció el plazo
   if (!soloVistaPerfil) {
     const plazoKey = asesor.supervisor + '||' + mesDet + '||' + anioDet;
@@ -13684,10 +13668,11 @@ function eliminarPreguntasSupervisor(supervisor) {
 }
 
 // ==================== ASESOR FORM ====================
-let asesorActual        = null;
-let asesorRespuestas    = new Array(20).fill(null);
-let asesorMesDetectado  = '';
-let asesorAnioDetectado = '';
+let asesorActual               = null;
+let asesorRespuestas           = new Array(20).fill(null);
+let asesorMesDetectado         = '';
+let asesorAnioDetectado        = '';
+let asesorModalidadSeleccionada = 'mensual';
 
 const _MESES_ORD = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre'];
 
@@ -13737,96 +13722,140 @@ function _detectarMesAsesor(asesor) {
 function initAsesorForm(asesor) {
   asesorActual = asesor;
   asesorRespuestas = new Array(20).fill(null);
+  const det = _detectarMesAsesor(asesor);
+  asesorMesDetectado  = det.mes  || _MESES_ORD[new Date().getMonth()];
+  asesorAnioDetectado = String(det.anio || new Date().getFullYear());
 
-  const mesSel  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
-  const anioSel = asesorAnioDetectado || String(new Date().getFullYear());
-
-  // ── Detectar modalidad temprano para usar el submitKey correcto ──
-  let _modalidadAsesorEarly = (state.modalidadPorSupMes || {})[asesor.nombre + '||' + mesSel + '||' + anioSel]
-    || (state.modalidadPorSupMes || {})[asesor.supervisor + '||' + mesSel + '||' + anioSel]
-    || (asesor.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
-  let _esNuevoEarly = _modalidadAsesorEarly === 'asesor-nuevo';
-
-  // ── Migrar entradas antiguas de asesor-nuevo a la clave con sufijo ──
-  // (antes del cambio de claves, las entradas de Nuevo usaban la clave sin sufijo con campo nota)
-  const submitKey    = `${asesor.nombre}||${mesSel}||${anioSel}`;
-  const _enviadas    = state.evaluacionesEnviadas || {};
-  const _entradaVieja = _enviadas[submitKey];
-  if (_entradaVieja && _entradaVieja.nota !== undefined && !_enviadas[submitKey + '||asesor-nuevo']) {
-    // Mover a la clave con sufijo y liberar la clave mensual
-    state.evaluacionesEnviadas[submitKey + '||asesor-nuevo'] = _entradaVieja;
-    delete state.evaluacionesEnviadas[submitKey];
+  // Migrar entradas antiguas de asesor-nuevo (sin sufijo con campo nota) a la clave con sufijo
+  const _submitKeyBase = `${asesor.nombre}||${asesorMesDetectado}||${asesorAnioDetectado}`;
+  const _enviadas = state.evaluacionesEnviadas || {};
+  const _entradaVieja = _enviadas[_submitKeyBase];
+  if (_entradaVieja && _entradaVieja.nota !== undefined && !_enviadas[_submitKeyBase + '||asesor-nuevo']) {
+    state.evaluacionesEnviadas[_submitKeyBase + '||asesor-nuevo'] = _entradaVieja;
+    delete state.evaluacionesEnviadas[_submitKeyBase];
     save();
   }
 
-  // ── Bloquear si ya presentó la evaluación (clave separada por modalidad) ──
-  const submitKeyMod = _esNuevoEarly ? submitKey + '||asesor-nuevo' : submitKey;
-  const _yaEnvio = (state.evaluacionesEnviadas || {})[submitKeyMod];
-  if (_yaEnvio) {
-    // ÚNICO indicador fiable de que la mensual fue presentada directamente:
-    // enviarEvaluacionAsesor siempre guarda modalidad:'mensual'.
-    // Entradas de formadora (registradoPor:'formadora') y artefactos de sync no tienen modalidad:'mensual'.
-    // Detectar por CLAVE, no por campo modalidad:
-    // _sincronizarEvaluacionesEnviadas nunca guarda el campo modalidad en evaluacionesEnviadas,
-    // así que _yaEnvio.modalidad siempre es undefined cuando viene de la sincronización.
-    // Si submitKeyMod lleva el sufijo ||asesor-nuevo, el entry ES de asesor-nuevo por definición.
-    const _nuevoDirecta = _esNuevoEarly; // yaEnvio está en la clave ||asesor-nuevo
-    const _menDirecta   = !_esNuevoEarly && _yaEnvio.modalidad === 'mensual'; // solo enviarEvaluacionAsesor lo pone
+  mostrarSelectorEvaluaciones();
+}
 
-    if (_nuevoDirecta) {
-      // Envió asesor-nuevo. Solo bloquear si el asesor también envió la mensual directamente
-      // (enviarEvaluacionAsesor guarda modalidad:'mensual' en la clave sin sufijo).
-      const _menTambienDirecta = _enviadas[submitKey] && _enviadas[submitKey].modalidad === 'mensual';
-      if (_menTambienDirecta) {
-        setTimeout(() => asesorShowTab('perfil'), 80);
-        return;
-      }
-      // Mensual no presentada → verificar si hay banco mensual disponible
-      const _bancoMensual = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
-      if (_bancoMensual && _bancoMensual.length > 0) {
-        _modalidadAsesorEarly = 'mensual';
-        _esNuevoEarly = false;
-        // (no return — continúa con el formulario en modo mensual)
-      } else {
-        setTimeout(() => asesorShowTab('perfil'), 80);
-        return;
-      }
-    } else if (_menDirecta) {
-      // Mensual ya presentada directamente por el asesor → solo perfil
-      setTimeout(() => asesorShowTab('perfil'), 80);
-      return;
+function mostrarSelectorEvaluaciones() {
+  if (!asesorActual) return;
+  const mes  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
+  const anio = asesorAnioDetectado || String(new Date().getFullYear());
+  const env  = state.evaluacionesEnviadas || {};
+  const baseKey = `${asesorActual.nombre}||${mes}||${anio}`;
+
+  const tipos = [
+    { mod: 'mensual',         label: 'Evaluación Mensual',         icon: '📅', accent: 'var(--accent)',  txtBtn: '#1a1200' },
+    { mod: 'asesor-nuevo',    label: 'Evaluación Asesor Nuevo',    icon: '🆕', accent: 'var(--accent4)', txtBtn: '#fff'    },
+    { mod: 'fortalecimiento', label: 'Sesión de Fortalecimiento',  icon: '💪', accent: 'var(--accent3)', txtBtn: '#fff'    },
+  ];
+
+  const cardsHtml = tipos.map(t => {
+    const key    = t.mod === 'mensual' ? baseKey : `${baseKey}||${t.mod}`;
+    const banco  = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, t.mod);
+    const enviado = env[key];
+    const disponible = banco && banco.length > 0;
+
+    if (!disponible && !enviado) return '';
+
+    let inner;
+    if (enviado) {
+      const esNuevo  = t.mod === 'asesor-nuevo';
+      const scoreDisp = esNuevo
+        ? (enviado.nota != null ? `${enviado.nota}/10` : `${enviado.pts || 0}/100`)
+        : `${enviado.pts || 0}/100`;
+      const passColor = enviado.pass ? 'var(--pass)' : 'var(--fail)';
+      inner = `
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;width:48px;height:48px;border-radius:50%;
+               background:${enviado.pass ? 'rgba(78,138,114,0.12)' : 'rgba(184,80,80,0.08)'};
+               display:flex;align-items:center;justify-content:center;flex-shrink:0">${t.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${t.label}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${mes} ${anio}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:20px;font-weight:800;color:${passColor};line-height:1">${scoreDisp}</div>
+            <div style="font-size:11px;color:${passColor};font-weight:600;margin-top:2px">${enviado.pass ? '✓ Aprobado' : '✗ Reprobado'}</div>
+          </div>
+        </div>`;
     } else {
-      // Entrada en clave mensual pero NO presentada directamente (formadora, sync, artefacto)
-      // → verificar banco mensual; si existe, mostrar formulario
-      const _bancoChk = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, 'mensual');
-      if (!_bancoChk || !_bancoChk.length) {
-        setTimeout(() => asesorShowTab('perfil'), 80);
-        return;
-      }
-      // Banco encontrado → continúa sin return para mostrar el formulario
-      _modalidadAsesorEarly = 'mensual';
+      inner = `
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;width:48px;height:48px;border-radius:50%;
+               background:rgba(201,165,69,0.10);
+               display:flex;align-items:center;justify-content:center;flex-shrink:0">${t.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${t.label}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${mes} ${anio} · ${banco.length} preguntas</div>
+          </div>
+          <button onclick="iniciarEvaluacionConModalidad('${t.mod}')"
+            style="padding:9px 20px;background:${t.accent};color:${t.txtBtn};border:none;
+                   border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;
+                   font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0">
+            Presentar →
+          </button>
+        </div>`;
     }
+
+    const border = enviado
+      ? (enviado.pass ? '1px solid rgba(78,138,114,0.28)' : '1px solid rgba(184,80,80,0.22)')
+      : '1px solid var(--border)';
+    return `<div style="background:var(--surface);border:${border};border-radius:var(--radius);padding:18px 20px">${inner}</div>`;
+  }).join('');
+
+  const periodoEl = document.getElementById('asesor-sel-periodo');
+  if (periodoEl) periodoEl.textContent = `${mes} ${anio}`;
+
+  const cardsEl = document.getElementById('asesor-selector-cards');
+  if (cardsEl) {
+    cardsEl.innerHTML = cardsHtml || `
+      <div style="text-align:center;padding:48px 24px">
+        <div style="font-size:52px;margin-bottom:14px">⏳</div>
+        <div style="font-weight:800;font-size:18px;color:var(--text);margin-bottom:8px">Sin evaluaciones disponibles</div>
+        <div style="font-size:13px;color:var(--text2);max-width:380px;margin:0 auto;line-height:1.7">
+          Las preguntas de <strong style="color:var(--accent)">${mes} ${anio}</strong> aún no están disponibles.<br>
+          Tu formadora las cargará pronto.
+        </div>
+      </div>`;
   }
 
-  document.getElementById('asesor-form-section').style.display = 'block';
+  document.getElementById('asesor-selector-section').style.display = 'block';
+  document.getElementById('asesor-form-section').style.display     = 'none';
   document.getElementById('asesor-result-section').classList.remove('show');
-  document.getElementById('asesor-score-sticky').style.display = 'flex';
+  document.getElementById('asesor-score-sticky').style.display     = 'none';
+}
 
-  const formsLink  = state.formsPorSupervisor && state.formsPorSupervisor[asesor.supervisor];
-  const bancoPregsMes = _getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesSel, anioSel, _modalidadAsesorEarly);
-  const list = document.getElementById('asesor-questions-list');
+function iniciarEvaluacionConModalidad(modalidad) {
+  if (!asesorActual) return;
+  asesorModalidadSeleccionada = modalidad;
+  const mes  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
+  const anio = asesorAnioDetectado || String(new Date().getFullYear());
 
-  // Update read-only display
+  const banco = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, modalidad);
+  const maxPregs = modalidad === 'asesor-nuevo' ? 10
+    : _esSup5Q(asesorActual.supervisor) ? 5
+    : banco ? banco.length : 20;
+
+  asesorRespuestas = banco
+    ? banco.slice(0, maxPregs).map(q => q.tipo === 'multiple' ? [] : null)
+    : new Array(maxPregs).fill(null);
+
+  // Actualizar encabezado del formulario
+  const modLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+  const titleEl = document.querySelector('#asesor-form-section .eval-header .eval-header-title');
+  if (titleEl) titleEl.textContent = modLabels[modalidad] || 'Evaluación';
+
   const mesLbl  = document.getElementById('asesor-mes-label');
   const anioLbl = document.getElementById('asesor-anio-label');
-  if (mesLbl)  mesLbl.textContent  = mesSel;
-  if (anioLbl) anioLbl.textContent = anioSel;
+  if (mesLbl)  mesLbl.textContent  = mes;
+  if (anioLbl) anioLbl.textContent = anio;
 
-
-
-  // Show deadline if configured
-  const plazoKey = asesor.supervisor + '||' + mesSel + '||' + anioSel;
-  const plazo = state.plazos && state.plazos[plazoKey];
+  // Deadline banner
+  const plazoKey = asesorActual.supervisor + '||' + mes + '||' + anio;
+  const plazo    = state.plazos && state.plazos[plazoKey];
   let deadlineBanner = document.getElementById('asesor-deadline-banner');
   if (!deadlineBanner) {
     deadlineBanner = document.createElement('div');
@@ -13841,27 +13870,25 @@ function initAsesorForm(asesor) {
       <span style="font-size:18px">⏰</span>
       <span><strong style="color:var(--accent)">Fecha límite:</strong> ${fechaFmt}${plazo.hora ? ' a las ' + plazo.hora : ''}</span>
     </div>`;
-    // Arrancar temporizador regresivo
-    const deadlineStr = plazo.fecha + 'T' + (plazo.hora || '23:59:59');
-    const deadlineDate = new Date(deadlineStr);
-    if (!isNaN(deadlineDate) && deadlineDate > new Date()) {
-      startCountdown(deadlineDate);
-    }
+    const deadlineDate = new Date(plazo.fecha + 'T' + (plazo.hora || '23:59:59'));
+    if (!isNaN(deadlineDate) && deadlineDate > new Date()) startCountdown(deadlineDate);
   } else {
     if (deadlineBanner) deadlineBanner.style.display = 'none';
     stopCountdown();
   }
 
-  if (bancoPregsMes && bancoPregsMes.length) {
-    // ── Modo banco: preguntas con opciones A/B/C/D desde Excel ──
-    const _modalidadAsesor = _modalidadAsesorEarly;
-    const _maxPregs = _modalidadAsesor === 'asesor-nuevo' ? 10 : _esSup5Q(asesor.supervisor) ? 5 : 20;
-    asesorRespuestas = bancoPregsMes.slice(0, _maxPregs).map(q => q.tipo === 'multiple' ? [] : null);
+  // Renderizar preguntas
+  const list      = document.getElementById('asesor-questions-list');
+  const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
+
+  if (banco && banco.length) {
     const LETRAS = ['A','B','C','D'];
-    list.innerHTML = bancoPregsMes.slice(0, _maxPregs).map((q, i) => {
-      const tipoBadge = q.tipo === 'multiple' ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(91,143,176,0.12);color:var(--accent4);font-weight:600;margin-left:8px">Múltiple</span>'
-                      : q.tipo === 'verdaderofalso' ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(78,138,114,0.12);color:var(--accent3);font-weight:600;margin-left:8px">V / F</span>'
-                      : '';
+    list.innerHTML = banco.slice(0, maxPregs).map((q, i) => {
+      const tipoBadge = q.tipo === 'multiple'
+        ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(91,143,176,0.12);color:var(--accent4);font-weight:600;margin-left:8px">Múltiple</span>'
+        : q.tipo === 'verdaderofalso'
+        ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(78,138,114,0.12);color:var(--accent3);font-weight:600;margin-left:8px">V / F</span>'
+        : '';
       let opcionesHtml = '';
       if (q.tipo === 'verdaderofalso') {
         opcionesHtml = `
@@ -13869,15 +13896,11 @@ function initAsesorForm(asesor) {
             <button id="qopt-${i}-V" onclick="setAsesorRespVF(${i},'V')"
               style="flex:1;padding:14px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
                      background:var(--surface2);color:var(--text2);cursor:pointer;font-size:15px;font-weight:700;
-                     transition:all .15s;font-family:'Montserrat',sans-serif">
-              ✓ Verdadero
-            </button>
+                     transition:all .15s;font-family:'Montserrat',sans-serif">✓ Verdadero</button>
             <button id="qopt-${i}-F" onclick="setAsesorRespVF(${i},'F')"
               style="flex:1;padding:14px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
                      background:var(--surface2);color:var(--text2);cursor:pointer;font-size:15px;font-weight:700;
-                     transition:all .15s;font-family:'Montserrat',sans-serif">
-              ✗ Falso
-            </button>
+                     transition:all .15s;font-family:'Montserrat',sans-serif">✗ Falso</button>
           </div>`;
       } else if (q.tipo === 'multiple') {
         opcionesHtml = `
@@ -13889,9 +13912,7 @@ function initAsesorForm(asesor) {
                        border-radius:var(--radius-sm);border:1px solid var(--border);
                        background:var(--surface2);color:var(--text2);cursor:pointer;
                        text-align:left;transition:all .15s;font-family:'Montserrat',sans-serif">
-                <span id="qopt-lbl-${i}-${oi}"
-                  style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;
-                         color:var(--text3);flex-shrink:0;margin-top:1px">${LETRAS[oi]})</span>
+                <span id="qopt-lbl-${i}-${oi}" style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0;margin-top:1px">${LETRAS[oi]})</span>
                 <span style="font-size:12.5px;line-height:1.4">${_escHtml(op)}</span>
               </button>`).join('')}
           </div>`;
@@ -13904,94 +13925,39 @@ function initAsesorForm(asesor) {
                        border-radius:var(--radius-sm);border:1px solid var(--border);
                        background:var(--surface2);color:var(--text2);cursor:pointer;
                        text-align:left;transition:all .15s;font-family:'Montserrat',sans-serif">
-                <span id="qopt-lbl-${i}-${oi}"
-                  style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;
-                         color:var(--text3);flex-shrink:0;margin-top:1px">${LETRAS[oi]})</span>
+                <span id="qopt-lbl-${i}-${oi}" style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0;margin-top:1px">${LETRAS[oi]})</span>
                 <span style="font-size:12.5px;line-height:1.4">${_escHtml(op)}</span>
               </button>`).join('')}
           </div>`;
       }
       return `
-      <div class="q-card" id="qcard-a-${i}"
-           style="flex-direction:column;align-items:flex-start;gap:10px">
+      <div class="q-card" id="qcard-a-${i}" style="flex-direction:column;align-items:flex-start;gap:10px">
         <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
           <div class="q-card-num" style="margin-top:2px">P${String(i+1).padStart(2,'0')}</div>
-          <div style="flex:1;font-size:14px;color:var(--text);line-height:1.5">
-            ${_escHtml(q.enunciado)}${tipoBadge}
-          </div>
+          <div style="flex:1;font-size:14px;color:var(--text);line-height:1.5">${_escHtml(q.enunciado)}${tipoBadge}</div>
         </div>
         ${opcionesHtml}
       </div>`;
     }).join('');
-    const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
     if (btnEnviar) btnEnviar.style.display = '';
     document.getElementById('asesor-score-sticky').style.display = 'flex';
-
-  } else if (formsLink) {
-    // Modo Forms: mostrar tarjeta prominente con link al formulario
-    list.innerHTML = `
-      <div style="text-align:center;padding:32px 24px">
-        <div style="font-size:52px;margin-bottom:16px">📝</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:24px;color:var(--text);margin-bottom:8px">
-          Tu evaluación está lista
-        </div>
-        <div style="font-size:14px;color:var(--text2);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.6">
-          Tu supervisor <strong style="color:var(--text)">${asesor.supervisor}</strong> ha preparado el formulario de evaluación.
-          Haz clic en el botón para abrirlo y responder las preguntas de opción múltiple.
-        </div>
-        <a href="${formsLink}" target="_blank"
-          style="display:inline-flex;align-items:center;gap:10px;padding:16px 36px;
-                 border-radius:var(--radius);background:var(--accent2);color:#1a1200;
-                 font-size:16px;font-weight:700;text-decoration:none;font-family:'Montserrat',sans-serif;
-                 box-shadow:0 4px 20px rgba(244,211,74,0.25);transition:transform .15s"
-          onmouseover="this.style.transform='translateY(-2px)'"
-          onmouseout="this.style.transform='translateY(0)'">
-          <span style="font-size:20px">↗</span> Abrir formulario Google Forms
-        </a>
-        <div style="margin-top:20px;padding:14px 20px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.15);border-radius:var(--radius-sm);max-width:440px;margin-left:auto;margin-right:auto">
-          <div style="font-size:12px;color:var(--text2);line-height:1.6">
-            <strong style="color:var(--accent)">Después de responder el formulario</strong>, la formadora importará tus resultados al sistema automáticamente.
-            No es necesario registrar nada aquí.
-          </div>
-        </div>
-        <div style="margin-top:16px">
-          <button onclick="copiarLinkAsesor('${formsLink}')"
-            style="background:transparent;border:1px solid var(--border);color:var(--text3);
-                   padding:8px 18px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-family:'Montserrat',sans-serif">
-            📋 Copiar link del formulario
-          </button>
-        </div>
-      </div>`;
-    // Ocultar el sticky score y el botón enviar — no aplica con Forms
-    document.getElementById('asesor-score-sticky').style.display = 'none';
-    document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]') &&
-      (document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]').style.display = 'none');
   } else {
-    // Sin preguntas cargadas ni formulario configurado
     list.innerHTML = `
       <div style="text-align:center;padding:48px 24px">
         <div style="font-size:56px;margin-bottom:16px">⏳</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:10px">
-          Evaluación no disponible aún
-        </div>
+        <div style="font-weight:800;font-size:20px;color:var(--text);margin-bottom:10px">Evaluación no disponible aún</div>
         <div style="font-size:14px;color:var(--text2);max-width:400px;margin:0 auto;line-height:1.7">
-          Las preguntas de tu evaluación de <strong style="color:var(--accent)">${mesSel} ${anioSel}</strong> aún no están disponibles.<br>
-          Tu formadora las cargará pronto — te notificaremos cuando puedas presentarla.
-        </div>
-        <div style="margin-top:24px;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;
-             background:rgba(201,165,69,0.08);border:1px solid rgba(201,165,69,0.20);
-             border-radius:var(--radius-sm);font-size:12px;color:var(--text3)">
-          <span>📬</span> Mientras tanto puedes revisar tu perfil y tu historial de evaluaciones
+          Las preguntas de <strong style="color:var(--accent)">${mes} ${anio}</strong> aún no están disponibles.
         </div>
       </div>`;
-    // Ocultar botón enviar, sticky score y deadline banner — no hay nada que enviar
-    const btnEnviar = document.querySelector('.btn.btn-primary[onclick="enviarEvaluacionAsesor()"]');
     if (btnEnviar) btnEnviar.style.display = 'none';
     document.getElementById('asesor-score-sticky').style.display = 'none';
-    const deadBanner = document.getElementById('asesor-deadline-banner');
-    if (deadBanner) deadBanner.style.display = 'none';
   }
 
+  // Mostrar formulario, ocultar selector y resultado
+  document.getElementById('asesor-selector-section').style.display = 'none';
+  document.getElementById('asesor-form-section').style.display     = 'block';
+  document.getElementById('asesor-result-section').classList.remove('show');
   updateAsesorProgress();
 }
 
@@ -14225,17 +14191,16 @@ async function enviarEvaluacionAsesor() {
     } catch(e) { console.warn('Sync pre-envío falló:', e); }
   }
   // Verificar nuevamente si ya fue enviada (por si se envió desde otra pestaña)
-  const _modalidadCheck = (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
-    || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
-    || (asesorActual.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+  const _modalidadCheck = asesorModalidadSeleccionada;
   const _submitKeyCheck    = `${asesorActual.nombre}||${mes}||${anio}`;
-  const _submitKeyCheckMod = _modalidadCheck === 'asesor-nuevo' ? _submitKeyCheck + '||asesor-nuevo' : _submitKeyCheck;
+  const _submitKeyCheckMod = _modalidadCheck === 'mensual' ? _submitKeyCheck : `${_submitKeyCheck}||${_modalidadCheck}`;
   const _enviadas2 = state.evaluacionesEnviadas || {};
-  if (_enviadas2[_submitKeyCheckMod] || (_modalidadCheck === 'asesor-nuevo' && _enviadas2[_submitKeyCheck] && _enviadas2[_submitKeyCheck].nota !== undefined)) {
-    initAsesorForm(asesorActual);
+  if (_enviadas2[_submitKeyCheckMod]) {
+    mostrarSelectorEvaluaciones();
     return;
   }
-  const actividad = `Evaluación ${mes} ${anio}`;
+  const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+  const actividad = (actLabels[_modalidadCheck] || 'Evaluación') + ` ${mes} ${anio}`;
 
   const sinMarcar = asesorRespuestas.filter(r =>
     r === null || (Array.isArray(r) && r.length === 0)
@@ -14274,7 +14239,7 @@ async function enviarEvaluacionAsesor() {
 
   // Calcular respuestas: prioridad banco individual, luego grupal por modalidad, luego banco genérico
   const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, _modalidadCheck)
-                || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[asesorActual.supervisor]);
+                || (_modalidadCheck === 'mensual' && state.preguntasPorSupervisor && state.preguntasPorSupervisor[asesorActual.supervisor]);
   const LETRAS   = ['A','B','C','D'];
   let respFinal;
 
@@ -14310,9 +14275,7 @@ async function enviarEvaluacionAsesor() {
   }
 
   const corr     = calcScore(respFinal);
-  const modalidad = (state.modalidadPorSupMes || {})[asesorActual.nombre + '||' + mes + '||' + anio]
-                 || (state.modalidadPorSupMes || {})[asesorActual.supervisor + '||' + mes + '||' + anio]
-                 || (asesorActual.tipo === 'Nuevo' ? 'asesor-nuevo' : 'mensual');
+  const modalidad = asesorModalidadSeleccionada;
 
   let pts, pct, pass, nota;
   if (modalidad === 'asesor-nuevo') {
@@ -14322,9 +14285,10 @@ async function enviarEvaluacionAsesor() {
     pass = _isPasoAsesorNuevo(nota);
   } else {
     nota = null;
-    pts  = corr * 5;
-    pass = isPaso(respFinal, respFinal.length, asesorActual.supervisor);
-    pct  = Math.round((corr / respFinal.length) * 100);
+    const _tot = respFinal.length || 1;
+    pts  = Math.round((corr / _tot) * 100);
+    pass = isPaso(respFinal, _tot, asesorActual.supervisor);
+    pct  = pts;
   }
 
   // ── Mostrar spinner mientras se guarda ──
@@ -14364,9 +14328,9 @@ async function enviarEvaluacionAsesor() {
 
   // ── Marcar como enviada con puntaje de respaldo — guardar INMEDIATAMENTE en Firestore ──
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  const _skFinal = modalidad === 'asesor-nuevo'
-    ? `${asesorActual.nombre}||${mes}||${anio}||asesor-nuevo`
-    : `${asesorActual.nombre}||${mes}||${anio}`;
+  const _skFinal = modalidad === 'mensual'
+    ? `${asesorActual.nombre}||${mes}||${anio}`
+    : `${asesorActual.nombre}||${mes}||${anio}||${modalidad}`;
   state.evaluacionesEnviadas[_skFinal] = { pts, pct, pass, correctas: corr, total: respFinal.length, modalidad,
     ...(modalidad === 'asesor-nuevo' ? { nota } : {}) };
 
@@ -14413,13 +14377,18 @@ async function enviarEvaluacionAsesor() {
   document.getElementById('result-score-big').textContent   = pts;
   document.getElementById('result-score-big').className     = 'result-big-score ' + (pass ? 'pass' : 'fail');
   const totalPregs = respFinal.length;
-  document.getElementById('result-sub-text').textContent    = pass
+  const _esNuevoRes = modalidad === 'asesor-nuevo';
+  document.getElementById('result-sub-text').textContent = pass
     ? `¡Excelente! Respondiste correctamente ${corr} de ${totalPregs} preguntas.`
-    : `Respondiste ${corr} de ${totalPregs} correctas. Se requieren mínimo ${Math.ceil(totalPregs*0.95)} para aprobar.`;
+    : _esNuevoRes
+      ? `Respondiste ${corr} de ${totalPregs} correctas. Se requiere nota mínima de 6.0/10 para aprobar.`
+      : `Respondiste ${corr} de ${totalPregs} correctas. Se requieren mínimo ${Math.ceil(totalPregs * 0.95)} para aprobar.`;
   document.getElementById('result-correctas').textContent   = corr;
   document.getElementById('result-incorrectas').textContent = totalPregs - corr;
-  document.getElementById('result-pct').textContent         = calcPct(respFinal, respFinal.length, asesorActual.supervisor) + '%';
-  document.getElementById('result-pts-v').textContent       = pts;
+  document.getElementById('result-pct').textContent = _esNuevoRes
+    ? `${nota}/10`
+    : pct + '%';
+  document.getElementById('result-pts-v').textContent = pts;
 
   // Detalle con opción seleccionada vs correcta
   const detalleEl = document.getElementById('result-detalle-preguntas');
@@ -14558,8 +14527,13 @@ function asesorShowTab(tab) {
   document.getElementById('asesor-tab-eval').style.display    = tab === 'eval'    ? 'block' : 'none';
   document.getElementById('asesor-tab-cargue').style.display  = tab === 'cargue'  ? 'block' : 'none';
   document.getElementById('asesor-tab-perfil').style.display  = tab === 'perfil'  ? 'block' : 'none';
+  const _formVisible = document.getElementById('asesor-form-section').style.display !== 'none';
   document.getElementById('asesor-score-sticky').style.display =
-    (tab === 'eval' && document.getElementById('asesor-form-section').style.display !== 'none') ? 'flex' : 'none';
+    (tab === 'eval' && _formVisible) ? 'flex' : 'none';
+  // Al volver a la pestaña Evaluación, si estaban en el selector o perfil, refrescar selector
+  if (tab === 'eval' && !_formVisible && !document.getElementById('asesor-result-section').classList.contains('show')) {
+    mostrarSelectorEvaluaciones();
+  }
 
   const btnEval   = document.getElementById('tab-btn-eval');
   const btnPerfil = document.getElementById('tab-btn-perfil');
