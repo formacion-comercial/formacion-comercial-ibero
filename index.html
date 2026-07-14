@@ -11877,14 +11877,23 @@ async function loginAsesor() {
   // ── Detectar si solo puede ver perfil (sin evaluación disponible) ──
   let soloVistaPerfil = false;
 
-  // Venció el plazo
+  // Venció el plazo mensual — solo bloquea si tampoco hay asesor-nuevo ni fortalecimiento disponibles
   if (!soloVistaPerfil) {
     const plazoKey = asesor.supervisor + '||' + mesDet + '||' + anioDet;
     const plazo = state.plazos && state.plazos[plazoKey];
     if (plazo && plazo.fecha) {
       const deadlineStr = plazo.fecha + (plazo.hora ? 'T' + plazo.hora : 'T23:59:59');
       const deadline = new Date(deadlineStr);
-      if (!isNaN(deadline) && new Date() > deadline) soloVistaPerfil = true;
+      if (!isNaN(deadline) && new Date() > deadline) {
+        // Verificar si quedan otros tipos disponibles
+        const _bancoPers = state.preguntasPorAsesorMes || {};
+        const _bancoSup  = state.preguntasPorSupMes    || {};
+        const _pfx = asesor.nombre + '||' + mesDet + '||' + anioDet + '||';
+        const _spfx = asesor.supervisor + '||' + mesDet + '||' + anioDet + '||';
+        const _tieneNuevo = !!(_bancoPers[_pfx + 'asesor-nuevo']  || _bancoSup[_spfx + 'asesor-nuevo']);
+        const _tieneFort  = !!(_bancoPers[_pfx + 'fortalecimiento'] || _bancoSup[_spfx + 'fortalecimiento']);
+        if (!_tieneNuevo && !_tieneFort) soloVistaPerfil = true;
+      }
     }
   }
 
@@ -13790,13 +13799,22 @@ function mostrarSelectorEvaluaciones() {
     { mod: 'fortalecimiento', label: 'Sesión de Fortalecimiento',  icon: '💪', accent: 'var(--accent3)', txtBtn: '#fff'    },
   ];
 
+  // Verificar si el plazo mensual ya venció
+  const _plazoKey = asesorActual.supervisor + '||' + mes + '||' + anio;
+  const _plazo    = state.plazos && state.plazos[_plazoKey];
+  const _mensualCerrada = _plazo && _plazo.fecha && (() => {
+    const d = new Date(_plazo.fecha + 'T' + (_plazo.hora || '23:59:59'));
+    return !isNaN(d) && new Date() > d;
+  })();
+
   const cardsHtml = tipos.map(t => {
     const key    = t.mod === 'mensual' ? baseKey : `${baseKey}||${t.mod}`;
     const banco  = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, t.mod);
     const enviado = env[key];
     const disponible = banco && banco.length > 0;
+    const cerrada = t.mod === 'mensual' && _mensualCerrada;
 
-    if (!disponible && !enviado) return '';
+    if (!disponible && !enviado && !cerrada) return '';
 
     let inner;
     if (enviado) {
@@ -13817,6 +13835,22 @@ function mostrarSelectorEvaluaciones() {
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:20px;font-weight:800;color:${passColor};line-height:1">${scoreDisp}</div>
             <div style="font-size:11px;color:${passColor};font-weight:600;margin-top:2px">${enviado.pass ? '✓ Aprobado' : '✗ Reprobado'}</div>
+          </div>
+        </div>`;
+    } else if (cerrada) {
+      const _fechaFmt = _plazo.fecha ? _plazo.fecha.split('-').reverse().join('/') : '';
+      inner = `
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;width:48px;height:48px;border-radius:50%;
+               background:rgba(120,120,120,0.10);
+               display:flex;align-items:center;justify-content:center;flex-shrink:0">🔒</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;color:var(--text2)">${t.label}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${mes} ${anio}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:12px;font-weight:700;color:var(--text3)">Evaluación cerrada</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Venció ${_fechaFmt}${_plazo.hora ? ' ' + _plazo.hora : ''}</div>
           </div>
         </div>`;
     } else {
@@ -13840,6 +13874,7 @@ function mostrarSelectorEvaluaciones() {
 
     const border = enviado
       ? (enviado.pass ? '1px solid rgba(78,138,114,0.28)' : '1px solid rgba(184,80,80,0.22)')
+      : cerrada ? '1px solid rgba(120,120,120,0.20)'
       : '1px solid var(--border)';
     return `<div style="background:var(--surface);border:${border};border-radius:var(--radius);padding:18px 20px">${inner}</div>`;
   }).join('');
