@@ -5191,7 +5191,7 @@ function fmtScore(resp, total) {
 
 // ── Evaluación Asesor Nuevo: escala 0–10, fórmula 5 + correctas×0.5 ─────────
 function _calcNotaAsesorNuevo(correctas) {
-  return Math.round((5 + Math.min(correctas, 10) * 0.5) * 10) / 10;
+  return Math.min(correctas, 10);
 }
 function _isPasoAsesorNuevo(nota) { return nota >= 6.0; }
 // Wrapper universal: usa _getEvalScore para respetar la modalidad (asesor-nuevo vs mensual)
