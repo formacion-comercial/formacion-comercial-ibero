@@ -12158,7 +12158,9 @@ function renderSupervisorQuestionCards() {
         </select>
         <select id="sqc-f-tipo" onchange="renderSupervisorQuestionCards()" style="${selStyle}">
           <option value="">— Tipo —</option>
-          ${uTipos.map(t => `<option value="${t}" ${fTipo===t?'selected':''}>${tipoLabel[t]||t}</option>`).join('')}
+          <option value="mensual"         ${fTipo==='mensual'?'selected':''}>📅 Evaluación Mensual</option>
+          <option value="asesor-nuevo"    ${fTipo==='asesor-nuevo'?'selected':''}>🆕 Asesor Nuevo</option>
+          <option value="fortalecimiento" ${fTipo==='fortalecimiento'?'selected':''}>💪 Sesión de Fortalecimiento</option>
         </select>
         ${(fSup||fMes||fAnio||fTipo) ? `<button onclick="document.getElementById('sqc-f-sup').value='';document.getElementById('sqc-f-mes').value='';document.getElementById('sqc-f-anio').value='';document.getElementById('sqc-f-tipo').value='';renderSupervisorQuestionCards()" style="padding:5px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.25);background:rgba(184,80,80,0.07);color:var(--fail);font-size:11px;cursor:pointer">✕ Limpiar</button>` : ''}
       </div>
