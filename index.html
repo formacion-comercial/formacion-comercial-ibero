@@ -1678,6 +1678,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:7px 14px">
             🔄 Sincronizar
           </button>
+          <button class="btn" onclick="abrirRegistroManual()"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:7px 14px">
+            📝 Registrar manualmente
+          </button>
           <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
         </div>
       </div>
@@ -4451,6 +4455,65 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <span id="cm-status" style="font:400 12px Fira Code,monospace;color:var(--text3);flex:1"></span>
       <button onclick="cerrarCargaManual()" class="btn-secondary" style="padding:8px 18px">Cancelar</button>
       <button onclick="guardarCargaManual()" class="btn-primary" style="padding:8px 18px">Guardar resultados</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal registro manual de evaluación -->
+<div class="modal-overlay" id="modal-registro-manual" onclick="if(event.target===this)cerrarRegistroManual()" style="z-index:1200;display:none">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">📝 Registrar evaluación manualmente</div>
+      <button class="modal-close" onclick="cerrarRegistroManual()">✕</button>
+    </div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Asesor</label>
+        <select id="rm-asesor" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+          <option value="">— Selecciona asesor —</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Mes</label>
+          <select id="rm-mes" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+            <option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option>
+            <option>Mayo</option><option>Junio</option><option selected>Julio</option><option>Agosto</option>
+            <option>Septiembre</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Año</label>
+          <select id="rm-anio" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+            <option>2026</option><option>2027</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Tipo de evaluación</label>
+        <select id="rm-modalidad" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+          <option value="mensual">📅 Mensual</option>
+          <option value="asesor-nuevo" selected>🆕 Asesor Nuevo</option>
+          <option value="fortalecimiento">💪 Fortalecimiento</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Correctas</label>
+          <input id="rm-correctas" type="number" min="0" max="100" value="6"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;box-sizing:border-box">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px">Total preguntas</label>
+          <input id="rm-total" type="number" min="1" max="100" value="10"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;box-sizing:border-box">
+        </div>
+      </div>
+      <div id="rm-msg" style="font-size:12px;color:var(--fail);display:none"></div>
+    </div>
+    <div style="padding:12px 24px 20px;display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="cerrarRegistroManual()" class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2)">Cancelar</button>
+      <button onclick="guardarRegistroManual()" class="btn btn-primary">Guardar evaluación</button>
     </div>
   </div>
 </div>
@@ -13864,6 +13927,79 @@ function initAsesorForm(asesor) {
   }
 
   mostrarSelectorEvaluaciones();
+}
+
+function abrirRegistroManual() {
+  // Poblar select de asesores
+  const sel = document.getElementById('rm-asesor');
+  if (sel) {
+    const asesores = (state.asesores || []).slice().sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
+    sel.innerHTML = '<option value="">— Selecciona asesor —</option>' +
+      asesores.map(a => `<option value="${a.nombre.replace(/"/g,'&quot;')}">${a.nombre}</option>`).join('');
+  }
+  const msg = document.getElementById('rm-msg');
+  if (msg) msg.style.display = 'none';
+  document.getElementById('modal-registro-manual').style.display = 'flex';
+}
+function cerrarRegistroManual() {
+  document.getElementById('modal-registro-manual').style.display = 'none';
+}
+function guardarRegistroManual() {
+  const msg      = document.getElementById('rm-msg');
+  const nombre   = (document.getElementById('rm-asesor').value    || '').trim();
+  const mes      = (document.getElementById('rm-mes').value        || '').trim();
+  const anio     = (document.getElementById('rm-anio').value       || '').trim();
+  const modalidad= (document.getElementById('rm-modalidad').value  || 'mensual').trim();
+  const correctas= parseInt(document.getElementById('rm-correctas').value) || 0;
+  const total    = parseInt(document.getElementById('rm-total').value)    || 10;
+
+  if (!nombre) { msg.textContent = 'Selecciona un asesor.'; msg.style.display='block'; return; }
+  if (correctas < 0 || correctas > total) { msg.textContent = 'Las correctas no pueden superar el total.'; msg.style.display='block'; return; }
+
+  const asesorObj  = (state.asesores || []).find(a => a.nombre === nombre) || {};
+  const supervisor = asesorObj.supervisor || '';
+
+  // Verificar duplicado
+  const dupKey = modalidad === 'mensual' ? `${nombre}||${mes}||${anio}` : `${nombre}||${mes}||${anio}||${modalidad}`;
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[dupKey]) {
+    msg.textContent = 'Ya existe una evaluación registrada para este asesor en ese período y tipo.';
+    msg.style.display = 'block'; return;
+  }
+
+  const nota = modalidad === 'asesor-nuevo' ? _calcNotaAsesorNuevo(correctas) : null;
+  const pct  = modalidad === 'asesor-nuevo' ? Math.round((nota || 0) * 10) : Math.round((correctas / total) * 100);
+  const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
+  const pass = modalidad === 'asesor-nuevo' ? _isPasoAsesorNuevo(nota) : isPaso(respuestas, total, supervisor);
+
+  const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+  const evObj = {
+    id: _nuevoEvalId(),
+    asesor: nombre, supervisor, mes, anio: parseInt(anio),
+    actividad: (actLabels[modalidad] || 'Evaluación') + ` ${mes} ${anio}`,
+    respuestas, totalPreguntas: total,
+    correctas, total, pct, pts: pct, pass, nota,
+    modalidad, tipo: 'continua',
+    registradoPor: 'coordinador-manual',
+    fechaRegistro: new Date().toISOString()
+  };
+
+  _pushEval(evObj);
+
+  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+  state.evaluacionesEnviadas[dupKey] = { pts: pct, pct, pass, correctas, total, modalidad,
+    ...(nota !== null ? { nota } : {}) };
+  if (!state.historicoAsesores) state.historicoAsesores = {};
+  const hKey = nombre + '||' + supervisor;
+  if (!state.historicoAsesores[hKey]) state.historicoAsesores[hKey] = [];
+  state.historicoAsesores[hKey].push({ mes, anio: parseInt(anio), pct, corrects: correctas, total, tipo: 'continua', modalidad });
+
+  save();
+  cerrarRegistroManual();
+  // Limpiar filtros y mostrar
+  resMesesActivos = []; resModalidadFil = ''; resSupSelected = new Set();
+  const anioSel = document.getElementById('fil-anio-r'); if (anioSel) anioSel.value = '';
+  renderResultados();
+  showSyncToast('✓ Evaluación de ' + nombre + ' registrada correctamente.');
 }
 
 async function _asesorSincronizarEvals() {
