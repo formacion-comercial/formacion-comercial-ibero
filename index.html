@@ -6899,32 +6899,46 @@ async function sincronizarResultados() {
   const btn = document.getElementById('btn-sincronizar-resultados');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando…'; }
   try {
-    if (window._fbDb) {
-      const _MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
-      const evSnap = await window._fbDb.collection('evaluaciones').get();
-      const fromFs = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
-      const fsIds  = new Set(fromFs.map(e => String(e.id)));
-      // Mantener pendientes locales que Firestore aún no confirmó
-      const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
-      state.evaluaciones = [...fromFs, ...pending];
-      // Subir pendientes a Firestore
-      pending.forEach(ev => _fbSaveEval(ev));
-      // Recuperar evalBackup si hay entradas faltantes
-      if (state.evalBackup && Object.keys(state.evalBackup).length) {
-        const backupFalt = Object.values(state.evalBackup)
-          .filter(e => e.id && !fsIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
-        if (backupFalt.length) {
-          state.evaluaciones = [...state.evaluaciones, ...backupFalt];
-          backupFalt.forEach(ev => _fbSaveEval(ev));
-        }
+    if (!window._fbDb) { showSyncToast('⚠ Sin conexión a Firestore.'); return; }
+    const _MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
+
+    // 1. Re-leer config/main para obtener evalBackup más reciente
+    try {
+      const cfgSnap = await window._fbDb.collection('config').doc('main').get();
+      if (cfgSnap.exists) {
+        const remoto = cfgSnap.data();
+        // Sólo actualizar campos de recuperación, no sobreescribir todo el estado
+        if (remoto.evalBackup)            Object.assign(state.evalBackup = state.evalBackup || {}, remoto.evalBackup);
+        if (remoto.evaluacionesEnviadas)  Object.assign(state.evaluacionesEnviadas = state.evaluacionesEnviadas || {}, remoto.evaluacionesEnviadas);
+        if (remoto.historicoAsesores)     Object.assign(state.historicoAsesores = state.historicoAsesores || {}, remoto.historicoAsesores);
       }
-      localStorage.setItem('evalproState', JSON.stringify(state));
-      try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
-      renderResultados();
-      showSyncToast('✓ Resultados sincronizados — ' + state.evaluaciones.length + ' evaluaciones cargadas.');
-    } else {
-      showSyncToast('⚠ Sin conexión a Firestore.');
+    } catch(e) { console.warn('No se pudo leer config/main en sync:', e); }
+
+    // 2. Leer colección evaluaciones completa
+    const evSnap = await window._fbDb.collection('evaluaciones').get();
+    const fromFs = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+    const fsIds  = new Set(fromFs.map(e => String(e.id)));
+
+    // 3. Mantener pendientes locales
+    const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
+    state.evaluaciones = [...fromFs, ...pending];
+    pending.forEach(ev => _fbSaveEval(ev));
+
+    // 4. Recuperar desde evalBackup (incluye lo que vino de config/main)
+    if (state.evalBackup && Object.keys(state.evalBackup).length) {
+      const allIds = new Set(state.evaluaciones.map(e => String(e.id)));
+      const backupFalt = Object.values(state.evalBackup)
+        .filter(e => e.id && !allIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
+      if (backupFalt.length) {
+        state.evaluaciones = [...state.evaluaciones, ...backupFalt];
+        backupFalt.forEach(ev => _fbSaveEval(ev));
+      }
     }
+
+    localStorage.setItem('evalproState', JSON.stringify(state));
+    try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+    renderResultados();
+    showSyncToast('✓ Sincronizado — ' + state.evaluaciones.length + ' evaluaciones cargadas.');
   } catch(e) {
     console.error('Error sincronizando resultados:', e);
     showSyncToast('⚠ Error al sincronizar: ' + (e.message || e));
