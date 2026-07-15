@@ -6342,7 +6342,9 @@ function renderDashboard() {
       const nSup = _norm(sup);
       const sevs = chartEvs.filter(e => _norm(e.supervisor) === nSup);
       if (!sevs.length) return null;
-      const scores  = sevs.map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw));
+      // Asesor-nuevo usa escala distinta (pasa con 60%), excluirlas del promedio mensual
+      const scoreEvs = sevs.filter(e => (e.modalidad || 'mensual') !== 'asesor-nuevo');
+      const scores  = (scoreEvs.length ? scoreEvs : sevs).map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw));
       const avg     = avgArr(scores);
       const aprobN  = sevs.filter(e => _evalPaso(e)).length;
       const reprN   = sevs.length - aprobN;
