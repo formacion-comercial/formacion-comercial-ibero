@@ -1673,7 +1673,13 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <div class="page-title">Resultados</div>
           <div class="page-sub">Filtrar y analizar evaluaciones</div>
         </div>
-        <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="btn-sincronizar-resultados" class="btn" onclick="sincronizarResultados()"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:7px 14px">
+            🔄 Sincronizar
+          </button>
+          <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
+        </div>
       </div>
 
       <!-- Bloque de filtros unificado Resultados -->
@@ -6887,6 +6893,44 @@ function renderResultados() {
       }).join('')}
     </tbody>
   `;
+}
+
+async function sincronizarResultados() {
+  const btn = document.getElementById('btn-sincronizar-resultados');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando…'; }
+  try {
+    if (window._fbDb) {
+      const _MESES_EXCLUIR = ['Noviembre', 'Diciembre', 'Octubre'];
+      const evSnap = await window._fbDb.collection('evaluaciones').get();
+      const fromFs = evSnap.docs.map(d => d.data()).filter(ev => !_MESES_EXCLUIR.includes(ev.mes));
+      const fsIds  = new Set(fromFs.map(e => String(e.id)));
+      // Mantener pendientes locales que Firestore aún no confirmó
+      const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
+      state.evaluaciones = [...fromFs, ...pending];
+      // Subir pendientes a Firestore
+      pending.forEach(ev => _fbSaveEval(ev));
+      // Recuperar evalBackup si hay entradas faltantes
+      if (state.evalBackup && Object.keys(state.evalBackup).length) {
+        const backupFalt = Object.values(state.evalBackup)
+          .filter(e => e.id && !fsIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes));
+        if (backupFalt.length) {
+          state.evaluaciones = [...state.evaluaciones, ...backupFalt];
+          backupFalt.forEach(ev => _fbSaveEval(ev));
+        }
+      }
+      localStorage.setItem('evalproState', JSON.stringify(state));
+      try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+      renderResultados();
+      showSyncToast('✓ Resultados sincronizados — ' + state.evaluaciones.length + ' evaluaciones cargadas.');
+    } else {
+      showSyncToast('⚠ Sin conexión a Firestore.');
+    }
+  } catch(e) {
+    console.error('Error sincronizando resultados:', e);
+    showSyncToast('⚠ Error al sincronizar: ' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sincronizar'; }
+  }
 }
 
 // ==================== RANKING ====================
