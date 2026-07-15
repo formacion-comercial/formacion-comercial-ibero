@@ -2855,43 +2855,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <div id="config-excel-preview" style="display:none;margin-top:14px"></div>
       </div>
 
-      <!-- ══ ACTUALIZAR SUPERVISORES DESDE EXCEL ══ -->
-      <div class="card section-gap" style="border-left:3px solid var(--accent4)">
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <div style="font-size:32px">🔄</div>
-          <div style="flex:1">
-            <div style="font-weight:700;color:var(--text);font-size:15px;margin-bottom:4px">Actualizar supervisor de asesores</div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.6">
-              Sube un Excel con dos columnas: <strong>Asesor</strong> y <strong>Nuevo Supervisor</strong>. El sistema actualiza el supervisor de cada uno automáticamente.
-            </div>
-          </div>
-          <button class="btn btn-sm" onclick="descargarPlantillaCambioSup()"
-            style="border-color:var(--accent4);color:var(--accent4);background:rgba(91,143,176,0.07);white-space:nowrap;flex-shrink:0">
-            ⬇ Descargar plantilla
-          </button>
-        </div>
-
-        <div id="sup-change-drop-zone"
-          onclick="document.getElementById('sup-change-input').click()"
-          ondragover="event.preventDefault();this.style.borderColor='var(--accent4)';this.style.background='rgba(91,143,176,0.04)'"
-          ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'"
-          ondrop="handleDropCambioSup(event)"
-          style="margin-top:16px;border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;
-                 cursor:pointer;background:var(--surface2);transition:all .2s">
-          <div style="font-size:28px;margin-bottom:8px">📂</div>
-          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Arrastra el archivo Excel aquí</div>
-          <div style="font-size:13px;color:var(--text3)">o <span style="color:var(--accent4);font-weight:600">haz clic para seleccionar</span></div>
-          <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:100px;
-                      background:rgba(91,143,176,0.07);border:1px solid rgba(91,143,176,0.15)">
-            <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent4)">Columnas: Asesor · Nuevo Supervisor</span>
-          </div>
-        </div>
-        <input type="file" id="sup-change-input" accept=".xlsx,.xls" style="display:none"
-          onchange="procesarExcelCambioSup(this)">
-
-        <div id="sup-change-status" style="display:none;margin-top:14px"></div>
-        <div id="sup-change-preview" style="display:none;margin-top:14px"></div>
-      </div>
+      <!-- sup-change elements hidden for JS compatibility -->
+      <input type="file" id="sup-change-input" style="display:none" onchange="procesarExcelCambioSup(this)">
+      <div id="sup-change-status" style="display:none"></div>
+      <div id="sup-change-preview" style="display:none"></div>
 
       <!-- ══ GROQ AI — RETROALIMENTACIÓN ══ -->
       <div class="card section-gap" style="border-left:3px solid #f55036">
