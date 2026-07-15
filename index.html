@@ -11885,13 +11885,9 @@ async function loginAsesor() {
       const deadlineStr = plazo.fecha + (plazo.hora ? 'T' + plazo.hora : 'T23:59:59');
       const deadline = new Date(deadlineStr);
       if (!isNaN(deadline) && new Date() > deadline) {
-        // Verificar si quedan otros tipos disponibles
-        const _bancoPers = state.preguntasPorAsesorMes || {};
-        const _bancoSup  = state.preguntasPorSupMes    || {};
-        const _pfx = asesor.nombre + '||' + mesDet + '||' + anioDet + '||';
-        const _spfx = asesor.supervisor + '||' + mesDet + '||' + anioDet + '||';
-        const _tieneNuevo = !!(_bancoPers[_pfx + 'asesor-nuevo']  || _bancoSup[_spfx + 'asesor-nuevo']);
-        const _tieneFort  = !!(_bancoPers[_pfx + 'fortalecimiento'] || _bancoSup[_spfx + 'fortalecimiento']);
+        // Verificar si quedan otros tipos disponibles (usa _getPreguntasParaAsesor para cubrir claves legacy y nuevas)
+        const _tieneNuevo = !!_getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesDet, String(anioDet), 'asesor-nuevo');
+        const _tieneFort  = !!_getPreguntasParaAsesor(asesor.nombre, asesor.supervisor, mesDet, String(anioDet), 'fortalecimiento');
         if (!_tieneNuevo && !_tieneFort) soloVistaPerfil = true;
       }
     }
