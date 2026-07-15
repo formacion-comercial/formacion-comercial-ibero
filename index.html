@@ -2815,45 +2815,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </div>
       </div>
 
-      <!-- ── Cargue masivo Excel ── -->
-      <div class="card section-gap" style="border-left:3px solid var(--accent3)">
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <div style="font-size:32px">📊</div>
-          <div style="flex:1">
-            <div style="font-weight:700;color:var(--text);font-size:15px;margin-bottom:4px">Cargue masivo de asesores desde Excel</div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.6">
-              Importa múltiples asesores con su supervisor asignado en un solo paso. Descarga la plantilla, complétala y súbela aquí.
-            </div>
-          </div>
-          <button class="btn btn-sm" onclick="descargarPlantillaAsesores()"
-            style="border-color:var(--accent3);color:var(--accent3);background:rgba(78,138,114,0.07);white-space:nowrap;flex-shrink:0">
-            ⬇ Descargar plantilla
-          </button>
-        </div>
-
-        <!-- Drop zone -->
-        <div id="config-drop-zone"
-          onclick="document.getElementById('config-excel-input').click()"
-          ondragover="event.preventDefault();this.style.borderColor='var(--accent3)';this.style.background='rgba(78,138,114,0.04)'"
-          ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'"
-          ondrop="handleDropAsesores(event)"
-          style="margin-top:16px;border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;
-                 cursor:pointer;background:var(--surface2);transition:all .2s">
-          <div style="font-size:28px;margin-bottom:8px">📂</div>
-          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Arrastra el archivo Excel aquí</div>
-          <div style="font-size:13px;color:var(--text3)">o <span style="color:var(--accent3);font-weight:600">haz clic para seleccionar</span></div>
-          <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:100px;
-                      background:rgba(78,138,114,0.07);border:1px solid rgba(78,138,114,0.15)">
-            <span style="font-family:'Fira Code',monospace;font-size:11px;color:var(--accent3)">Archivos .xlsx — hasta 50 asesores</span>
-          </div>
-        </div>
-        <input type="file" id="config-excel-input" accept=".xlsx,.xls" style="display:none"
-          onchange="procesarExcelAsesores(this)">
-
-        <!-- Status + previsualización -->
-        <div id="config-excel-status" style="display:none;margin-top:14px"></div>
-        <div id="config-excel-preview" style="display:none;margin-top:14px"></div>
-      </div>
+      <!-- config-excel elements hidden for JS compatibility -->
+      <input type="file" id="config-excel-input" style="display:none" onchange="procesarExcelAsesores(this)">
+      <div id="config-excel-status" style="display:none"></div>
+      <div id="config-excel-preview" style="display:none"></div>
 
       <!-- sup-change elements hidden for JS compatibility -->
       <input type="file" id="sup-change-input" style="display:none" onchange="procesarExcelCambioSup(this)">
