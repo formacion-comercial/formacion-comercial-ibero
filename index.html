@@ -10570,8 +10570,9 @@ function renderConfig() {
     }).join('');
   }
 
-  // Supervisor select for new asesor
-  document.getElementById('new-ase-sup').innerHTML =
+  // Supervisor select for new asesor (may not exist if section was hidden)
+  const _newAseSupEl = document.getElementById('new-ase-sup');
+  if (_newAseSupEl) _newAseSupEl.innerHTML =
     '<option value="">Seleccionar...</option>' +
     state.supervisores.map(s => `<option>${s}</option>`).join('');
 
