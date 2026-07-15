@@ -3058,58 +3058,29 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       </div>
 
       <!-- ── Gestión manual ── -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <!-- Supervisores -->
-        <div class="card" style="padding-bottom:0">
-          <div class="card-title" style="margin-bottom:16px">Supervisores</div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label>Nombre del Supervisor</label>
-            <input id="new-sup" type="text" placeholder="Ej: Carlos Mendoza">
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="agregarSupervisor()" style="margin-bottom:16px">+ Agregar</button>
-          <div class="table-wrap" style="margin:-0 -24px 0 -24px;border-radius:0;border-left:none;border-right:none;border-bottom:none">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:36px;text-align:center">#</th>
-                  <th>Supervisor</th>
-                  <th style="width:44px;text-align:center">Acción</th>
-                </tr>
-              </thead>
-              <tbody id="lista-supervisores"></tbody>
-            </table>
-          </div>
+      <!-- Supervisores -->
+      <div class="card" style="padding-bottom:0">
+        <div class="card-title" style="margin-bottom:16px">Supervisores</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Nombre del Supervisor</label>
+          <input id="new-sup" type="text" placeholder="Ej: Carlos Mendoza">
         </div>
-
-        <!-- Asesores -->
-        <div class="card" style="padding-bottom:0">
-          <div class="card-title" style="margin-bottom:16px">Asesores</div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label>Nombre del Asesor</label>
-            <input id="new-ase" type="text" placeholder="Ej: María García">
-          </div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label>Supervisor asignado</label>
-            <select id="new-ase-sup">
-              <option value="">Seleccionar...</option>
-            </select>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="agregarAsesor()" style="margin-bottom:16px">+ Agregar</button>
-          <div class="table-wrap" style="margin:0 -24px 0 -24px;border-radius:0;border-left:none;border-right:none;border-bottom:none">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:36px;text-align:center">#</th>
-                  <th>Asesor</th>
-                  <th>Supervisor</th>
-                  <th style="width:44px;text-align:center">Acción</th>
-                </tr>
-              </thead>
-              <tbody id="lista-asesores"></tbody>
-            </table>
-          </div>
+        <button class="btn btn-primary btn-sm" onclick="agregarSupervisor()" style="margin-bottom:16px">+ Agregar</button>
+        <div class="table-wrap" style="margin:-0 -24px 0 -24px;border-radius:0;border-left:none;border-right:none;border-bottom:none">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px;text-align:center">#</th>
+                <th>Supervisor</th>
+                <th style="width:44px;text-align:center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="lista-supervisores"></tbody>
+          </table>
         </div>
       </div>
+      <!-- lista-asesores oculta para compatibilidad con JS existente -->
+      <table style="display:none"><tbody id="lista-asesores"></tbody></table>
 
       <!-- ── Credenciales de Asesores ── -->
       <div class="card section-gap" style="border-left:3px solid var(--accent3)">
