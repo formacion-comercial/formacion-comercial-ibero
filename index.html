@@ -3194,12 +3194,12 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
-                <th>Asesor</th>
-                <th>Supervisor ✏️</th>
-                <th>Tipo</th>
-                <th>Programa</th>
-                <th>Email</th>
+              <tr id="cred-thead-row">
+                <th onclick="_credSort('nombre')" style="cursor:pointer;user-select:none;white-space:nowrap">Asesor <span id="cred-sort-icon-nombre">↕</span></th>
+                <th onclick="_credSort('supervisor')" style="cursor:pointer;user-select:none;white-space:nowrap">Supervisor ✏️ <span id="cred-sort-icon-supervisor">↕</span></th>
+                <th onclick="_credSort('tipo')" style="cursor:pointer;user-select:none;white-space:nowrap">Tipo <span id="cred-sort-icon-tipo">↕</span></th>
+                <th onclick="_credSort('programa')" style="cursor:pointer;user-select:none;white-space:nowrap">Programa <span id="cred-sort-icon-programa">↕</span></th>
+                <th onclick="_credSort('email')" style="cursor:pointer;user-select:none;white-space:nowrap">Email <span id="cred-sort-icon-email">↕</span></th>
                 <th>Contraseña</th>
                 <th style="text-align:center">Acción</th>
               </tr>
@@ -10456,6 +10456,16 @@ function limpiarEvaluaciones() {
   alert('✓ Resultados eliminados correctamente. La app está lista para usar.');
 }
 
+function _credSort(col) {
+  if (window._credSortCol === col) {
+    window._credSortDir = (window._credSortDir || 1) * -1;
+  } else {
+    window._credSortCol = col;
+    window._credSortDir = 1;
+  }
+  renderConfig();
+}
+
 function renderConfig() {
   _renderNotifConfig();
   // Gemini API key — mostrar masked si ya está guardada
@@ -10511,9 +10521,33 @@ function renderConfig() {
   if (credEl) {
     const filterTipoEl = document.getElementById('cred-filter-tipo');
     const filterTipo = filterTipoEl ? filterTipoEl.value : '';
-    const asesoреsFiltrados = state.asesores
+    let asesoреsFiltrados = state.asesores
       .map((a, i) => ({ a, i }))
       .filter(({ a }) => !filterTipo || (a.tipo || 'Antiguo') === filterTipo);
+
+    // Ordenar según columna activa
+    if (window._credSortCol) {
+      const col = window._credSortCol, dir = window._credSortDir || 1;
+      const val = ({ a }) => {
+        if (col === 'nombre')     return (a.nombre    || '').toLowerCase();
+        if (col === 'supervisor') return (a.supervisor || '').toLowerCase();
+        if (col === 'tipo')       return (a.tipo       || 'Antiguo').toLowerCase();
+        if (col === 'programa')   return (a.programa   || '').toLowerCase();
+        if (col === 'email')      return (a.email      || '').toLowerCase();
+        return '';
+      };
+      asesoреsFiltrados = asesoреsFiltrados.slice().sort((x, y) => {
+        const a = val(x), b = val(y);
+        return a < b ? -dir : a > b ? dir : 0;
+      });
+    }
+    // Actualizar íconos de encabezado
+    ['nombre','supervisor','tipo','programa','email'].forEach(c => {
+      const el = document.getElementById('cred-sort-icon-' + c);
+      if (!el) return;
+      if (c !== window._credSortCol) { el.textContent = '↕'; el.style.opacity = '0.3'; }
+      else { el.textContent = window._credSortDir === 1 ? '↑' : '↓'; el.style.opacity = '1'; }
+    });
 
     const countEl = document.getElementById('cred-tipo-count');
     if (countEl) {
