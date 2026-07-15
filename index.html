@@ -13959,11 +13959,21 @@ function guardarRegistroManual() {
   const asesorObj  = (state.asesores || []).find(a => a.nombre === nombre) || {};
   const supervisor = asesorObj.supervisor || '';
 
-  // Verificar duplicado
   const dupKey = modalidad === 'mensual' ? `${nombre}||${mes}||${anio}` : `${nombre}||${mes}||${anio}||${modalidad}`;
-  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[dupKey]) {
-    msg.textContent = 'Ya existe una evaluación registrada para este asesor en ese período y tipo.';
+  // Solo bloquear si ya existe el objeto de evaluación real en state.evaluaciones
+  const _normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const yaEnTabla = (state.evaluaciones || []).some(e =>
+    _normN(e.asesor) === _normN(nombre) &&
+    e.mes === mes && String(e.anio) === String(anio) &&
+    (e.modalidad || 'mensual') === modalidad
+  );
+  if (yaEnTabla) {
+    msg.textContent = 'Ya existe una evaluación en la tabla para este asesor en ese período y tipo.';
     msg.style.display = 'block'; return;
+  }
+  // Limpiar evaluacionesEnviadas del registro huérfano para que no bloquee al asesor
+  if (state.evaluacionesEnviadas && state.evaluacionesEnviadas[dupKey]) {
+    delete state.evaluacionesEnviadas[dupKey];
   }
 
   const nota = modalidad === 'asesor-nuevo' ? _calcNotaAsesorNuevo(correctas) : null;
