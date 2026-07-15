@@ -2989,29 +2989,9 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </div>
       </div>
 
-      <!-- ── Gestión manual ── -->
-      <!-- Supervisores -->
-      <div class="card" style="padding-bottom:0">
-        <div class="card-title" style="margin-bottom:16px">Supervisores</div>
-        <div class="form-group" style="margin-bottom:10px">
-          <label>Nombre del Supervisor</label>
-          <input id="new-sup" type="text" placeholder="Ej: Carlos Mendoza">
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="agregarSupervisor()" style="margin-bottom:16px">+ Agregar</button>
-        <div class="table-wrap" style="margin:-0 -24px 0 -24px;border-radius:0;border-left:none;border-right:none;border-bottom:none">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:36px;text-align:center">#</th>
-                <th>Supervisor</th>
-                <th style="width:44px;text-align:center">Acción</th>
-              </tr>
-            </thead>
-            <tbody id="lista-supervisores"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- lista-asesores oculta para compatibilidad con JS existente -->
+      <!-- elementos ocultos para compatibilidad con JS existente -->
+      <input id="new-sup" type="text" style="display:none">
+      <table style="display:none"><tbody id="lista-supervisores"></tbody></table>
       <table style="display:none"><tbody id="lista-asesores"></tbody></table>
 
       <!-- ── Credenciales de Asesores ── -->
