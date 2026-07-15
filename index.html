@@ -3094,9 +3094,14 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           </div>
           <div id="cred-nuevo-asesor-error" style="font-size:12px;color:var(--fail);margin-top:8px;display:none"></div>
         </div>
-        <!-- Barra de filtro por tipo -->
+        <!-- Barra de filtro por tipo + buscador -->
         <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <label style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Filtrar por tipo:</label>
+          <input id="cred-search" type="text" placeholder="🔍 Buscar asesor..."
+            oninput="renderConfig()"
+            style="padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                   background:var(--surface2);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;
+                   outline:none;min-width:220px;flex:1">
+          <label style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Tipo:</label>
           <select id="cred-filter-tipo" onchange="renderConfig()"
             style="padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
                    background:var(--surface);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;cursor:pointer">
@@ -3127,11 +3132,11 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <table>
             <thead>
               <tr id="cred-thead-row">
-                <th onclick="_credSort('nombre')" style="cursor:pointer;user-select:none;white-space:nowrap">Asesor <span id="cred-sort-icon-nombre">↕</span></th>
-                <th onclick="_credSort('supervisor')" style="cursor:pointer;user-select:none;white-space:nowrap">Supervisor ✏️ <span id="cred-sort-icon-supervisor">↕</span></th>
+                <th onclick="_credSort('nombre')" style="cursor:pointer;user-select:none;white-space:nowrap;min-width:160px">Asesor <span id="cred-sort-icon-nombre">↕</span></th>
+                <th onclick="_credSort('supervisor')" style="cursor:pointer;user-select:none;white-space:nowrap;min-width:140px">Supervisor ✏️ <span id="cred-sort-icon-supervisor">↕</span></th>
+                <th onclick="_credSort('email')" style="cursor:pointer;user-select:none;white-space:nowrap;min-width:160px">Email <span id="cred-sort-icon-email">↕</span></th>
                 <th onclick="_credSort('tipo')" style="cursor:pointer;user-select:none;white-space:nowrap">Tipo <span id="cred-sort-icon-tipo">↕</span></th>
                 <th onclick="_credSort('programa')" style="cursor:pointer;user-select:none;white-space:nowrap">Programa <span id="cred-sort-icon-programa">↕</span></th>
-                <th onclick="_credSort('email')" style="cursor:pointer;user-select:none;white-space:nowrap">Email <span id="cred-sort-icon-email">↕</span></th>
                 <th>Contraseña</th>
                 <th style="text-align:center">Acción</th>
               </tr>
@@ -10453,9 +10458,19 @@ function renderConfig() {
   if (credEl) {
     const filterTipoEl = document.getElementById('cred-filter-tipo');
     const filterTipo = filterTipoEl ? filterTipoEl.value : '';
+    const credSearch = ((document.getElementById('cred-search') || {}).value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
     let asesoреsFiltrados = state.asesores
       .map((a, i) => ({ a, i }))
-      .filter(({ a }) => !filterTipo || (a.tipo || 'Antiguo') === filterTipo);
+      .filter(({ a }) => {
+        if (filterTipo && (a.tipo || 'Antiguo') !== filterTipo) return false;
+        if (credSearch) {
+          const nombre = (a.nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          const sup    = (a.supervisor || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          const email  = (a.email || '').toLowerCase();
+          if (!nombre.includes(credSearch) && !sup.includes(credSearch) && !email.includes(credSearch)) return false;
+        }
+        return true;
+      });
 
     // Ordenar según columna activa
     if (window._credSortCol) {
