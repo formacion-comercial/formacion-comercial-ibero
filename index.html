@@ -14388,9 +14388,9 @@ async function enviarEvaluacionAsesor() {
   const guardadoOk = await _fbSaveEval(evObj);
 
   if (!guardadoOk) {
-    // Firestore falló después de 3 reintentos — continuar con guardado local.
-    // La evaluación ya está en state.evaluaciones (localStorage) y se reintentará
-    // sincronizar con Firestore en la próxima sesión del asesor o coordinador.
+    // Firestore falló — guardar en evalBackup para que cualquier dispositivo pueda recuperarlo
+    if (!state.evalBackup) state.evalBackup = {};
+    state.evalBackup[String(evObj.id)] = evObj;
     showSyncToast('⚠ Sin conexión: tu evaluación se guardó localmente y se sincronizará automáticamente.');
     // No retornar — continuar para marcar como enviada y mostrar resultado
   }
@@ -14413,13 +14413,14 @@ async function enviarEvaluacionAsesor() {
     state.historicoAsesores[hKey].push({ mes, anio, pct, corrects: corr, total: respFinal.length, tipo: 'continua', modalidad });
   }
 
-  // Guardar evaluacionesEnviadas de forma inmediata (sin debounce) para garantizar persistencia
+  // Guardar todo de forma inmediata (sin debounce) — incluye evalBackup si hubo error de Firestore
   localStorage.setItem('evalproState', JSON.stringify(state));
   if (window._fbDb) {
     try {
       await window._fbDb.collection('config').doc('main').update({
         evaluacionesEnviadas: state.evaluacionesEnviadas,
-        historicoAsesores: state.historicoAsesores
+        historicoAsesores: state.historicoAsesores,
+        ...(state.evalBackup && Object.keys(state.evalBackup).length ? { evalBackup: state.evalBackup } : {})
       });
     } catch(e) {
       // Si update falla (doc no existe aún), usar set con merge
