@@ -12955,7 +12955,14 @@ function eliminarBancoIndividual(key) {
   const modLabel = hasMod ? ` (${parts[parts.length-1]})` : '';
   if (!confirm(`¿Eliminar las preguntas individuales de "${parts[0]}" para ${parts[1]}${parts[2] && !hasMod ? ' '+parts[2] : parts[2] ? ' '+parts[2] : ''}${modLabel}?`)) return;
   if (state.preguntasPorAsesorMes) delete state.preguntasPorAsesorMes[key];
-  save();
+  if (state.modalidadPorSupMes && state.modalidadPorSupMes[key]) delete state.modalidadPorSupMes[key];
+  localStorage.setItem('evalproState', JSON.stringify(state));
+  if (window._fbDb) {
+    window._fbDb.collection('config').doc('main').update({
+      preguntasPorAsesorMes: state.preguntasPorAsesorMes || {},
+      modalidadPorSupMes: state.modalidadPorSupMes || {}
+    }).catch(() => save());
+  } else { save(); }
   renderIndivCards();
 }
 
