@@ -6853,7 +6853,7 @@ function renderResultados() {
           <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pctLabel}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓':'✗'} ${pass?'Aprobado':'Reprobado'}</span></td>
           <td style="white-space:nowrap">
-            ${(!supervisorActual && !coordinadorActual) ? `<button onclick="eliminarEvaluacion('${e.id}')"
+            ${(coordinadorActual || !supervisorActual) ? `<button onclick="eliminarEvaluacion('${e.id}')"
               style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.25);color:var(--fail);
                      cursor:pointer;font-size:12px;padding:4px 10px;border-radius:4px;font-family:'Montserrat',sans-serif;
                      font-weight:600;transition:background .15s"
