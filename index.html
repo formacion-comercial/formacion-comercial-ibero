@@ -4051,6 +4051,14 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <span id="asesor-sel-periodo">—</span>
       </div>
       <div id="asesor-selector-cards" style="display:flex;flex-direction:column;gap:14px;margin-top:20px"></div>
+      <div style="margin-top:24px;text-align:center">
+        <button id="btn-asesor-sync" onclick="_asesorSincronizarEvals()"
+          style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text3);
+                 font-size:11px;padding:6px 14px;cursor:pointer;font-family:'Montserrat',sans-serif">
+          🔄 Verificar sincronización
+        </button>
+        <div id="asesor-sync-msg" style="font-size:11px;color:var(--text3);margin-top:6px;display:none"></div>
+      </div>
     </div>
 
     <div id="asesor-form-section" class="asesor-form-wrap">
@@ -13837,6 +13845,60 @@ function initAsesorForm(asesor) {
   }
 
   mostrarSelectorEvaluaciones();
+}
+
+async function _asesorSincronizarEvals() {
+  const btn = document.getElementById('btn-asesor-sync');
+  const msg = document.getElementById('asesor-sync-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando…'; }
+  if (msg) { msg.style.display = 'none'; }
+  try {
+    if (!window._fbDb || !asesorActual) {
+      if (msg) { msg.textContent = '⚠ Sin conexión.'; msg.style.display = 'block'; }
+      return;
+    }
+    // Buscar evaluaciones de este asesor en el estado local
+    const misEvals = (state.evaluaciones || []).filter(e =>
+      (e.asesor || '').trim().toLowerCase() === (asesorActual.nombre || '').trim().toLowerCase()
+    );
+    if (!misEvals.length) {
+      if (msg) { msg.textContent = 'No hay evaluaciones locales para subir.'; msg.style.display = 'block'; }
+      return;
+    }
+    // Verificar cuáles ya están en Firestore
+    let subidas = 0, errores = 0;
+    for (const ev of misEvals) {
+      try {
+        const docSnap = await window._fbDb.collection('evaluaciones').doc(String(ev.id)).get();
+        if (!docSnap.exists) {
+          const ok = await _fbSaveEval(ev);
+          if (ok) subidas++;
+          else errores++;
+        }
+      } catch(e) { errores++; }
+    }
+    // También limpiar evalBackup de los ya subidos
+    if (state.evalBackup) {
+      let changed = false;
+      for (const id of Object.keys(state.evalBackup)) {
+        try {
+          const docSnap = await window._fbDb.collection('evaluaciones').doc(id).get();
+          if (docSnap.exists) { delete state.evalBackup[id]; changed = true; }
+        } catch(_) {}
+      }
+      if (changed) { localStorage.setItem('evalproState', JSON.stringify(state)); save(); }
+    }
+    if (msg) {
+      msg.style.display = 'block';
+      if (errores === 0 && subidas === 0) msg.textContent = '✓ Todo sincronizado con el servidor.';
+      else if (subidas > 0 && errores === 0) msg.textContent = `✓ ${subidas} evaluación(es) enviada(s) al servidor correctamente.`;
+      else if (errores > 0) msg.textContent = `⚠ ${subidas} enviada(s), ${errores} error(es). Intenta de nuevo.`;
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = '⚠ Error: ' + (e.message || e); msg.style.display = 'block'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Verificar sincronización'; }
+  }
 }
 
 function mostrarSelectorEvaluaciones() {
