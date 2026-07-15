@@ -14389,10 +14389,11 @@ async function enviarEvaluacionAsesor() {
   const guardadoOk = await _fbSaveEval(evObj);
 
   if (!guardadoOk) {
-    // Firestore falló después de 3 reintentos — mostrar error y dejar que reintente manualmente
-    if (btnEnviar) { btnEnviar.disabled = false; btnEnviar.textContent = '↺ Error — Intentar de nuevo'; }
-    showSyncToast('⚠ No se pudo guardar tu evaluación. Verifica tu conexión y vuelve a intentarlo.');
-    return;
+    // Firestore falló después de 3 reintentos — continuar con guardado local.
+    // La evaluación ya está en state.evaluaciones (localStorage) y se reintentará
+    // sincronizar con Firestore en la próxima sesión del asesor o coordinador.
+    showSyncToast('⚠ Sin conexión: tu evaluación se guardó localmente y se sincronizará automáticamente.');
+    // No retornar — continuar para marcar como enviada y mostrar resultado
   }
 
   // ── Marcar como enviada con puntaje de respaldo — guardar INMEDIATAMENTE en Firestore ──
