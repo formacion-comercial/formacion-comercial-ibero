@@ -6945,8 +6945,27 @@ async function sincronizarResultados() {
 
     localStorage.setItem('evalproState', JSON.stringify(state));
     try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+
+    // Limpiar TODOS los filtros para que nada quede oculto
+    resMesesActivos = [];
+    resModalidadFil = '';
+    resSupSelected  = new Set();
+    const anioSel = document.getElementById('fil-anio-r'); if (anioSel) anioSel.value = '';
+    const estSel  = document.getElementById('fil-estado');  if (estSel)  estSel.value  = '';
+    const busqEl  = document.getElementById('fil-buscar-asesor'); if (busqEl) busqEl.value = '';
+    // Resetear botones de tipo visualmente
+    ['all','mensual','asesor-nuevo','fortalecimiento'].forEach(m => {
+      const b = document.getElementById('res-mod-' + m);
+      if (b) { b.style.background = m === 'all' ? 'var(--accent)' : 'transparent';
+               b.style.color      = m === 'all' ? '#fff' : 'var(--text2)';
+               b.style.boxShadow  = m === 'all' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none'; }
+    });
+    // Resetear selector de mes
+    const msCheck = document.getElementById('res-ms-check-'); if (msCheck) msCheck.textContent = '✓';
+    const msLabel = document.getElementById('res-mes-label'); if (msLabel) msLabel.textContent = 'Todos los meses';
+
     renderResultados();
-    showSyncToast('✓ Sincronizado — ' + state.evaluaciones.length + ' evaluaciones cargadas.');
+    showSyncToast('✓ Sincronizado — ' + state.evaluaciones.length + ' evaluaciones (todos los filtros limpiados).');
   } catch(e) {
     console.error('Error sincronizando resultados:', e);
     showSyncToast('⚠ Error al sincronizar: ' + (e.message || e));
