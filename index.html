@@ -4353,6 +4353,16 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
 </div>
 
 <!-- Modal registro manual de evaluación -->
+<div class="modal-overlay" id="modal-ver-preguntas-indiv" onclick="if(event.target===this)this.style.display='none'" style="z-index:1300;display:none">
+  <div class="modal" style="max-width:680px;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="vpi-titulo">📋 Preguntas cargadas</div>
+      <button class="modal-close" onclick="document.getElementById('modal-ver-preguntas-indiv').style.display='none'">✕</button>
+    </div>
+    <div id="vpi-body" style="overflow-y:auto;padding:20px;flex:1"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-registro-manual" onclick="if(event.target===this)cerrarRegistroManual()" style="z-index:1200;display:none">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
@@ -12936,7 +12946,10 @@ function renderIndivCards() {
               <td style="font-family:'Fira Code',monospace;font-size:12px">${r.anio||'—'}</td>
               <td style="font-size:11px;color:var(--text2)">${tipoLabel}</td>
               <td style="text-align:center;font-family:'Fira Code',monospace;font-weight:800;color:var(--accent)">${r.count}</td>
-              <td style="text-align:center">
+              <td style="text-align:center;white-space:nowrap;display:flex;gap:6px;justify-content:center">
+                <button onclick="verPreguntasIndiv('${r.key.replace(/'/g,"\\'")}')"
+                  style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid rgba(91,130,190,0.25);
+                         background:rgba(91,130,190,0.07);color:var(--accent2);cursor:pointer;font-size:11px">👁 Ver</button>
                 <button onclick="eliminarBancoIndividual('${r.key.replace(/'/g,"\\'")}')"
                   style="padding:3px 10px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
                          background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕ Eliminar</button>
@@ -12945,6 +12958,46 @@ function renderIndivCards() {
           </tbody>
         </table></div>`
     }`;
+}
+
+function verPreguntasIndiv(key) {
+  const pregs = (state.preguntasPorAsesorMes || {})[key];
+  if (!pregs || !pregs.length) { alert('No se encontraron preguntas para esta clave.'); return; }
+  const parts = key.split('||');
+  const _mods = ['asesor-nuevo','fortalecimiento','mensual'];
+  const hasMod = _mods.includes(parts[parts.length-1]) && parts.length >= 4;
+  const modLabel = hasMod ? { 'asesor-nuevo':'Asesor Nuevo', fortalecimiento:'Fortalecimiento', mensual:'Mensual' }[parts[parts.length-1]] : 'Mensual';
+  const titulo = `📋 ${parts[0]} — ${parts[1]} ${parts[2]||''} (${modLabel})`;
+  document.getElementById('vpi-titulo').textContent = titulo;
+  const LETRAS = ['A','B','C','D'];
+  const body = document.getElementById('vpi-body');
+  body.innerHTML = pregs.map((p, i) => {
+    const esObj = p && typeof p === 'object';
+    const enunciado = esObj ? p.enunciado : (p || `Pregunta ${i+1}`);
+    const opciones  = esObj && p.opciones ? p.opciones : [];
+    const correcta  = esObj ? (p.correcta || '').toUpperCase() : '';
+    const tipo      = esObj ? (p.tipo || '') : '';
+    const tipoChip  = tipo ? `<span style="font-size:9px;padding:1px 7px;border-radius:20px;background:rgba(91,130,190,0.10);color:var(--accent2);font-family:'Fira Code',monospace;margin-left:8px">${tipo}</span>` : '';
+    const optsHtml  = opciones.map((op, oi) => {
+      const letra = LETRAS[oi];
+      const isCorr = correcta === letra;
+      return `<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:5px;margin-bottom:3px;
+                           background:${isCorr?'rgba(78,138,114,0.08)':'transparent'};
+                           border:1px solid ${isCorr?'rgba(78,138,114,0.20)':'transparent'}">
+        <span style="font-family:'Fira Code',monospace;font-size:11px;font-weight:700;color:${isCorr?'var(--pass)':'var(--text3)'};flex-shrink:0">${isCorr?'✓ ':''}${letra}</span>
+        <span style="font-size:12px;color:${isCorr?'var(--pass)':'var(--text2)'}">${op}</span>
+      </div>`;
+    }).join('');
+    return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:10px;background:var(--surface)">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:${opciones.length?'10px':'0'}">
+        <span style="font-family:'Fira Code',monospace;font-size:11px;font-weight:800;color:var(--accent);flex-shrink:0;background:rgba(201,165,69,0.10);padding:1px 7px;border-radius:4px">P${String(i+1).padStart(2,'0')}</span>
+        <span style="font-size:13px;color:var(--text);font-weight:500;line-height:1.45">${enunciado}</span>
+        ${tipoChip}
+      </div>
+      ${optsHtml ? `<div style="padding-left:4px">${optsHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('modal-ver-preguntas-indiv').style.display = 'flex';
 }
 
 function eliminarBancoIndividual(key) {
