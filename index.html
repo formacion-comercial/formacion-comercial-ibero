@@ -8767,13 +8767,12 @@ function renderReporte() {
       const endsNuevo = k.endsWith('||asesor-nuevo');
       return _isNuevo ? endsNuevo : !endsNuevo;
     };
-    const r = _getPreguntas(supervisor, mes, anio, modalidad)
-           || _getPreguntasParaAsesor(asesor, supervisor, mes, anio, modalidad)
+    // Preguntas individuales del asesor tienen prioridad absoluta sobre el banco grupal
+    const r = _getPreguntasParaAsesor(asesor, supervisor, mes, anio, modalidad)
            || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[supervisor])
            || (_rBankE.find(([k,v]) => k.startsWith((supervisor||'').trim()+'||') && _bankMatch([k,v])) || [])[1]
            || (_rBankE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && _bankMatch([k,v])) || [])[1]
            || (_rBankIE.find(([k,v]) => _nr2(k).startsWith(supN+'||') && _bankMatch([k,v])) || [])[1]
-           || (_rBankE.find(([k,v]) => _nr2(k).startsWith(_nr2(asesor||'')+'||') && _bankMatch([k,v])) || [])[1]
            || null;
     return (_rPregsCache[ck] = r);
   }
