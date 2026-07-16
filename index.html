@@ -12697,13 +12697,30 @@ function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio, modalidad)
   const bank   = state.preguntasPorAsesorMes || {};
   const modMap = state.modalidadPorSupMes    || {};
   const suffix = (modalidad && modalidad !== 'mensual') ? '||' + modalidad : '';
+  const _nrm   = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const normNombre = _nrm(asesorNombre);
+  const _MODS  = ['asesor-nuevo','fortalecimiento','mensual'];
 
-  // 1. Clave con sufijo de modalidad (datos nuevos)
+  // 1. Clave exacta con sufijo de modalidad
   const keyMod     = `${asesorNombre}||${mes}${anio ? '||' + anio : ''}${suffix}`;
   const keyModBase = `${asesorNombre}||${mes}${suffix}`;
   if (suffix && (bank[keyMod] || bank[keyModBase])) return bank[keyMod] || bank[keyModBase];
 
-  // 2. Clave sin sufijo (legacy): solo si su modalidad registrada coincide
+  // 2. Búsqueda normalizada: tolerante a diferencias de acentos/espacios en el nombre
+  const allKeys = Object.keys(bank);
+  const fuzzyKey = allKeys.find(k => {
+    const parts  = k.split('||');
+    const hasMod = _MODS.includes(parts[parts.length - 1]) && parts.length >= 4;
+    const kMod   = hasMod ? parts[parts.length - 1] : (modMap[k] || 'mensual');
+    const kAnio  = hasMod ? parts[2] : (parts.length >= 3 ? parts[2] : '');
+    return _nrm(parts[0]) === normNombre
+        && parts[1] === mes
+        && (!anio || String(kAnio) === String(anio))
+        && kMod === (modalidad || 'mensual');
+  });
+  if (fuzzyKey) return bank[fuzzyKey];
+
+  // 3. Clave sin sufijo (legacy): solo si su modalidad registrada coincide
   const keyBase    = `${asesorNombre}||${mes}${anio ? '||' + anio : ''}`;
   const keyBaseSin = `${asesorNombre}||${mes}`;
   const legKey = (anio && bank[keyBase]) ? keyBase : bank[keyBaseSin] ? keyBaseSin : null;
