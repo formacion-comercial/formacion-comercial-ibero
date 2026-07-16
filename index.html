@@ -8879,7 +8879,7 @@ function renderReporte() {
       const ptsLabel = esNuevo ? `${sc.nota != null ? sc.nota : pts}/10` : `${pts}/100`;
       const ptsUnit  = esNuevo ? 'NOTA / 10' : 'PTS / 100';
       const pass  = _evalPaso(e);
-      const pregs = _getPreguntas(e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+      const pregs = _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
       const esSintetica = t > 20;
       const correctas = e.respuestas.filter(r => r === 1).length;
 
@@ -10834,8 +10834,8 @@ function showDetalle(id) {
   const pass = _evalPaso(e);
   const pct  = calcPct(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor);
 
-  // Get question bank for this supervisor/mes/anio (if exists)
-  const pregs   = _getPreguntas(e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
+  // Get question bank — individual questions take priority over group questions
+  const pregs   = _getPreguntasParaAsesor(e.asesor, e.supervisor, e.mes, e.anio, e.modalidad || 'mensual') || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[e.supervisor]);
   const LETRAS  = ['A','B','C','D'];
   const fallidas = e.respuestas
     .map((r, i) => ({ r, i }))
