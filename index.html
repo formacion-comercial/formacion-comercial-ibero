@@ -8493,26 +8493,18 @@ function verPreguntas(evalId) {
 
 function _renderCorreccionBody() {
   const ev     = state.evaluaciones.find(e => String(e.id) === String(_correccionEvalId));
+  const _modalidadEv = ev ? (ev.modalidad || 'mensual') : 'mensual';
+  // Buscar preguntas individuales del asesor primero, sin importar tipo de evaluación
+  const _pregsIndiv = ev ? _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio, _modalidadEv) : null;
   const pregs  = ev ? (
     _correccionModoVer
       ? (
-          _isEvalAsesorNuevo(ev)
-          // Asesor Nuevo: banco específico primero — ev.preguntas puede tener texto del banco mensual anterior
-          ? (
-              _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, ev.anio, 'asesor-nuevo')
-              || (ev.preguntas && ev.preguntas.length
-                  ? ev.preguntas.map(t => t ? { enunciado: t } : null)
-                  : null)
-              || []
-            )
-          // Mensual: ev.preguntas primero (preserva lo que el asesor respondió), luego banco
-          : (
-              (ev.preguntas && ev.preguntas.length
-                ? ev.preguntas.map(t => t ? { enunciado: t } : null)
-                : null)
-              || _getPreguntas(ev.supervisor, ev.mes, ev.anio, ev.modalidad || 'mensual')
-              || []
-            )
+          _pregsIndiv
+          || (ev.preguntas && ev.preguntas.length
+              ? ev.preguntas.map(t => t ? { enunciado: t } : null)
+              : null)
+          || _getPreguntas(ev.supervisor, ev.mes, ev.anio, _modalidadEv)
+          || []
         )
       : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
   ) : [];
