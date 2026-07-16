@@ -8539,7 +8539,7 @@ function _renderCorreccionBody() {
       const _tieneSelec = _sel !== undefined && _sel !== null && !(_correccionModoVer === false && !_evSel);
 
       const optsHtml = esObj && q.opciones && q.opciones.length
-        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;padding-left:4px">
+        ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">
             ${q.opciones.map((op, oi) => {
               const L = LETRAS[oi];
               const isCorrOpt = corrL === L;
@@ -8548,35 +8548,47 @@ function _renderCorreccionBody() {
                 if (tipo === 'multiple') isSelOpt = Array.isArray(_sel) && _sel.includes(oi);
                 else isSelOpt = _sel === oi;
               }
-              const bg  = (isCorrOpt && isSelOpt) ? 'rgba(78,138,114,0.18)'
-                        : isCorrOpt               ? 'rgba(78,138,114,0.08)'
-                        : isSelOpt                ? 'rgba(184,80,80,0.12)'
-                        : 'transparent';
-              const col = isCorrOpt ? 'var(--pass)' : isSelOpt ? 'var(--fail)' : 'var(--text3)';
-              const brd = isCorrOpt ? '1px solid rgba(78,138,114,0.28)'
-                        : isSelOpt  ? '1px solid rgba(184,80,80,0.25)'
-                        : '1px solid transparent';
-              const mark = isCorrOpt && isSelOpt ? ' ✓'
-                         : isCorrOpt             ? ' ✓'
-                         : isSelOpt              ? ' ✗'
-                         : '';
-              return `<div style="font-size:11px;padding:4px 7px;border-radius:4px;display:flex;gap:5px;
-                background:${bg};color:${col};border:${brd}">
-                <span style="font-family:'Fira Code',monospace;font-weight:700;flex-shrink:0">${L})</span>
-                <span style="flex:1">${op}<b>${mark}</b></span>
+              const both     = isCorrOpt && isSelOpt;
+              const wrongSel = isSelOpt && !isCorrOpt;
+              const corrOnly = isCorrOpt && !isSelOpt && _tieneSelec;
+              const corrShow = isCorrOpt && !isSelOpt && !_tieneSelec;
+              const bg  = both     ? 'rgba(78,138,114,0.17)'
+                        : wrongSel ? 'rgba(184,80,80,0.13)'
+                        : corrOnly ? 'rgba(78,138,114,0.09)'
+                        : corrShow ? 'rgba(78,138,114,0.07)'
+                        : 'rgba(0,0,0,0.025)';
+              const col = isCorrOpt ? 'var(--pass)' : wrongSel ? 'var(--fail)' : 'var(--text3)';
+              const brd = both     ? '1.5px solid rgba(78,138,114,0.38)'
+                        : wrongSel ? '1.5px solid rgba(184,80,80,0.38)'
+                        : isCorrOpt ? '1.5px solid rgba(78,138,114,0.28)'
+                        : '1px solid rgba(0,0,0,0.07)';
+              let badge = '';
+              if (both)     badge = `<span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:#fff;background:var(--pass);padding:2px 8px;border-radius:3px">✓ CORRECTA · RESPONDIÓ</span>`;
+              else if (wrongSel) badge = `<span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:#fff;background:var(--fail);padding:2px 8px;border-radius:3px">✗ RESPONDIÓ</span>`;
+              else if (corrOnly) badge = `<span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:var(--pass);border:1.5px solid rgba(78,138,114,0.35);padding:2px 8px;border-radius:3px">✓ CORRECTA</span>`;
+              else if (corrShow) badge = `<span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:var(--pass);border:1.5px solid rgba(78,138,114,0.35);padding:2px 8px;border-radius:3px">✓ CORRECTA</span>`;
+              return `<div style="font-size:12px;padding:6px 10px;border-radius:5px;display:flex;align-items:center;gap:8px;background:${bg};color:${col};border:${brd}">
+                <span style="font-family:'Fira Code',monospace;font-weight:700;flex-shrink:0;min-width:22px">${L})</span>
+                <span style="flex:1;line-height:1.4">${op}</span>
+                ${badge}
               </div>`;
             }).join('')}
            </div>`
-        : (tipo === 'verdaderofalso' && _tieneSelec && corrL)
-          ? `<div style="display:flex;gap:8px;margin-top:6px;padding-left:4px">
+        : (tipo === 'verdaderofalso' && corrL)
+          ? `<div style="display:flex;gap:8px;margin-top:8px">
               ${['V','F'].map(ltr => {
                 const isCorrOpt = corrL === ltr;
-                const isSelOpt  = _sel === ltr;
-                const bg  = isCorrOpt ? 'rgba(78,138,114,0.10)' : isSelOpt ? 'rgba(184,80,80,0.10)' : 'transparent';
-                const col = isCorrOpt ? 'var(--pass)' : isSelOpt ? 'var(--fail)' : 'var(--text3)';
-                const brd = isCorrOpt ? '1px solid rgba(78,138,114,0.28)' : isSelOpt ? '1px solid rgba(184,80,80,0.25)' : '1px solid transparent';
-                const mark = isCorrOpt ? ' ✓' : isSelOpt ? ' ✗' : '';
-                return `<div style="font-size:11px;padding:3px 10px;border-radius:4px;font-family:'Fira Code',monospace;font-weight:700;background:${bg};color:${col};border:${brd}">${ltr}${mark}</div>`;
+                const isSelOpt  = _tieneSelec && _sel === ltr;
+                const both      = isCorrOpt && isSelOpt;
+                const wrongSel  = isSelOpt && !isCorrOpt;
+                const bg  = both ? 'rgba(78,138,114,0.17)' : wrongSel ? 'rgba(184,80,80,0.13)' : isCorrOpt ? 'rgba(78,138,114,0.09)' : 'rgba(0,0,0,0.025)';
+                const col = isCorrOpt ? 'var(--pass)' : wrongSel ? 'var(--fail)' : 'var(--text3)';
+                const brd = both ? '1.5px solid rgba(78,138,114,0.38)' : wrongSel ? '1.5px solid rgba(184,80,80,0.38)' : isCorrOpt ? '1.5px solid rgba(78,138,114,0.28)' : '1px solid rgba(0,0,0,0.07)';
+                let badge = '';
+                if (both)     badge = `<span style="font-size:9.5px;font-weight:700;color:#fff;background:var(--pass);padding:1px 6px;border-radius:3px">✓ CORRECTA · RESPONDIÓ</span>`;
+                else if (wrongSel) badge = `<span style="font-size:9.5px;font-weight:700;color:#fff;background:var(--fail);padding:1px 6px;border-radius:3px">✗ RESPONDIÓ</span>`;
+                else if (isCorrOpt) badge = `<span style="font-size:9.5px;font-weight:700;color:var(--pass);border:1.5px solid rgba(78,138,114,0.35);padding:1px 6px;border-radius:3px">✓ CORRECTA</span>`;
+                return `<div style="font-size:13px;padding:5px 12px;border-radius:5px;font-family:'Fira Code',monospace;font-weight:700;display:flex;align-items:center;gap:7px;background:${bg};color:${col};border:${brd}">${ltr === 'V' ? 'Verdadero' : 'Falso'} ${badge}</div>`;
               }).join('')}
              </div>`
           : '';
