@@ -8506,7 +8506,7 @@ function _renderCorreccionBody() {
           || _getPreguntas(ev.supervisor, ev.mes, ev.anio, _modalidadEv)
           || []
         )
-      : (_findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
+      : (_pregsIndiv || _findBankFuzzy(ev.supervisor, ev.mes, ev.anio) || _findBankFuzzy(ev.asesor, ev.mes, ev.anio) || (state.preguntasPorSupervisor && state.preguntasPorSupervisor[ev.supervisor]) || [])
   ) : [];
   const LETRAS = ['A','B','C','D'];
   const corr   = _correccionResp.filter(r => r === 1).length;
