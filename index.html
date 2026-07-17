@@ -3289,8 +3289,8 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <div id="pwd-status" style="margin-top:10px;min-height:18px;font-size:13px"></div>
       </div>
 
-      <!-- Forms import eliminado -->
-      <div class="card section-gap" style="border-left:3px solid var(--accent3);display:none">
+      <!-- ── Importar desde Microsoft Forms ── -->
+      <div class="card section-gap" style="border-left:3px solid var(--accent3)">
         <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap">
           <div style="font-size:36px;flex-shrink:0">📋</div>
           <div style="flex:1">
@@ -15538,6 +15538,383 @@ function resetCargue() {
   cargueData = [];
 }
 
+// ==================== IMPORTAR DESDE MICROSOFT FORMS ====================
+let _formsParsed    = [];
+let _lastFormsIds   = []; // IDs del último cargue — permite deshacerlo
+
+function procesarArchivoForms(file) {
+  if (!file) return;
+  const status  = document.getElementById('forms-status');
+  const preview = document.getElementById('forms-preview');
+  if (!file.name.match(/\.xlsx?$/i)) {
+    status.innerHTML = `<div style="color:var(--fail);font-size:13px">✗ Solo se aceptan archivos .xlsx o .xls</div>`;
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    status.innerHTML = `<div style="color:var(--fail);font-size:13px">✗ Librería XLSX no disponible. Recarga la página.</div>`;
+    return;
+  }
+  status.innerHTML = `<div style="color:var(--text3);font-size:13px">⏳ Procesando archivo…</div>`;
+  preview.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const MESES_NORM = {
+        'enero':'Enero','febrero':'Febrero','marzo':'Marzo','abril':'Abril',
+        'mayo':'Mayo','junio':'Junio','julio':'Julio','agosto':'Agosto',
+        'septiembre':'Septiembre','octubre':'Octubre'
+      };
+      const anioDefault = parseInt((document.getElementById('forms-anio')||{}).value) || new Date().getFullYear();
+      const resultados = [];
+      const sheetSummary = [];
+
+      wb.SheetNames.forEach(sheetName => {
+        const mesKey = sheetName.trim().toLowerCase();
+        const mes = MESES_NORM[mesKey];
+        if (!mes) return; // omitir hojas que no sean meses
+
+        const ws   = wb.Sheets[sheetName];
+        // raw:true → valores numéricos reales (fórmulas con resultado cacheado, fechas como serial)
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+        if (rows.length < 2) return;
+
+        // Encontrar fila de encabezados (pueden ser strings o números en raw:true)
+        let headerRowIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          const r = rows[i].map(c => String(c).trim().toLowerCase());
+          if (r.some(c => c === 'nombre' || c.includes('hora de inicio'))) { headerRowIdx = i; break; }
+        }
+        if (headerRowIdx < 0) return;
+
+        const headers = rows[headerRowIdx].map(h => String(h).trim());
+
+        // Índices clave
+        const nombreIdx   = headers.findIndex(h => /^nombre$/i.test(h));
+        const supIdx      = headers.findIndex(h => /^supervisor\s*$/i.test(h));
+        const horaIdx     = headers.findIndex(h => /hora de inicio/i.test(h));
+        // Col F "Total de puntos" = número de respuestas correctas (0-20)
+        const totalCtIdx  = headers.findIndex(h => /^total de puntos$/i.test(h));
+        // Col G "Total" = fórmula F*5/100 → porcentaje decimal (0.95 = 95%)  ← fuente de verdad
+        const totalPctIdx = headers.findIndex(h => /^total$/i.test(h));
+
+        if (nombreIdx < 0) return;
+
+        let sheetCount = 0;
+        rows.slice(headerRowIdx + 1).forEach(row => {
+          const nombreRaw = String(row[nombreIdx] || '').trim();
+          if (!nombreRaw) return;
+
+          // Supervisor: del campo Forms primero; si está vacío, buscar en state.asesores
+          let supervisor = supIdx >= 0 ? String(row[supIdx] || '').trim() : '';
+          if (!supervisor) {
+            const aObj = state.asesores.find(a =>
+              a.nombre.toLowerCase() === nombreRaw.toLowerCase() ||
+              _formsNorm(a.nombre) === _formsNorm(nombreRaw)
+            );
+            if (aObj) supervisor = aObj.supervisor || '';
+          }
+
+          // Extraer año del timestamp (serial date en raw:true → convertir)
+          let anio = anioDefault;
+          if (horaIdx >= 0 && row[horaIdx]) {
+            const rawDate = row[horaIdx];
+            if (typeof rawDate === 'number') {
+              // Serial date de Excel → fecha JS
+              const d = XLSX.SSF.parse_date_code(rawDate);
+              if (d && d.y >= 2020) anio = d.y;
+            } else {
+              const m4 = String(rawDate).match(/\b(20\d{2})\b/);
+              if (m4) anio = parseInt(m4[1]);
+            }
+          }
+
+          // ── Puntaje: usar col G (Total) = porcentaje decimal, ej. 0.95 → 95 ──
+          // Fallback: col F (Total de puntos) * 5 si G no está disponible
+          let scoreInt = 0; // 0–100
+          const gVal = totalPctIdx >= 0 ? row[totalPctIdx] : undefined;
+          const fVal = totalCtIdx  >= 0 ? row[totalCtIdx]  : undefined;
+
+          let pctRaw;
+          if (typeof gVal === 'number' && !isNaN(gVal)) {
+            // G = decimal (0.0–1.0) → multiplicar por 100
+            pctRaw = gVal * 100;
+            scoreInt = Math.round(pctRaw);
+          } else if (typeof fVal === 'number' && !isNaN(fVal)) {
+            // F = conteo de correctas (0–20) → cada pregunta vale 5 pts
+            pctRaw = fVal * 5;
+            scoreInt = Math.round(pctRaw);
+          }
+
+          // Asegurar rango 0-100
+          scoreInt = Math.max(0, Math.min(100, scoreInt));
+          if (pctRaw !== undefined) pctRaw = Math.max(0, Math.min(100, pctRaw));
+
+          // Array sintético: scoreInt unos seguidos de ceros (base 100)
+          const respuestas = Array(scoreInt).fill(1).concat(Array(100 - scoreInt).fill(0));
+
+          if (!respuestas.length) return;
+          resultados.push({ nombre: nombreRaw, supervisor, mes, anio, respuestas, pctRaw });
+          sheetCount++;
+        });
+
+        if (sheetCount > 0) sheetSummary.push(`${mes}: ${sheetCount}`);
+      });
+
+      if (resultados.length === 0) {
+        status.innerHTML = `<div style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.20);border-radius:var(--radius-sm);padding:12px 16px;color:var(--fail);font-size:13px">
+          ✗ No se encontraron evaluaciones. Verifica que las hojas se llamen por el mes (ENERO, FEBRERO…) y que el archivo tenga las columnas <strong>Nombre</strong> y <strong>Puntos:</strong>.
+        </div>`;
+        return;
+      }
+
+      _formsParsed = resultados;
+      status.innerHTML = '';
+      _renderFormsPreview(resultados, sheetSummary);
+
+    } catch(err) {
+      document.getElementById('forms-status').innerHTML =
+        `<div style="color:var(--fail);font-size:13px">✗ Error al leer el archivo: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Rellena el campo supervisor de evaluaciones importadas que lo tienen en blanco,
+// buscando al asesor en el registro de asesores de la app.
+function _repararSupervisoresVacios() {
+  if (!state.evaluaciones || !state.asesores) return;
+  let changed = false;
+  state.evaluaciones.forEach(ev => {
+    if (!ev.supervisor) {
+      const aObj = state.asesores.find(a =>
+        a.nombre.toLowerCase() === ev.asesor.toLowerCase() ||
+        _formsNorm(a.nombre) === _formsNorm(ev.asesor)
+      );
+      if (aObj && aObj.supervisor) { ev.supervisor = aObj.supervisor; changed = true; }
+    }
+  });
+  if (changed) save();
+}
+
+// Normaliza texto para comparación difusa: minúsculas, sin tildes, sin espacios extra
+function _formsNorm(s) {
+  return String(s).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// Puntaje de similitud simple entre dos cadenas normalizadas
+function _formsSim(a, b) {
+  if (a === b) return 1;
+  const wa = a.split(' '), wb = b.split(' ');
+  const matches = wa.filter(w => wb.some(x => x.startsWith(w) || w.startsWith(x)));
+  return matches.length / Math.max(wa.length, wb.length);
+}
+
+// Mejor coincidencia en asesores de la app para un nombre dado
+function _formsBestMatch(nombre) {
+  const norm = _formsNorm(nombre);
+  let best = null, bestScore = 0;
+  state.asesores.forEach(a => {
+    const s = _formsSim(norm, _formsNorm(a.nombre));
+    if (s > bestScore) { bestScore = s; best = a.nombre; }
+  });
+  return bestScore >= 0.4 ? best : null; // umbral mínimo del 40%
+}
+
+function _renderFormsPreview(data, sheetSummary) {
+  const preview = document.getElementById('forms-preview');
+  const tableEl = document.getElementById('forms-preview-table');
+  const warnEl  = document.getElementById('forms-warnings');
+  const countEl = document.getElementById('forms-count');
+
+  countEl.textContent = `${data.length} evaluacion${data.length !== 1 ? 'es' : ''} detectada${data.length !== 1 ? 's' : ''}`;
+
+  // Nombres no reconocidos (únicos)
+  const unknownA = [...new Set(
+    data.filter(d => !state.asesores.some(a => a.nombre.toLowerCase() === d.nombre.toLowerCase()))
+        .map(d => d.nombre)
+  )];
+
+  // Tabla de mapeo de nombres no reconocidos
+  let mapeoHtml = '';
+  if (unknownA.length) {
+    const opcionesAsesores = state.asesores
+      .map(a => `<option value="${a.nombre.replace(/"/g,'&quot;')}">${a.nombre}</option>`)
+      .join('');
+
+    const filasMapa = unknownA.map(nombre => {
+      const sugerido = _formsBestMatch(nombre) || '';
+      const safeId   = 'fmap_' + btoa(encodeURIComponent(nombre)).replace(/[^a-zA-Z0-9]/g,'').slice(0,20);
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 10px;font-size:12px;color:var(--fail);font-weight:600;white-space:nowrap">
+          ⚠ ${nombre}
+        </td>
+        <td style="padding:7px 10px;font-size:18px;color:var(--text3);text-align:center">→</td>
+        <td style="padding:7px 10px">
+          <select id="${safeId}" data-forms-nombre="${nombre.replace(/"/g,'&quot;')}"
+            style="width:100%;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:'Montserrat',sans-serif">
+            <option value="__nuevo__">➕ Crear como nuevo asesor</option>
+            <option value="__ignorar__">— Ignorar / no importar</option>
+            <option disabled>──────────────</option>
+            ${state.asesores.map(a =>
+              `<option value="${a.nombre.replace(/"/g,'&quot;')}"${a.nombre === sugerido ? ' selected' : ''}>${a.nombre}</option>`
+            ).join('')}
+          </select>
+        </td>
+        <td style="padding:7px 10px;font-size:11px;color:var(--text3)">
+          ${sugerido ? `<span style="color:var(--accent3)">✦ Sugerido</span>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    mapeoHtml = `<div style="background:rgba(184,80,80,0.06);border:1px solid rgba(184,80,80,0.20);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
+      <div style="font-weight:700;color:var(--fail);font-size:13px;margin-bottom:10px">
+        ⚠ ${unknownA.length} nombre${unknownA.length!==1?'s':''} no encontrado${unknownA.length!==1?'s':''} en la app — asigna cada uno a un asesor registrado:
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:5px 10px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:left">Nombre en Forms</th>
+            <th></th>
+            <th style="padding:5px 10px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:left">Asesor en la app</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${filasMapa}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        Los nombres marcados con <strong style="color:var(--accent3)">✦ Sugerido</strong> son coincidencias automáticas — verifica que sean correctas.
+      </div>
+    </div>`;
+  }
+
+  // Tabla de vista previa
+  const filas = data.slice(0, 60).map((d, i) => {
+    const knownA = state.asesores.some(a => a.nombre.toLowerCase() === d.nombre.toLowerCase());
+    const corr   = d.respuestas.filter(r => r === 1).length;
+    const total  = d.respuestas.length || 100;
+    const pct    = Math.round(corr / total * 100);
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;text-align:center">${i+1}</td>
+      <td style="padding:5px 8px;font-size:12px;font-weight:600;color:${knownA?'var(--text)':'var(--fail)'}">${d.nombre}${knownA?'':' ⚠'}</td>
+      <td style="padding:5px 8px;font-size:12px;color:var(--text2)">${d.supervisor||'—'}</td>
+      <td style="padding:5px 8px;font-size:12px;color:var(--text2)">${d.mes} ${d.anio}</td>
+      <td style="padding:5px 8px;font-size:12px;text-align:center;color:var(--text3)">${d.respuestas.length}</td>
+      <td style="padding:5px 8px;font-size:12px;text-align:center"><span style="font-weight:700;color:${pct>=95?'var(--pass)':'var(--fail)'}">${pct}%</span></td>
+    </tr>`;
+  }).join('');
+
+  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="border-bottom:2px solid var(--border)">
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:center">#</th>
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:left">Nombre en Forms</th>
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:left">Supervisor</th>
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:left">Mes / Año</th>
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:center">Pregs.</th>
+      <th style="padding:6px 8px;font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;text-align:center">Score</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>${data.length > 60 ? `<div style="text-align:center;padding:8px;font-size:12px;color:var(--text3)">… y ${data.length-60} evaluaciones más</div>` : ''}`;
+
+  // Info de hojas procesadas
+  const infoHtml = `<div style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:8px">✓ Hojas procesadas: ${sheetSummary.join(' · ')}</div>`;
+  warnEl.innerHTML = mapeoHtml + infoHtml;
+
+  preview.style.display = 'block';
+}
+
+// Lee los selects de mapeo y devuelve { 'nombre en forms': 'nombre en app' | '__nuevo__' | '__ignorar__' }
+function _formsGetMappings() {
+  const map = {};
+  document.querySelectorAll('[data-forms-nombre]').forEach(sel => {
+    map[sel.dataset.formsNombre] = sel.value;
+  });
+  return map;
+}
+
+function confirmarFormsImport() {
+  if (!_formsParsed.length) return;
+  const facultad  = (document.getElementById('forms-facultad')  || {}).value    || '';
+  const actividad = ((document.getElementById('forms-actividad') || {}).value || 'Operativa mensual').trim() || 'Operativa mensual';
+  const mappings  = _formsGetMappings(); // { nombreEnForms: nombreEnApp | '__nuevo__' | '__ignorar__' }
+
+  let importadas = 0, ignoradas = 0;
+  const idsEsteCargue = [];
+
+  _formsParsed.forEach(d => {
+    const knownExact = state.asesores.some(a => a.nombre.toLowerCase() === d.nombre.toLowerCase());
+    let nombreFinal = d.nombre;
+
+    if (!knownExact) {
+      const mapped = mappings[d.nombre];
+      if (mapped === '__ignorar__') { ignoradas++; return; }
+      if (mapped && mapped !== '__nuevo__') nombreFinal = mapped;
+    }
+
+    const newId = 'frm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7) + '_' + importadas;
+    const evObj = {
+      id: newId,
+      asesor: nombreFinal,
+      supervisor: d.supervisor || '',
+      facultad,
+      mes: d.mes,
+      anio: d.anio,
+      actividad,
+      tipo: 'continua',
+      respuestas: d.respuestas,
+      totalPreguntas: d.respuestas.length,
+      registradoPor: 'formadora',
+      fecha: new Date().toISOString()
+    };
+    if (typeof d.pctRaw === 'number' && !isNaN(d.pctRaw)) evObj.pctRaw = d.pctRaw;
+    _pushEval(evObj);
+    idsEsteCargue.push(newId);
+    importadas++;
+  });
+
+  _lastFormsIds = idsEsteCargue; // guardar para poder deshacer
+  save();
+  updateAllFilters();
+  document.getElementById('forms-preview').style.display = 'none';
+  const ignorMsg = ignoradas ? ` · ${ignoradas} ignoradas` : '';
+  document.getElementById('forms-status').innerHTML = `
+    <div style="background:rgba(78,138,114,0.10);border:1px solid rgba(78,138,114,0.25);border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:var(--accent3);display:flex;align-items:center;flex-wrap:wrap;gap:12px">
+      <span>✓ <strong>${importadas} evaluaciones importadas</strong> desde Microsoft Forms${ignorMsg}.</span>
+      <button onclick="showView('dashboard')" style="background:none;border:none;color:var(--accent3);cursor:pointer;font-size:12px;text-decoration:underline;font-family:'Montserrat',sans-serif;padding:0">Ver en Dashboard →</button>
+      <button onclick="deshacerFormsImport()" style="margin-left:auto;padding:5px 14px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.35);background:rgba(184,80,80,0.08);color:var(--fail);font-size:12px;font-weight:600;cursor:pointer;font-family:'Montserrat',sans-serif">↩ Deshacer importación</button>
+    </div>`;
+  document.getElementById('forms-file-input').value = '';
+  _formsParsed = [];
+  showSyncToast(`✓ ${importadas} evaluaciones importadas desde Forms`);
+}
+
+function cancelarFormsImport() {
+  _formsParsed = [];
+  document.getElementById('forms-preview').style.display  = 'none';
+  document.getElementById('forms-status').innerHTML        = '';
+  document.getElementById('forms-file-input').value        = '';
+}
+
+function deshacerFormsImport() {
+  if (!_lastFormsIds.length) {
+    alert('No hay ningún cargue de Forms reciente para deshacer.');
+    return;
+  }
+  if (!confirm(`¿Eliminar las ${_lastFormsIds.length} evaluaciones del último cargue de Forms?\n\nEsto NO afecta otros registros.`)) return;
+  const idSet = new Set(_lastFormsIds);
+  state.evaluaciones = state.evaluaciones.filter(e => !idSet.has(e.id));
+  _lastFormsIds = [];
+  save();
+  updateAllFilters();
+  document.getElementById('forms-status').innerHTML = `
+    <div style="background:rgba(244,211,74,0.10);border:1px solid rgba(244,211,74,0.30);border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:var(--accent2)">
+      ↩ Importación deshecha. Puedes cargar el archivo nuevamente con las correcciones.
+    </div>`;
+  showSyncToast('↩ Importación de Forms deshecha');
+}
 
 // ==================== HISTÓRICO ====================
 let histSelectedMonths = [];
