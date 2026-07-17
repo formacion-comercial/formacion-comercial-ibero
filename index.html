@@ -5024,7 +5024,19 @@ async function _fbInit() {
         localStorage.setItem('evalproState', JSON.stringify(state));
       }, 800);
       clearTimeout(window._fbRefreshTimer);
-      window._fbRefreshTimer = setTimeout(() => { try { updateAllFilters(); } catch(_) {} }, 600);
+      window._fbRefreshTimer = setTimeout(() => {
+        try { updateAllFilters(); } catch(_) {}
+        try {
+          const _av = document.querySelector('.view.active');
+          if (_av) {
+            const _vid = _av.id.replace('view-', '');
+            if (_vid === 'dashboard')  renderDashboard();
+            if (_vid === 'resultados') renderResultados();
+            if (_vid === 'ranking')    renderRanking();
+            if (_vid === 'reporte')    renderReporte();
+          }
+        } catch(_) {}
+      }, 600);
     }, e => console.warn('Firestore listener error:', e));
 
   } catch(e) {
