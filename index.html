@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1049,9 +1049,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <div class="nav-item" onclick="showView('historico',this)">
         <span class="nav-icon">📈</span> Histórico
       </div>
-      <div class="nav-item" id="nav-fi" onclick="showView('formacion-inicial',this)">
-        <span class="nav-icon">🎓</span> Formación Inicial
-      </div>
+
       <div class="nav-item" id="nav-reporte" onclick="showView('reporte',this)">
         <span class="nav-icon">◫</span> Reporte Mensual
       </div>
@@ -1357,7 +1355,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                   <label>Tipo de evaluación</label>
                   <select id="reg-tipo-eval">
                     <option value="continua">Evaluación Formación Continua</option>
-                    <option value="inicial">Evaluación de Formación Inicial</option>
+
                   </select>
                 </div>
                 <div class="form-group full">
@@ -1809,7 +1807,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         <select id="rank-tipo" onchange="renderRanking()" style="padding:8px 14px;font-size:13px;">
           <option value="">Todos los tipos</option>
           <option value="continua">Formación Continua</option>
-          <option value="inicial">Formación Inicial</option>
+
         </select>
         <select id="rank-sup-filter" onchange="renderRankingAsesores()"
           style="padding:8px 14px;font-size:13px;border-radius:var(--radius-sm);
@@ -2007,8 +2005,8 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
       <div id="hist-content"></div>
     </div>
 
-    <!-- ===== FORMACIÓN INICIAL ===== -->
-    <div id="view-formacion-inicial" class="view">
+    <!-- ===== FORMACIÓN INICIAL eliminada ===== -->
+    <div id="view-formacion-inicial" class="view" style="display:none">
       <div class="page-header">
         <div>
           <div class="page-title">Formación Inicial</div>
@@ -5558,7 +5556,7 @@ function renderChartSupervisors(evs) {
 // ==================== MULTI-MONTH FILTERS ====================
 let dbMesesActivos   = [];   // up to 3 months for dashboard
 let rankMesesActivos = [];   // up to 3 months for ranking
-let fiMesesActivos   = [];   // up to 3 months for Formación Inicial
+
 let resMesesActivos  = [];   // up to 3 months for Resultados
 let resModalidadFil  = '';   // '' | 'mensual' | 'asesor-nuevo' | 'fortalecimiento'
 
@@ -5708,44 +5706,6 @@ function selectDbMes(val) {
   renderDashboard();
 }
 
-function _updateFIMesUI() {
-  const arr = fiMesesActivos;
-  const btn = document.getElementById('fi-mes-btn');
-  const lbl = document.getElementById('fi-mes-label');
-  const footer = document.getElementById('fi-ms-footer');
-  const MESES_SHORT = {Enero:'Ene',Febrero:'Feb',Marzo:'Mar',Abril:'Abr',Mayo:'May',Junio:'Jun',
-    Julio:'Jul',Agosto:'Ago',Septiembre:'Sep',Octubre:'Oct',};
-  const allMeses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre'];
-  if (lbl) lbl.textContent = arr.length === 0 ? 'Todos los meses' : arr.map(m => MESES_SHORT[m] || m).join(', ');
-  if (btn) btn.classList.toggle('has-selection', arr.length > 0);
-  if (footer) footer.textContent = arr.length + ' / 3 seleccionados';
-  const allCheck = document.getElementById('fi-ms-check-');
-  if (allCheck) allCheck.textContent = arr.length === 0 ? '✓' : '';
-  allMeses.forEach(m => {
-    const item  = document.getElementById('fi-ms-item-' + m);
-    const check = document.getElementById('fi-ms-check-' + m);
-    const selected = arr.includes(m);
-    const atMax    = arr.length >= 3 && !selected;
-    if (item)  { item.classList.toggle('selected', selected); item.classList.toggle('disabled', atMax); }
-    if (check) check.textContent = selected ? '✓' : '';
-  });
-}
-
-function toggleFIMes(mes) {
-  if (mes === '') {
-    fiMesesActivos = [];
-  } else {
-    const idx = fiMesesActivos.indexOf(mes);
-    if (idx >= 0) {
-      fiMesesActivos.splice(idx, 1);
-    } else {
-      if (fiMesesActivos.length >= 3) return;
-      fiMesesActivos.push(mes);
-    }
-  }
-  _updateFIMesUI();
-  renderFormacionInicialResultados();
-}
 
 function selectRankMes(val) {
   rankMesesActivos = val ? [val] : [];
@@ -8602,9 +8562,10 @@ function _renderCorreccionBody() {
           <div style="flex:1;min-width:0">
             <div style="font-size:12.5px;color:var(--text);line-height:1.4">${enunc}</div>
             ${optsHtml}
-            ${!isCorr && !_tieneSelec && !optsHtml
-              ? `<div style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:5px;padding:4px 8px;background:rgba(184,80,80,0.06);border-radius:4px;border:1px solid rgba(184,80,80,0.15)">
-                   ✗ Respondió incorrectamente · selección no registrada en esta evaluación
+            ${!isCorr && !_tieneSelec
+              ? `<div style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;margin-top:6px;padding:5px 10px;background:rgba(184,80,80,0.06);border-radius:4px;border:1px solid rgba(184,80,80,0.15);display:flex;align-items:center;gap:6px">
+                   <span style="color:var(--fail);font-size:13px">⚠</span>
+                   Selección del asesor no disponible — respondió incorrectamente
                  </div>`
               : ''}
           </div>
@@ -11173,7 +11134,7 @@ function showView(name, el) {
   if (name === 'config') renderConfig();
   if (name === 'historico') { filtrarAsesoresHistorico(); renderHistorico(); }
   if (name === 'accesos') { _initAccFilters(); renderAccesos(); }
-  if (name === 'formacion-inicial') renderFIQuestionCards();
+
 }
 
 // ==================== FILTERS INIT ====================
@@ -11201,13 +11162,6 @@ function updateAllFilters() {
   }
   _populateHistSupItems();
 
-  // Formación Inicial — supervisor filter
-  const fiSup = document.getElementById('fi-fil-supervisor');
-  if (fiSup) {
-    const prevFiSup = fiSup.value;
-    fiSup.innerHTML = '<option value="">Todos los supervisores</option>' + state.supervisores.map(s => `<option>${s}</option>`).join('');
-    if (state.supervisores.includes(prevFiSup)) fiSup.value = prevFiSup;
-  }
 
   // Reporte — supervisor y asesor (mes y año son listas fijas)
   const repSup = document.getElementById('rep-supervisor');
@@ -16554,597 +16508,6 @@ function renderHistorico() {
       }
     });
   }, 50);
-}
-
-// ==================== FORMACIÓN INICIAL ====================
-function fiShowTab(tab) {
-  ['preguntas','resultados'].forEach(t => {
-    const panel = document.getElementById('fi-tab-' + t);
-    const btn   = document.getElementById('fi-tab-btn-' + t);
-    if (panel) panel.style.display = t === tab ? 'block' : 'none';
-    if (btn) {
-      btn.style.background = t === tab ? 'var(--accent)' : 'transparent';
-      btn.style.color      = t === tab ? '#fff' : 'var(--text2)';
-    }
-  });
-  if (tab === 'resultados') renderFormacionInicialResultados();
-  if (tab === 'preguntas')  renderFIQuestionCards();
-}
-
-function renderFIQuestionCards() {
-  const container = document.getElementById('fi-supervisor-question-cards');
-  if (!container) return;
-
-  const banco = state.preguntasPorSupMesInicial || {};
-  const filas = [];
-  state.supervisores.forEach(sup => {
-    Object.entries(banco)
-      .filter(([k]) => k.startsWith(sup + '||'))
-      .forEach(([k, v]) => {
-        const parts = k.split('||');
-        filas.push({ sup, mes: parts[1], anio: parts[2] || '—', count: v.length });
-      });
-  });
-
-  if (!filas.length) {
-    container.innerHTML = `
-      <div class="card section-gap" style="text-align:center;padding:32px;color:var(--text3)">
-        <div style="font-size:32px;margin-bottom:10px">📭</div>
-        <div style="font-size:13px">Aún no hay preguntas de formación inicial cargadas. Usa la carga masiva de arriba.</div>
-      </div>`;
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="card section-gap">
-      <div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text3);margin-bottom:14px">
-        🎓 Preguntas FI cargadas — resumen
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Supervisor</th><th>Mes</th><th>Año</th>
-              <th style="text-align:center">Preguntas</th>
-              <th style="text-align:center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filas.map(f => `
-              <tr>
-                <td style="font-weight:600">${f.sup}</td>
-                <td>${f.mes}</td>
-                <td style="font-family:'Fira Code',monospace;font-size:12px">${f.anio}</td>
-                <td style="text-align:center;font-family:'Fira Code',monospace;color:var(--accent3);font-weight:600">${f.count}</td>
-                <td style="text-align:center">
-                  <button onclick="eliminarFIBancoMes('${f.sup.replace(/'/g,"\\'")}','${f.mes}','${f.anio}')"
-                    style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.15);
-                           background:rgba(184,80,80,0.07);color:var(--fail);cursor:pointer;font-size:11px">✕</button>
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-// ── Carga masiva FI ──────────────────────────────────────────────────────────
-function descargarPlantillaMasivaFI() {
-  if (typeof XLSX === 'undefined') { alert('Librería XLSX no disponible.'); return; }
-  if (!state.supervisores.length) { alert('No hay supervisores configurados.'); return; }
-  const wb = XLSX.utils.book_new();
-  const headers = ['Pregunta *','Opción A','Opción B','Opción C','Opción D','Correcta *','Tipo * (unica/multiple/verdaderofalso)'];
-  const ejemplo = [
-    ['¿Cuál es el primer paso en la formación?','Presentar producto','Identificar necesidad','Ofrecer descuento','Enviar cotización','B','unica'],
-    ['¿Cuáles son principios de la formación inicial?','Escuchar','Interrumpir','Preguntar','Ignorar','A,C','multiple'],
-    ['La formación inicial incluye producto y proceso','','','','','V','verdaderofalso'],
-  ];
-  state.supervisores.forEach(sup => {
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...ejemplo]);
-    ws['!cols'] = [{wch:45},{wch:22},{wch:22},{wch:22},{wch:22},{wch:12},{wch:30}];
-    XLSX.utils.book_append_sheet(wb, ws, sup.replace(/[:\\/?*\[\]]/g,'').slice(0,31));
-  });
-  XLSX.writeFile(wb, 'plantilla_masiva_fi.xlsx');
-}
-
-function subirExcelMasivoFI() {
-  const mes  = (document.getElementById('fi-masivo-mes')  || {}).value || '';
-  const anio = (document.getElementById('fi-masivo-anio') || {}).value || '';
-  if (!mes)  { _setFIMasivoStatus('error','⚠ Selecciona el mes primero.'); return; }
-  if (!anio) { _setFIMasivoStatus('error','⚠ Selecciona el año primero.');  return; }
-  const inp = document.getElementById('fi-masivo-file');
-  if (inp) { inp.dataset.mes = mes; inp.dataset.anio = anio; inp.value = ''; inp.click(); }
-}
-
-function _onFIMasivoFileChange(input) {
-  if (!input.files[0]) return;
-  _procesarExcelMasivoFI(input.files[0], input.dataset.mes, input.dataset.anio);
-}
-
-function _procesarExcelMasivoFI(file, mes, anio) {
-  if (typeof XLSX === 'undefined') { _setFIMasivoStatus('error','Librería XLSX no disponible.'); return; }
-  _setFIMasivoStatus('loading','⏳ Procesando archivo…');
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-      let totalPregs = 0, resultados = [], noEncontrados = [];
-      wb.SheetNames.forEach(sheetName => {
-        const supMatch = state.supervisores.find(s => s.trim().toLowerCase() === sheetName.trim().toLowerCase());
-        if (!supMatch) { noEncontrados.push(sheetName); return; }
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'' });
-        const preguntas = rows.slice(1).filter(r => String(r[0]||'').trim()).map(r => {
-          const enunciado = String(r[0]||'').trim();
-          const opciones  = [r[1],r[2],r[3],r[4]].map(o=>String(o||'').trim()).filter(o=>o);
-          const correcta  = String(r[5]||'').trim().toUpperCase();
-          const tipoRaw   = String(r[6]||'').trim().toLowerCase();
-          const tipo      = tipoRaw==='multiple'?'multiple':tipoRaw==='verdaderofalso'||tipoRaw==='vf'?'verdaderofalso':'unica';
-          const correctas = tipo==='multiple'?correcta.split(',').map(l=>l.trim()).filter(l=>l):null;
-          return { enunciado, opciones, correcta, tipo, correctas };
-        }).filter(q => q.enunciado && (q.tipo==='verdaderofalso' || q.opciones.length>=2));
-        if (preguntas.length) {
-          if (!state.preguntasPorSupMesInicial) state.preguntasPorSupMesInicial = {};
-          state.preguntasPorSupMesInicial[_supMesKey(supMatch, mes, anio)] = preguntas;
-          totalPregs += preguntas.length;
-          resultados.push(`✓ ${supMatch}: ${preguntas.length} pregunta(s)`);
-        } else { resultados.push(`⚠ ${supMatch}: sin preguntas válidas`); }
-      });
-      if (!resultados.length && !noEncontrados.length) { _setFIMasivoStatus('error','❌ Sin pestañas válidas.'); return; }
-      save();
-      let msg = `✅ ${totalPregs} pregunta(s) cargadas — ${mes} ${anio}`;
-      if (noEncontrados.length) msg += ` | ⚠ No reconocidas: ${noEncontrados.join(', ')}`;
-      _setFIMasivoStatus('ok', msg + '\n' + resultados.join(' · '));
-      setTimeout(() => renderFIQuestionCards(), 600);
-    } catch(err) { _setFIMasivoStatus('error','❌ Error: ' + err.message); }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function _setFIMasivoStatus(type, msg) {
-  const el = document.getElementById('fi-masivo-status');
-  if (!el) return;
-  el.style.display = 'block';
-  el.style.color = type==='ok'?'var(--pass)':type==='loading'?'var(--accent2)':'var(--fail)';
-  el.textContent = msg;
-  if (type !== 'loading') setTimeout(() => { if (el) el.style.display = 'none'; }, 7000);
-}
-
-function subirExcelPreguntasInicial(supervisor, supKey) {
-  const mesVal = (document.getElementById('fi-banco-mes-' + supKey) || {}).value;
-  if (!mesVal) { alert('Selecciona un mes antes de subir el archivo.'); return; }
-  const inp = document.getElementById('fi-banco-file-' + supKey);
-  if (inp) { inp.dataset.mes = mesVal; inp.value = ''; inp.click(); }
-}
-
-function _onFIBancoFileChange(input, supervisor, supKey) {
-  if (!input.files[0]) return;
-  const mes = input.dataset.mes;
-  _procesarExcelPreguntasInicial(input.files[0], supervisor, mes, supKey);
-}
-
-function _procesarExcelPreguntasInicial(file, supervisor, mes, supKey) {
-  if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
-  _setBancoStatus('fi-banco-status-' + supKey, 'loading', 'Procesando archivo…');
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-      const sheetName = wb.SheetNames.includes('Preguntas') ? 'Preguntas' : wb.SheetNames[0];
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
-      const preguntas = rows.slice(1)
-        .filter(r => String(r[0]||'').trim())
-        .map(r => {
-          const enunciado = String(r[0]||'').trim();
-          const opciones  = [r[1],r[2],r[3],r[4]].map(o=>String(o||'').trim()).filter(o=>o);
-          const correcta  = String(r[5]||'').trim().toUpperCase();
-          const tipoRaw   = String(r[6]||'').trim().toLowerCase();
-          const tipo      = tipoRaw === 'multiple' ? 'multiple'
-                          : tipoRaw === 'verdaderofalso' || tipoRaw === 'vf' ? 'verdaderofalso'
-                          : 'unica';
-          const correctas = tipo === 'multiple'
-            ? correcta.split(',').map(l=>l.trim()).filter(l=>l)
-            : null;
-          return { enunciado, opciones, correcta, tipo, correctas };
-        })
-        .filter(q => q.enunciado && (q.tipo === 'verdaderofalso' || q.opciones.length >= 2));
-      if (!preguntas.length) {
-        _setBancoStatus('fi-banco-status-' + supKey, 'error', 'No se encontraron preguntas válidas.');
-        return;
-      }
-      if (!state.preguntasPorSupMesInicial) state.preguntasPorSupMesInicial = {};
-      state.preguntasPorSupMesInicial[_supMesKey(supervisor, mes)] = preguntas;
-      save();
-      _setBancoStatus('fi-banco-status-' + supKey, 'ok', '✓ ' + preguntas.length + ' pregunta(s) cargadas para ' + mes);
-      setTimeout(() => renderFIQuestionCards(), 900);
-    } catch(err) {
-      _setBancoStatus('fi-banco-status-' + supKey, 'error', 'Error: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function eliminarFIBancoMes(supervisor, mes, anio) {
-  if (!confirm('¿Eliminar las preguntas de formación inicial de ' + mes + (anio && anio !== '—' ? ' ' + anio : '') + ' para ' + supervisor + '?')) return;
-  if (state.preguntasPorSupMesInicial) {
-    const keyConAnio = _supMesKey(supervisor, mes, anio);
-    const keySinAnio = _supMesKey(supervisor, mes);
-    if (state.preguntasPorSupMesInicial[keyConAnio] !== undefined) delete state.preguntasPorSupMesInicial[keyConAnio];
-    else if (state.preguntasPorSupMesInicial[keySinAnio] !== undefined) delete state.preguntasPorSupMesInicial[keySinAnio];
-  }
-  save(); renderFIQuestionCards();
-}
-
-// ==================== FORMACIÓN INICIAL — REGISTRAR ====================
-let fiRegRespuestas = [];
-
-function initFIRegistro() {
-  // Poblar asesor select solo con Nuevos
-  const sel = document.getElementById('fi-reg-asesor');
-  if (!sel) return;
-  const nuevos = state.asesores.filter(a => (a.tipo || 'Antiguo') === 'Nuevo');
-  sel.innerHTML = '<option value="">Seleccionar asesor nuevo…</option>' +
-    nuevos.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
-  // Reset form
-  const supEl = document.getElementById('fi-reg-supervisor');
-  if (supEl) supEl.value = '';
-  const actEl = document.getElementById('fi-reg-actividad');
-  if (actEl) actEl.value = '';
-  fiRegRespuestas = [];
-  cargarPreguntasFIRegistro();
-  _updateFIScorePanel();
-}
-
-function onFIAsesorChange() {
-  const nombre = document.getElementById('fi-reg-asesor').value;
-  const asesor = state.asesores.find(a => a.nombre === nombre);
-  const supEl  = document.getElementById('fi-reg-supervisor');
-  if (supEl) supEl.value = asesor ? asesor.supervisor : '';
-  cargarPreguntasFIRegistro();
-}
-
-function cargarPreguntasFIRegistro() {
-  const asesorNombre = (document.getElementById('fi-reg-asesor') || {}).value || '';
-  const mes          = (document.getElementById('fi-reg-mes')    || {}).value || '';
-  const anio         = (document.getElementById('fi-reg-anio')   || {}).value || '';
-  const asesorObj    = state.asesores.find(a => a.nombre === asesorNombre);
-  const supervisor   = asesorObj ? asesorObj.supervisor : '';
-  const banco        = state.preguntasPorSupMesInicial || {};
-
-  // Try keyed with anio first, then without
-  const preguntas = (supervisor && mes)
-    ? (banco[_supMesKey(supervisor, mes, anio)] || banco[_supMesKey(supervisor, mes)] || null)
-    : null;
-
-  const grid    = document.getElementById('fi-questions-grid');
-  const hintEl  = document.getElementById('fi-reg-banco-hint');
-  if (!grid) return;
-
-  const total = preguntas ? Math.min(preguntas.length, 20) : 20;
-  fiRegRespuestas = new Array(total).fill(null);
-
-  if (preguntas && preguntas.length) {
-    if (hintEl) {
-      hintEl.style.display = 'block';
-      hintEl.innerHTML = `✓ Banco cargado: <strong>${preguntas.length} pregunta(s)</strong> de formación inicial para <strong>${supervisor}</strong> — ${mes} ${anio}`;
-      hintEl.style.color = 'var(--accent3)';
-    }
-    const LETRAS = ['A','B','C','D'];
-    grid.style.cssText = 'display:block;margin-top:8px';
-    grid.innerHTML = preguntas.slice(0, 20).map((q, i) => {
-      const corrIdx = LETRAS.indexOf((q.correcta || '').toUpperCase());
-      return `
-      <div class="q-card" id="fi-reg-qcard-${i}"
-           style="flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:8px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%;gap:10px">
-          <div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0">
-            <div class="q-card-num" style="margin-top:2px">P${String(i+1).padStart(2,'0')}</div>
-            <div style="flex:1;font-size:13.5px;color:var(--text);line-height:1.45">
-              ${_escHtml(q.enunciado)}
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="q-toggle" id="fi-reg-qtog-c-${i}" onclick="toggleFIRegQ(${i},1)">✓</button>
-            <button class="q-toggle" id="fi-reg-qtog-w-${i}" onclick="toggleFIRegQ(${i},0)">✗</button>
-          </div>
-        </div>
-        ${q.opciones && q.opciones.length ? `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;padding-left:46px;width:100%">
-          ${q.opciones.map((op, oi) => {
-            const isCorr = oi === corrIdx;
-            return `<div style="display:flex;gap:6px;padding:4px 8px;border-radius:4px;
-              background:${isCorr?'rgba(78,138,114,0.06)':'transparent'};
-              border:1px solid ${isCorr?'rgba(78,138,114,0.18)':'var(--border)'}">
-              <span style="font-family:'Fira Code',monospace;font-size:10px;font-weight:700;flex-shrink:0;
-                color:${isCorr?'var(--pass)':'var(--text3)'}">${LETRAS[oi]})</span>
-              <span style="font-size:11.5px;color:${isCorr?'var(--pass)':'var(--text3)'};line-height:1.35">
-                ${_escHtml(op)}${isCorr?' ✓':''}</span>
-            </div>`;
-          }).join('')}
-        </div>` : ''}
-      </div>`;
-    }).join('');
-  } else {
-    // Sin banco: 20 botones simples
-    if (hintEl) {
-      hintEl.style.display = supervisor && mes
-        ? 'block' : 'none';
-      if (supervisor && mes) {
-        hintEl.innerHTML = `⚠ Sin banco de preguntas FI cargado para <strong>${supervisor}</strong> — ${mes}. Se usarán 20 preguntas genéricas.`;
-        hintEl.style.color = 'var(--accent)';
-      }
-    }
-    grid.style.cssText = '';
-    grid.innerHTML = Array.from({length: 20}, (_, i) => `
-      <div>
-        <button class="q-btn" id="fi-qbtn-${i}" onclick="toggleFIQ(${i})">
-          <span class="q-num">P${i+1}</span>
-          <span class="q-ico" id="fi-qico-${i}">—</span>
-        </button>
-      </div>`).join('');
-  }
-  _updateFIScorePanel();
-}
-
-function toggleFIQ(i) {
-  if (fiRegRespuestas[i] === null) fiRegRespuestas[i] = 1;
-  else if (fiRegRespuestas[i] === 1) fiRegRespuestas[i] = 0;
-  else fiRegRespuestas[i] = null;
-  const btn = document.getElementById(`fi-qbtn-${i}`);
-  const ico = document.getElementById(`fi-qico-${i}`);
-  if (btn) btn.className = 'q-btn' + (fiRegRespuestas[i]===1?' correct':fiRegRespuestas[i]===0?' wrong':'');
-  if (ico) ico.textContent = fiRegRespuestas[i]===1?'✓':fiRegRespuestas[i]===0?'✗':'—';
-  _updateFIScorePanel();
-}
-
-function toggleFIRegQ(i, val) {
-  fiRegRespuestas[i] = (fiRegRespuestas[i] === val) ? null : val;
-  const btnC = document.getElementById(`fi-reg-qtog-c-${i}`);
-  const btnW = document.getElementById(`fi-reg-qtog-w-${i}`);
-  if (btnC) btnC.className = 'q-toggle' + (fiRegRespuestas[i] === 1 ? ' active-correct' : '');
-  if (btnW) btnW.className = 'q-toggle' + (fiRegRespuestas[i] === 0 ? ' active-wrong'   : '');
-  _updateFIScorePanel();
-}
-
-function _updateFIScorePanel() {
-  const total = fiRegRespuestas.length || 20;
-  const corr  = fiRegRespuestas.filter(r => r === 1).length;
-  const wrong = fiRegRespuestas.filter(r => r === 0).length;
-  const pct   = Math.round((corr / total) * 100);
-  const pts   = Math.round((corr / total) * 100);
-  const pass  = total <= 20 ? corr >= (total - 1) : (pct >= 95);
-  const circumference = 263.9;
-  const offset = circumference - (pct / 100) * circumference;
-  const circle = document.getElementById('fi-ring-circle');
-  const pctEl  = document.getElementById('fi-ring-pct');
-  const bigEl  = document.getElementById('fi-score-big');
-  const corrEl = document.getElementById('fi-stat-corr');
-  const wronEl = document.getElementById('fi-stat-wrong');
-  const statEl = document.getElementById('fi-score-status');
-  if (circle) { circle.style.strokeDashoffset = offset; circle.style.stroke = pass ? 'var(--pass)' : (pct > 60 ? 'var(--accent2)' : 'var(--fail)'); }
-  if (pctEl)  pctEl.textContent  = pct + '%';
-  if (bigEl)  { bigEl.textContent = pts + ' / 100'; bigEl.className = 'score-big ' + (pass ? 'pass' : 'fail'); }
-  if (corrEl) corrEl.textContent = corr;
-  if (wronEl) wronEl.textContent = wrong;
-  const sinMarcar = fiRegRespuestas.filter(r => r === null).length;
-  if (statEl) {
-    statEl.textContent = sinMarcar > 0 ? `${sinMarcar} preguntas sin marcar` : (pass ? '✓ APROBADO' : '✗ REPROBADO');
-    statEl.style.color = sinMarcar > 0 ? 'var(--text3)' : (pass ? 'var(--pass)' : 'var(--fail)');
-  }
-}
-
-function guardarEvaluacionFI() {
-  const asesor    = (document.getElementById('fi-reg-asesor')    || {}).value || '';
-  const mes       = (document.getElementById('fi-reg-mes')       || {}).value || '';
-  const anio      = (document.getElementById('fi-reg-anio')      || {}).value || '';
-  const actividad = ((document.getElementById('fi-reg-actividad') || {}).value || '').trim();
-  if (!asesor)    { alert('Selecciona un asesor nuevo.'); return; }
-  if (!mes)       { alert('Selecciona el mes.'); return; }
-  if (!actividad) { alert('Ingresa la actividad evaluada.'); return; }
-
-  // Validar duplicado (tipo inicial + mismo asesor + mes + anio)
-  const dup = state.evaluaciones.find(e =>
-    e.asesor === asesor && e.mes === mes && String(e.anio) === String(anio) && (e.tipo||'continua') === 'inicial');
-  if (dup && !confirm(`Ya existe una evaluación de Formación Inicial de ${asesor} para ${mes} ${anio}.\n¿Registrar de todas formas?`)) return;
-
-  const sinMarcar = fiRegRespuestas.filter(r => r === null).length;
-  if (sinMarcar > 0) {
-    if (!confirm(`Hay ${sinMarcar} preguntas sin marcar. Se tomarán como incorrectas. ¿Continuar?`)) return;
-  }
-
-  const respFinal      = fiRegRespuestas.map(r => r === null ? 0 : r);
-  const totalPreguntas = respFinal.length;
-  const aObj           = state.asesores.find(a => a.nombre === asesor);
-
-  _pushEval({
-    id: _nuevoEvalId(),
-    asesor,
-    supervisor: aObj ? aObj.supervisor : '',
-    mes, anio: parseInt(anio), actividad,
-    respuestas: respFinal,
-    totalPreguntas,
-    tipo: 'inicial',
-    fechaRegistro: new Date().toISOString(),
-    registradoPor: 'formadora'
-  });
-  save();
-  updateAllFilters();
-
-  const pts  = Math.round((respFinal.filter(r=>r===1).length / totalPreguntas) * 100);
-  const pass = respFinal.filter(r=>r===1).length >= (totalPreguntas - 1);
-  showSyncToast(`✓ Evaluación FI guardada — ${pts}/100 pts — ${pass ? 'APROBADO' : 'REPROBADO'}`);
-
-  // Reset form
-  initFIRegistro();
-  fiShowTab('resultados');
-}
-
-function renderFormacionInicialResultados() {
-  const tipoAsesor = (document.getElementById('fi-fil-tipo-asesor')||{}).value || '';
-  const sup  = (document.getElementById('fi-fil-supervisor')||{}).value || '';
-  const anio = (document.getElementById('fi-fil-anio')||{}).value || '';
-  // Formación Inicial muestra todas las evaluaciones de asesores Nuevos
-  // (independientemente del campo tipo de la evaluación)
-  let evs = state.evaluaciones.filter(e => _getTipoAsesor(e.asesor) === 'Nuevo');
-  if (tipoAsesor && tipoAsesor !== 'Nuevo') evs = evs.filter(e => _getTipoAsesor(e.asesor) === tipoAsesor);
-  if (sup)  evs = evs.filter(e => e.supervisor === sup);
-  if (fiMesesActivos.length > 0) evs = evs.filter(e => fiMesesActivos.includes(e.mes));
-  if (anio) evs = evs.filter(e => String(e.anio) === anio);
-
-  // ── KPIs ──
-  const kpiEl = document.getElementById('fi-kpis-tipo');
-  if (kpiEl) {
-    const tot = evs.length;
-    const aprobados = evs.filter(e => _evalPaso(e)).length;
-    const pctPass = tot ? Math.round((aprobados/tot)*100) : 0;
-    const avg = tot ? Math.round(avgArr(evs.map(e => calcScore(e.respuestas)*5))) : 0;
-    const tipoLabel = tipoAsesor ? `Asesores ${tipoAsesor}s` : 'Todos los asesores';
-    const tipoColor = tipoAsesor === 'Nuevo' ? 'var(--accent3)' : tipoAsesor === 'Antiguo' ? 'var(--accent4)' : 'var(--accent)';
-    kpiEl.innerHTML = `
-      <div class="kpi purple">
-        <div class="kpi-label">Total Evaluaciones</div>
-        <div class="kpi-value">${tot}</div>
-        <div class="kpi-meta" style="color:${tipoColor};font-weight:600">${tipoLabel}</div>
-      </div>
-      <div class="kpi green">
-        <div class="kpi-label">% Aprobados</div>
-        <div class="kpi-value">${pctPass}<span style="font-size:22px">%</span></div>
-        <div class="kpi-meta">${aprobados} de ${tot}</div>
-      </div>
-      <div class="kpi gold">
-        <div class="kpi-label">Puntaje Promedio</div>
-        <div class="kpi-value">${avg}</div>
-        <div class="kpi-meta">pts / 100</div>
-      </div>
-      <div class="kpi ${pctPass>=80?'green':'red'}">
-        <div class="kpi-label">Reprobados</div>
-        <div class="kpi-value">${tot - aprobados}</div>
-        <div class="kpi-meta">necesitan refuerzo</div>
-      </div>`;
-  }
-
-  const tbl = document.getElementById('fi-table-resultados');
-  if (!tbl) return;
-  if (!evs.length) {
-    tbl.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🎓</div><div>Sin evaluaciones registradas para asesores nuevos en este filtro</div></div></td></tr>';
-    return;
-  }
-  tbl.innerHTML = `<thead><tr>
-    <th>Asesor</th><th>Tipo</th><th>Supervisor</th><th>Mes / Año</th><th>Puntaje</th><th>% Correctas</th><th>Estado</th>
-  </tr></thead>
-  <tbody>${evs.map(e => {
-    const t = e.totalPreguntas || (e.respuestas && e.respuestas.length) || 20;
-    const pts = calcPts(e.respuestas, t, e.supervisor);
-    const pct = calcPct(e.respuestas, t, e.supervisor);
-    const pass = _evalPaso(e);
-    const tipo = _getTipoAsesor(e.asesor);
-    const tipoStyle = tipo === 'Nuevo'
-      ? 'color:#4E8A72;background:rgba(78,138,114,0.10);border:1px solid rgba(78,138,114,0.25)'
-      : 'color:#5B8FB0;background:rgba(91,143,176,0.10);border:1px solid rgba(91,143,176,0.25)';
-    return `<tr>
-      <td style="color:var(--text);font-weight:500">${e.asesor}</td>
-      <td><span style="font-size:11px;font-weight:700;border-radius:20px;padding:2px 10px;white-space:nowrap;${tipoStyle}">${tipo}</span></td>
-      <td>${e.supervisor}</td>
-      <td style="font-family:'Fira Code',monospace;font-size:12px">${e.mes} ${e.anio}</td>
-      <td style="font-family:'Fira Code',monospace">${pts}</td>
-      <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'}">${pct}%</td>
-      <td><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓ Aprobado':'✗ Reprobado'}</span></td>
-    </tr>`;
-  }).join('')}</tbody>`;
-}
-
-// ==================== MIGRACIÓN: reparar importaciones con 20 preguntas ==================
-(function _migrarImportaciones() {
-  if (!state.evaluaciones) return;
-  let changed = false;
-  state.evaluaciones.forEach(ev => {
-    if (!ev.importado) return;
-    const pct = typeof ev.pctOriginal === 'number' ? ev.pctOriginal
-               : typeof ev.pctRaw     === 'number' ? ev.pctRaw
-               : null;
-    if (pct === null) return;
-
-    const es5Q = _esSup5Q(ev.supervisor);
-
-    if (es5Q) {
-      // Reconstruir con 5 preguntas y tabla de conversión
-      if (ev.totalPreguntas !== 5) {
-        let correctas;
-        if      (pct >= 100) correctas = 5;
-        else if (pct >= 95)  correctas = 4;
-        else if (pct >= 90)  correctas = 3;
-        else if (pct >= 85)  correctas = 2;
-        else if (pct >= 80)  correctas = 1;
-        else                  correctas = 0;
-        ev.respuestas      = Array.from({length: 5}, (_, i) => i < correctas ? 1 : 0);
-        ev.totalPreguntas  = 5;
-        ev.pctRaw          = _conversionScore5(correctas);
-        changed = true;
-      }
-    } else {
-      // Reconstruir con 100 preguntas + pctRaw
-      if (ev.totalPreguntas !== 100 || typeof ev.pctRaw !== 'number') {
-        const correctas    = Math.round(pct);
-        ev.respuestas      = Array.from({length: 100}, (_, i) => i < correctas ? 1 : 0);
-        ev.totalPreguntas  = 100;
-        ev.pctRaw          = Math.max(0, Math.min(100, parseFloat(pct.toFixed(2))));
-        changed = true;
-      }
-    }
-  });
-  if (changed) {
-    save();
-    console.log('[migración] Importaciones reparadas en localStorage');
-  }
-})();
-
-// ==================== EXPORTAR / IMPORTAR DATOS ====================
-function exportarDatos() {
-  const data = localStorage.getItem('evalproState');
-  if (!data) { alert('No hay datos guardados para exportar.'); return; }
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'datos_evaluaciones_' + new Date().toISOString().slice(0,10) + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importarDatos(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      localStorage.setItem('evalproState', JSON.stringify(parsed));
-      Object.assign(state, parsed);
-      if (window._fbDb) {
-        try {
-          const cfg = Object.assign({}, state);
-          delete cfg.evaluaciones;
-          await window._fbDb.collection('config').doc('main').set(cfg);
-          if (state.evaluaciones && state.evaluaciones.length > 0) {
-            const batch = window._fbDb.batch();
-            state.evaluaciones.forEach(ev => {
-              batch.set(window._fbDb.collection('evaluaciones').doc(String(ev.id)), ev);
-            });
-            await batch.commit();
-          }
-          alert('✅ Datos importados y sincronizados con la nube correctamente.');
-        } catch(fe) {
-          alert('✅ Datos importados localmente. (Firebase: ' + fe.message + ')');
-        }
-      } else {
-        alert('✅ Datos importados correctamente.');
-      }
-      try { updateAllFilters(); } catch(_) {}
-    } catch(err) {
-      alert('❌ Error al importar: archivo no válido.');
-    }
-  };
-  reader.readAsText(file);
 }
 
 // ==================== NOTIFICACIONES ====================
