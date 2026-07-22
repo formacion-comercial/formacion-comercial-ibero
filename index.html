@@ -5202,10 +5202,12 @@ function _isPasoAsesorNuevo(nota) { return nota >= 6.0; }
 // Wrapper universal: usa _getEvalScore para respetar la modalidad (asesor-nuevo vs mensual)
 function _evalPaso(e) { return e ? _getEvalScore(e).pass : false; }
 function _isEvalAsesorNuevo(ev)   { return ev && ev.modalidad === 'asesor-nuevo'; }
+// Escala 0-10 compartida: asesor-nuevo Y fortalecimiento (entrenamiento comercial)
+function _usaEscalaAN(ev) { return ev && (ev.modalidad === 'asesor-nuevo' || ev.modalidad === 'fortalecimiento'); }
 // Devuelve { pts (0-100), pct (0-100), pass, nota (0-10 o null), escala (10 o 100) }
 function _getEvalScore(ev) {
   if (!ev || !ev.respuestas) return { pts: null, pct: null, pass: false, nota: null, escala: 100 };
-  if (_isEvalAsesorNuevo(ev)) {
+  if (_usaEscalaAN(ev)) {
     const corr = calcScore(ev.respuestas);
     const nota = ev.nota != null ? ev.nota : _calcNotaAsesorNuevo(corr);
     return { pts: Math.round(nota * 10), pct: Math.round(nota * 10), pass: _isPasoAsesorNuevo(nota), nota, escala: 10 };
@@ -6186,7 +6188,7 @@ function renderDashboard() {
     if (!barItems.length) {
       hbarsEl.innerHTML = '<div class="empty" style="padding:24px"><div>Sin datos para el período seleccionado</div></div>';
     } else {
-      const esAN = dbModalidadFil === 'asesor-nuevo';
+      const esAN = dbModalidadFil === 'asesor-nuevo' || dbModalidadFil === 'fortalecimiento';
       const cOf  = esAN
         ? v => v >= 90 ? '#4E8A72' : v >= 60 ? '#C9A545' : '#E05050'
         : v => v >= 95 ? '#4E8A72' : v >= 90 ? '#C9A545' : '#E05050';
@@ -6235,7 +6237,7 @@ function renderDashboard() {
     const pctFailI = Math.round(pctFail);
 
     const _gcOf = (v, lo, hi) => v >= hi ? '#27AE72' : v >= lo ? '#D4A017' : '#E05050';
-    const [_lo, _hi] = dbModalidadFil === 'asesor-nuevo' ? [60, 90] : [90, 95];
+    const [_lo, _hi] = (dbModalidadFil === 'asesor-nuevo' || dbModalidadFil === 'fortalecimiento') ? [60, 90] : [90, 95];
     const gc1 = _gcOf(pctPassI, _lo, _hi);
     const gc2 = _gcOf(avgI,     _lo, _hi);
     const gc3 = '#E05050'; // Reprobados: siempre rojo
@@ -6329,8 +6331,8 @@ function renderDashboard() {
       const nSup = _norm(sup);
       const sevs = chartEvs.filter(e => _norm(e.supervisor) === nSup);
       if (!sevs.length) return null;
-      // Asesor-nuevo usa escala distinta (pasa con 60%), excluirlas del promedio mensual
-      const scoreEvs = sevs.filter(e => (e.modalidad || 'mensual') !== 'asesor-nuevo');
+      // Asesor-nuevo y fortalecimiento usan escala distinta (pasa con 60%), excluirlas del promedio mensual
+      const scoreEvs = sevs.filter(e => !_usaEscalaAN(e));
       const scores  = (scoreEvs.length ? scoreEvs : sevs).map(e => calcPctRaw(e.respuestas, e.totalPreguntas || e.respuestas.length, e.supervisor, e.pctRaw));
       const avg     = avgArr(scores);
       const aprobN  = sevs.filter(e => _evalPaso(e)).length;
@@ -6342,7 +6344,7 @@ function renderDashboard() {
 
     if (rankBdg) rankBdg.textContent = `${rankData.length} supervisores`;
 
-    const _isAN  = dbModalidadFil === 'asesor-nuevo';
+    const _isAN  = dbModalidadFil === 'asesor-nuevo' || dbModalidadFil === 'fortalecimiento';
     const medal  = (i, r) => r.avg >= 99.95 ? '🥇' : r.avg >= (_isAN ? 90 : 95) ? '🥈' : `${i+1}`;
     const cOf    = _isAN
       ? v => v >= 90 ? '#4E8A72' : v >= 60 ? '#C9A545' : '#E05050'
@@ -8204,7 +8206,7 @@ function abrirCalifManual(asesor, mes, anio, supervisor) {
     _formsNorm(e.asesor) === _formsNorm(asesor) && e.mes === mes && String(e.anio) === String(anio)
   );
   const aObj = state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(asesor));
-  const esNuevo = (evExist && evExist.modalidad === 'asesor-nuevo') || (aObj && aObj.tipo === 'Nuevo');
+  const esNuevo = (evExist && _usaEscalaAN(evExist)) || (aObj && aObj.tipo === 'Nuevo');
   _califManualData = { asesor, mes, anio, supervisor, esNuevo };
   document.getElementById('calif-manual-nombre').textContent = `${asesor}  ·  ${mes} ${anio}`;
   document.getElementById('calif-manual-pts').value = '';
@@ -8483,7 +8485,7 @@ function _renderCorreccionBody() {
   const LETRAS = ['A','B','C','D'];
   const corr   = _correccionResp.filter(r => r === 1).length;
   const total  = _correccionResp.length;
-  const esNuevo = ev && _isEvalAsesorNuevo(ev);
+  const esNuevo = ev && _usaEscalaAN(ev);
   const nota   = esNuevo ? _calcNotaAsesorNuevo(corr) : null;
   const pass   = esNuevo ? _isPasoAsesorNuevo(nota) : corr >= Math.ceil(total * 0.95);
   const ptsStr = esNuevo ? `${nota}/10` : `${Math.round((corr/total)*100)} pts`;
@@ -8615,7 +8617,7 @@ function guardarCorreccion() {
   ev.totalPreguntas = _correccionResp.length;
   const despues = ev.respuestas.filter(r => r === 1).length;
   // Para asesor-nuevo: recalcular nota a partir de las respuestas corregidas
-  if (_isEvalAsesorNuevo(ev)) {
+  if (_usaEscalaAN(ev)) {
     ev.nota = _calcNotaAsesorNuevo(despues);
   }
   // Actualizar evaluacionesEnviadas si existe la clave
@@ -8860,7 +8862,7 @@ function renderReporte() {
     evsAsesor.forEach(e => {
       const t     = e.totalPreguntas || e.respuestas.length || 20;
       const sc    = _getEvalScore(e);
-      const esNuevo = _isEvalAsesorNuevo(e);
+      const esNuevo = _usaEscalaAN(e);
       const pts   = esNuevo ? (sc.nota != null ? sc.nota : calcPct(e.respuestas, t, e.supervisor)) : calcPct(e.respuestas, t, e.supervisor);
       const ptsLabel = esNuevo ? `${sc.nota != null ? sc.nota : pts}/10` : `${pts}/100`;
       const ptsUnit  = esNuevo ? 'NOTA / 10' : 'PTS / 100';
@@ -14099,7 +14101,7 @@ function mostrarSelectorEvaluaciones() {
 
     let inner;
     if (enviado) {
-      const esNuevo  = t.mod === 'asesor-nuevo';
+      const esNuevo  = t.mod === 'asesor-nuevo' || t.mod === 'fortalecimiento';
       const scoreDisp = esNuevo
         ? (enviado.nota != null ? `${enviado.nota}/10` : `${enviado.pts || 0}/100`)
         : `${enviado.pts || 0}/100`;
@@ -14733,7 +14735,7 @@ async function enviarEvaluacionAsesor() {
   document.getElementById('result-score-big').textContent   = pts;
   document.getElementById('result-score-big').className     = 'result-big-score ' + (pass ? 'pass' : 'fail');
   const totalPregs = respFinal.length;
-  const _esNuevoRes = modalidad === 'asesor-nuevo';
+  const _esNuevoRes = modalidad === 'asesor-nuevo' || modalidad === 'fortalecimiento';
   document.getElementById('result-sub-text').textContent = pass
     ? `¡Excelente! Respondiste correctamente ${corr} de ${totalPregs} preguntas.`
     : _esNuevoRes
@@ -16345,15 +16347,14 @@ function renderHistorico() {
               : '<span class="badge badge-fail">✗ Bajo meta</span>';
           const periodRows = data.length
             ? data.map(r => {
-                const esNuevo  = r.modalidad === 'asesor-nuevo';
-                const esFort   = r.modalidad === 'fortalecimiento';
+                const esNuevo  = r.modalidad === 'asesor-nuevo' || r.modalidad === 'fortalecimiento';
                 const passThreshold = esNuevo ? 60 : 95;
                 const label = esNuevo && r.nota != null
                   ? `${r.nota}/10`
                   : `${r.pct}%`;
-                const modBadge = esNuevo
+                const modBadge = r.modalidad === 'asesor-nuevo'
                   ? `<span style="font-size:9px;background:rgba(78,138,114,0.12);color:var(--pass);border-radius:4px;padding:1px 5px;font-family:'Fira Code',monospace;margin-left:4px">Nuevo</span>`
-                  : esFort
+                  : r.modalidad === 'fortalecimiento'
                     ? `<span style="font-size:9px;background:rgba(201,165,69,0.12);color:var(--accent);border-radius:4px;padding:1px 5px;font-family:'Fira Code',monospace;margin-left:4px">Fort.</span>`
                     : '';
                 return `
