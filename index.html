@@ -8348,17 +8348,28 @@ function _sincronizarEvaluacionesEnviadas() {
 
   Object.entries(grupos).forEach(([key, ev]) => {
     const existing = state.evaluacionesEnviadas[key];
-    // Actualizar si no existe, es boolean (formato antiguo) o le falta pts
-    if (!existing || existing === true || typeof existing !== 'object' || existing.pts == null) {
+    const _esAN = _usaEscalaAN(ev);
+    // Actualizar si: no existe, formato antiguo, le falta pts,
+    // o es escala AN y le falta nota (guardado antes del fix de fortalecimiento)
+    const necesitaUpdate = !existing || existing === true || typeof existing !== 'object'
+      || existing.pts == null
+      || (_esAN && existing.nota == null);
+    if (necesitaUpdate) {
       const t = ev.totalPreguntas || (ev.respuestas ? ev.respuestas.length : 0);
       if (!t || !ev.respuestas || !ev.respuestas.length) return;
-      const sup = ev.supervisor ||
-        (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(ev.asesor)) || {}).supervisor || '';
-      const pts  = calcPts(ev.respuestas, t, sup);
-      const pct  = calcPct(ev.respuestas, t, sup);
-      const pass = _evalPaso(ev);
       const corr = ev.respuestas.filter(r => r === 1 || r === true).length;
-      state.evaluacionesEnviadas[key] = { pts, pct, pass, correctas: corr, total: t };
+      const pass = _evalPaso(ev);
+      if (_esAN) {
+        const nota = _calcNotaAsesorNuevo(corr);
+        const pts  = Math.round(nota * 10);
+        state.evaluacionesEnviadas[key] = { pts, pct: pts, pass, correctas: corr, total: t, nota, modalidad: ev.modalidad };
+      } else {
+        const sup = ev.supervisor ||
+          (state.asesores.find(a => _formsNorm(a.nombre) === _formsNorm(ev.asesor)) || {}).supervisor || '';
+        const pts  = calcPts(ev.respuestas, t, sup);
+        const pct  = calcPct(ev.respuestas, t, sup);
+        state.evaluacionesEnviadas[key] = { pts, pct, pass, correctas: corr, total: t };
+      }
       changed = true;
     }
   });
