@@ -9549,8 +9549,20 @@ function _resetearEvalParaRepresentar(id) {
   const modLabel = mod === 'fortalecimiento' ? 'sesión de fortalecimiento' : mod;
   if (!confirm(`¿Permitir que ${ev.asesor} vuelva a presentar la ${modLabel} de ${ev.mes} ${ev.anio}?\nSe borrará el resultado actual.`)) return;
   _clearEvalEnviada(ev);
+  // Limpiar evalBackup para que onSnapshot no re-agregue el eval después de save()
+  if (state.evalBackup && state.evalBackup[sid]) delete state.evalBackup[sid];
   state.evaluaciones = state.evaluaciones.filter(e => String(e.id) !== sid);
   _fbDeleteEval(sid);
+  // Eliminar de Firestore config/main.evalBackup si estaba allí
+  if (window._fbDb) {
+    window._fbDb.collection('config').doc('main').get().then(snap => {
+      if (!snap.exists) return;
+      const bk = snap.data().evalBackup || {};
+      if (!bk[sid]) return;
+      delete bk[sid];
+      window._fbDb.collection('config').doc('main').update({ evalBackup: bk }).catch(() => {});
+    }).catch(() => {});
+  }
   save();
   updateAllFilters();
   renderResultados();
@@ -14612,9 +14624,9 @@ async function enviarEvaluacionAsesor() {
       const snap = await window._fbDb.collection('config').doc('main').get();
       if (snap.exists) {
         const remoto = snap.data();
-        // Mezclar solo evaluacionesEnviadas para detectar si ya envió en otra pestaña/sesión
+        // REMOTE gana sobre LOCAL: permite que la formadora limpie la clave para re-presentar
         if (remoto.evaluacionesEnviadas) {
-          state.evaluacionesEnviadas = Object.assign({}, remoto.evaluacionesEnviadas, state.evaluacionesEnviadas);
+          state.evaluacionesEnviadas = Object.assign({}, state.evaluacionesEnviadas, remoto.evaluacionesEnviadas);
         }
       }
     } catch(e) { console.warn('Sync pre-envío falló:', e); }
