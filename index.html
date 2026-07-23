@@ -6866,7 +6866,14 @@ function renderResultados() {
           </div></td>
           <td style="font-family:'Fira Code',monospace;color:${pass?'var(--pass)':'var(--fail)'};cursor:pointer" onclick="showDetalle(${e.id})">${pctLabel}</td>
           <td style="cursor:pointer" onclick="showDetalle(${e.id})"><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'✓':'✗'} ${pass?'Aprobado':'Reprobado'}</span></td>
-          <td style="white-space:nowrap">
+          <td style="white-space:nowrap;display:flex;gap:4px;align-items:center">
+            ${(coordinadorActual || !supervisorActual) && e.modalidad === 'fortalecimiento' ? `<button onclick="_resetearEvalParaRepresentar('${e.id}')"
+              style="background:rgba(80,120,184,0.08);border:1px solid rgba(80,120,184,0.25);color:var(--accent);
+                     cursor:pointer;font-size:12px;padding:4px 10px;border-radius:4px;font-family:'Montserrat',sans-serif;
+                     font-weight:600;transition:background .15s"
+              onmouseover="this.style.background='rgba(80,120,184,0.22)'"
+              onmouseout="this.style.background='rgba(80,120,184,0.08)'"
+              title="Permitir re-presentar evaluación">↺ Re-presentar</button>` : ''}
             ${(coordinadorActual || !supervisorActual) ? `<button onclick="eliminarEvaluacion('${e.id}')"
               style="background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.25);color:var(--fail);
                      cursor:pointer;font-size:12px;padding:4px 10px;border-radius:4px;font-family:'Montserrat',sans-serif;
@@ -8151,13 +8158,13 @@ function renderSeguimiento() {
           ? `<span class="badge" style="font-size:11px;padding:4px 10px;background:rgba(201,165,69,0.10);color:var(--accent);border:1px solid rgba(201,165,69,0.25)">⚠ Sin calificación</span>`
           : `<span class="badge badge-pass" style="font-size:11px;padding:4px 12px">✓ Presentó</span>`)
       : `<span class="badge badge-fail" style="font-size:11px;padding:4px 12px">✗ No presentó</span>`;
-    const esAsesorNuevo = f.modalidad === 'asesor-nuevo';
+    const esAsesorNuevo = _usaEscalaAN(f);
     const calLabel = f.nota !== null
       ? `<strong>${f.nota}</strong><span style="font-size:11px;color:var(--text3)">/10</span>`
       : (f.pts !== null
           ? `<strong>${f.pts}</strong><span style="font-size:11px;color:var(--text3)">/100</span>`
           : '<span style="color:var(--text3)">—</span>');
-    const _passThreshold = esAsesorNuevo ? 60 : 95; // 6.0/10 = 60% para asesor-nuevo
+    const _passThreshold = esAsesorNuevo ? 60 : 95;
     const pctLabel = f.pct !== null
       ? `<span style="color:${f.pct >= _passThreshold ? 'var(--pass)' : 'var(--fail)'};font-weight:600;font-family:'Fira Code',monospace">${esAsesorNuevo && f.nota !== null ? f.nota + '/10' : f.pct + '%'}</span>`
       : '<span style="color:var(--text3)">—</span>';
@@ -9511,19 +9518,43 @@ function _escHtml(str) {
 
 // generarPitchGemini removed
 
-// ==================== ELIMINAR EVALUACIÓN ====================
+// ==================== ELIMINAR / RE-PRESENTAR EVALUACIÓN ====================
+function _clearEvalEnviada(ev) {
+  if (!ev || !state.evaluacionesEnviadas) return;
+  const mod = ev.modalidad || 'mensual';
+  const suffix = mod === 'mensual' ? '' : '||' + mod;
+  const key = ev.asesor + '||' + ev.mes + '||' + ev.anio + suffix;
+  delete state.evaluacionesEnviadas[key];
+}
+
 function eliminarEvaluacion(id) {
-  // Comparar como string para soportar IDs numéricos y de texto (seb_, frm_, etc.)
   const sid = String(id);
   const ev = state.evaluaciones.find(e => String(e.id) === sid);
   if (!ev) return;
   if (!confirm(`¿Eliminar la evaluación de ${ev.asesor} — ${ev.mes} ${ev.anio}?\nEsta acción no se puede deshacer.`)) return;
+  _clearEvalEnviada(ev);
   state.evaluaciones = state.evaluaciones.filter(e => String(e.id) !== sid);
   _fbDeleteEval(sid);
   save();
   updateAllFilters();
   renderResultados();
   showSyncToast('✓ Evaluación eliminada');
+}
+
+function _resetearEvalParaRepresentar(id) {
+  const sid = String(id);
+  const ev = state.evaluaciones.find(e => String(e.id) === sid);
+  if (!ev) return;
+  const mod = ev.modalidad || 'mensual';
+  const modLabel = mod === 'fortalecimiento' ? 'sesión de fortalecimiento' : mod;
+  if (!confirm(`¿Permitir que ${ev.asesor} vuelva a presentar la ${modLabel} de ${ev.mes} ${ev.anio}?\nSe borrará el resultado actual.`)) return;
+  _clearEvalEnviada(ev);
+  state.evaluaciones = state.evaluaciones.filter(e => String(e.id) !== sid);
+  _fbDeleteEval(sid);
+  save();
+  updateAllFilters();
+  renderResultados();
+  showSyncToast('✓ Evaluación reiniciada — el asesor puede volver a presentarla');
 }
 
 // ==================== PERFIL DEL ASESOR ====================
