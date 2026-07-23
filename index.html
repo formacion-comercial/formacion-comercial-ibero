@@ -6739,9 +6739,9 @@ async function guardarEvaluacion() {
 
   // Marcar como enviada solo después de confirmar que el eval está en Firestore
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-  const _gueKey = modalidad === 'asesor-nuevo'
-    ? `${asesor}||${mes}||${anio}||asesor-nuevo`
-    : `${asesor}||${mes}||${anio}`;
+  const _gueKey = modalidad === 'mensual'
+    ? `${asesor}||${mes}||${anio}`
+    : `${asesor}||${mes}||${anio}||${modalidad}`;
   state.evaluacionesEnviadas[_gueKey] = {
     pct: calcPts(respFinal, totalPreguntas, aObj ? aObj.supervisor : '') || 0,
     fecha: new Date().toISOString(),
@@ -13979,10 +13979,11 @@ function guardarRegistroManual() {
     delete state.evaluacionesEnviadas[dupKey];
   }
 
-  const nota = modalidad === 'asesor-nuevo' ? _calcNotaAsesorNuevo(correctas) : null;
-  const pct  = modalidad === 'asesor-nuevo' ? Math.round((nota || 0) * 10) : Math.round((correctas / total) * 100);
+  const _esAN = _usaEscalaAN({ modalidad });
+  const nota = _esAN ? _calcNotaAsesorNuevo(correctas) : null;
+  const pct  = _esAN ? Math.round((nota || 0) * 10) : Math.round((correctas / total) * 100);
   const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
-  const pass = modalidad === 'asesor-nuevo' ? _isPasoAsesorNuevo(nota) : isPaso(respuestas, total, supervisor);
+  const pass = _esAN ? _isPasoAsesorNuevo(nota) : isPaso(respuestas, total, supervisor);
 
   const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
   const evObj = {
@@ -14634,7 +14635,7 @@ async function enviarEvaluacionAsesor() {
   const modalidad = asesorModalidadSeleccionada;
 
   let pts, pct, pass, nota;
-  if (modalidad === 'asesor-nuevo') {
+  if (_usaEscalaAN({ modalidad })) {
     nota = _calcNotaAsesorNuevo(corr);
     pts  = Math.round(nota * 10);
     pct  = pts;
@@ -14689,7 +14690,7 @@ async function enviarEvaluacionAsesor() {
     ? `${asesorActual.nombre}||${mes}||${anio}`
     : `${asesorActual.nombre}||${mes}||${anio}||${modalidad}`;
   state.evaluacionesEnviadas[_skFinal] = { pts, pct, pass, correctas: corr, total: respFinal.length, modalidad,
-    ...(modalidad === 'asesor-nuevo' ? { nota } : {}) };
+    ...(_usaEscalaAN({ modalidad }) ? { nota } : {}) };
 
   // Register in histórico
   if (!state.historicoAsesores) state.historicoAsesores = {};
