@@ -5039,6 +5039,36 @@ async function _fbInit() {
       }, 600);
     }, e => console.warn('Firestore listener error:', e));
 
+    // Listener de config/main — recupera evalBackup de otros dispositivos sin recargar
+    window._fbDb.collection('config').doc('main').onSnapshot(cfgSnap => {
+      if (!cfgSnap.exists) return;
+      const remotoBk = cfgSnap.data().evalBackup;
+      if (!remotoBk || !Object.keys(remotoBk).length) return;
+      const collIds = new Set((state.evaluaciones || []).map(e => String(e.id)));
+      const faltantes = Object.values(remotoBk).filter(e =>
+        e && e.id && !collIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes)
+      );
+      if (!faltantes.length) return;
+      state.evaluaciones = [...(state.evaluaciones || []), ...faltantes];
+      faltantes.forEach(ev => _fbSaveEval(ev));
+      if (!state.evalBackup) state.evalBackup = {};
+      faltantes.forEach(ev => { state.evalBackup[String(ev.id)] = ev; });
+      clearTimeout(window._fbRefreshTimer);
+      window._fbRefreshTimer = setTimeout(() => {
+        try { updateAllFilters(); } catch(_) {}
+        try {
+          const _av = document.querySelector('.view.active');
+          if (_av) {
+            const _vid = _av.id.replace('view-', '');
+            if (_vid === 'dashboard')  renderDashboard();
+            if (_vid === 'resultados') renderResultados();
+            if (_vid === 'ranking')    renderRanking();
+            if (_vid === 'reporte')    renderReporte();
+          }
+        } catch(_) {}
+      }, 700);
+    }, () => {});
+
   } catch(e) {
     console.error('Firebase background error:', e);
   }
