@@ -8066,11 +8066,15 @@ function renderSeguimiento() {
           (!pAnio || String(e.anio) === pAnio)
         );
         const envKey  = a.nombre + '||' + pMes + '||' + pAnio;
-        // También buscar con el nombre exacto del documento de evaluación (por si difiere del registro)
         const evKey   = evs.length && evs[evs.length-1].asesor !== a.nombre
           ? evs[evs.length-1].asesor + '||' + pMes + '||' + pAnio : null;
-        const enviado = (state.evaluacionesEnviadas && state.evaluacionesEnviadas[envKey]) ||
-                        (evKey && state.evaluacionesEnviadas && state.evaluacionesEnviadas[evKey]) || null;
+        const _ee = state.evaluacionesEnviadas || {};
+        // Verificar clave mensual Y claves de modalidad (fortalecimiento, asesor-nuevo)
+        const enviado = _ee[envKey]
+          || _ee[envKey + '||fortalecimiento']
+          || _ee[envKey + '||asesor-nuevo']
+          || (evKey && (_ee[evKey] || _ee[evKey + '||fortalecimiento'] || _ee[evKey + '||asesor-nuevo']))
+          || null;
         const presento = evs.length > 0 || !!enviado;
         const lastEv = evs.length ? evs[evs.length - 1] : null;
         // Obtener puntaje usando el helper que soporta escala 0-10 (asesor-nuevo)
@@ -8425,8 +8429,13 @@ function _sincronizarEvaluacionesEnviadas() {
 
 function _resetearEnvioAsesor(asesor, mes, anio) {
   if (!confirm(`¿Permitir que "${asesor}" vuelva a presentar la evaluación de ${mes} ${anio}?\n\nSu envío anterior (sin calificación) será eliminado.`)) return;
-  const key = asesor + '||' + mes + '||' + anio;
-  if (state.evaluacionesEnviadas) delete state.evaluacionesEnviadas[key];
+  if (state.evaluacionesEnviadas) {
+    const prefix = asesor + '||' + mes + '||' + anio;
+    delete state.evaluacionesEnviadas[prefix];
+    Object.keys(state.evaluacionesEnviadas).forEach(k => {
+      if (k.startsWith(prefix + '||')) delete state.evaluacionesEnviadas[k];
+    });
+  }
   save();
   renderSeguimiento();
   showSyncToast(`✓ ${asesor} puede volver a presentar su evaluación.`);
@@ -8437,8 +8446,12 @@ function _resetearEnviosSinCalif(filas) {
   if (!sinCalif.length) return;
   if (!confirm(`¿Permitir reenvío a los ${sinCalif.length} asesores sin calificación?\n\nPodrán volver a presentar su evaluación.`)) return;
   sinCalif.forEach(f => {
-    const key = f.asesor + '||' + f.mes + '||' + f.anio;
-    if (state.evaluacionesEnviadas) delete state.evaluacionesEnviadas[key];
+    if (!state.evaluacionesEnviadas) return;
+    const prefix = f.asesor + '||' + f.mes + '||' + f.anio;
+    delete state.evaluacionesEnviadas[prefix];
+    Object.keys(state.evaluacionesEnviadas).forEach(k => {
+      if (k.startsWith(prefix + '||')) delete state.evaluacionesEnviadas[k];
+    });
   });
   save();
   renderSeguimiento();
