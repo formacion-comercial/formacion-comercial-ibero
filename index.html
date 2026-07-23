@@ -14831,17 +14831,16 @@ async function enviarEvaluacionAsesor() {
       : null
   };
 
-  // ── Guardar evaluación en Firestore (con reintentos) y esperar confirmación ──
+  // ── Guardar evaluación: SIEMPRE en evalBackup + intento directo a colección ──
+  // evalBackup garantiza que la formadora siempre reciba el resultado via onSnapshot
+  // aunque _fbSaveEval falle por permisos o conectividad del dispositivo del asesor
+  if (!state.evalBackup) state.evalBackup = {};
+  state.evalBackup[String(evObj.id)] = evObj;
   state.evaluaciones.push(evObj);
   localStorage.setItem('evalproState', JSON.stringify(state));
   const guardadoOk = await _fbSaveEval(evObj);
-
   if (!guardadoOk) {
-    // Firestore falló — guardar en evalBackup para que cualquier dispositivo pueda recuperarlo
-    if (!state.evalBackup) state.evalBackup = {};
-    state.evalBackup[String(evObj.id)] = evObj;
     showSyncToast('⚠ Sin conexión: tu evaluación se guardó localmente y se sincronizará automáticamente.');
-    // No retornar — continuar para marcar como enviada y mostrar resultado
   }
 
   // ── Marcar como enviada con puntaje de respaldo — guardar INMEDIATAMENTE en Firestore ──
