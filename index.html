@@ -8325,17 +8325,17 @@ function _sincronizarEvaluacionesEnviadas() {
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
   let changed = false;
 
-  // Agrupar por asesor||mes||anio[||asesor-nuevo] — quedarse con la más reciente (mayor id)
+  // Agrupar por clave correcta según modalidad — quedarse con la más reciente (mayor id)
   const grupos = {};
   state.evaluaciones.forEach(ev => {
     if (!ev.asesor || !ev.mes || !ev.anio) return;
     // Legacy asesor-nuevo evals (submitted before modalidad field existed) have nota as a number
-    const isAsesorNuevo = ev.modalidad === 'asesor-nuevo'
-      || (ev.modalidad == null && typeof ev.nota === 'number');
-    const modSuffix = isAsesorNuevo ? '||asesor-nuevo' : '';
+    const isLegacyAN = ev.modalidad == null && typeof ev.nota === 'number';
+    const mod = isLegacyAN ? 'asesor-nuevo' : (ev.modalidad || 'mensual');
+    const modSuffix = mod === 'mensual' ? '' : '||' + mod;
     const key = ev.asesor + '||' + ev.mes + '||' + ev.anio + modSuffix;
-    // Clean up stale mensual entry that was previously created from this legacy eval
-    if (isAsesorNuevo && ev.modalidad == null) {
+    // Clean up stale mensual entry that was previously created from a legacy asesor-nuevo eval
+    if (isLegacyAN) {
       const staleKey = ev.asesor + '||' + ev.mes + '||' + ev.anio;
       const stale = state.evaluacionesEnviadas[staleKey];
       if (stale && !stale.modalidad && !stale.registradoPor) {
