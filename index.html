@@ -8087,9 +8087,20 @@ function renderSeguimiento() {
           nota = enviado.nota || null;
           escala = nota != null ? 10 : 100;
         }
+        // tieneDocumento: el eval está en state.evaluaciones (no solo en evaluacionesEnviadas)
+        const tieneDocumento = evs.length > 0;
+        // Detectar modalidad desde la clave de evaluacionesEnviadas cuando no hay documento
+        let _modSeg = lastEv ? (lastEv.modalidad || 'mensual') : 'mensual';
+        if (!tieneDocumento && enviado) {
+          if (enviado.modalidad) _modSeg = enviado.modalidad;
+          else {
+            const _matchKey = Object.keys(_ee).find(k => k.startsWith(envKey + '||'));
+            if (_matchKey) _modSeg = _matchKey.split('||')[3] || 'mensual';
+          }
+        }
         filas.push({ asesor: a.nombre, supervisor: a.supervisor,
                      mes: pMes || '—', anio: pAnio || '—', presento, pts, pct, nota, escala,
-                     modalidad: lastEv ? (lastEv.modalidad || 'mensual') : 'mensual' });
+                     modalidad: _modSeg, tieneDocumento });
       });
     });
   }
@@ -8186,8 +8197,15 @@ function renderSeguimiento() {
                   color:var(--fail);font-size:11px;font-weight:600;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
            title="Permitir que este asesor vuelva a presentar">↺ Reenvío</button>`
       : '';
-    const btnReset = (btnCalif || btnReenvio)
-      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}</div>`
+    // Recuperar: eval con puntaje en evaluacionesEnviadas pero sin documento en state.evaluaciones
+    const btnRecuperar = (f.presento && !f.tieneDocumento && f.pts !== null && mostrarAcciones)
+      ? `<button onclick="_recuperarEvalDesdeSeguimiento('${esc(f.asesor)}','${f.mes}','${f.anio}')"
+           style="padding:4px 10px;border-radius:4px;border:1px solid rgba(78,138,114,0.35);background:rgba(78,138,114,0.07);
+                  color:var(--pass);font-size:11px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer;white-space:nowrap"
+           title="Recuperar resultado y mostrarlo en Resultados">📥 Recuperar resultado</button>`
+      : '';
+    const btnReset = (btnCalif || btnReenvio || btnRecuperar)
+      ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}${btnRecuperar}</div>`
       : '';
     return `<tr>
       <td style="font-weight:600">${f.asesor}</td>
@@ -8439,6 +8457,51 @@ function _resetearEnvioAsesor(asesor, mes, anio) {
   save();
   renderSeguimiento();
   showSyncToast(`✓ ${asesor} puede volver a presentar su evaluación.`);
+}
+
+function _recuperarEvalDesdeSeguimiento(asesor, mes, anio) {
+  const _ee = state.evaluacionesEnviadas || {};
+  const prefix = asesor + '||' + mes + '||' + anio;
+  // Buscar la clave con cualquier modalidad
+  const envKey = Object.keys(_ee).find(k => k === prefix || k.startsWith(prefix + '||'));
+  if (!envKey) { showSyncToast('⚠ No se encontró el puntaje para recuperar.'); return; }
+  const enviado = _ee[envKey];
+  const modalidad = enviado.modalidad || (envKey.split('||')[3]) || 'mensual';
+
+  const aObj = state.asesores.find(a => a.nombre === asesor);
+  const supervisor = aObj ? aObj.supervisor
+    : (state.evaluaciones.find(e => e.asesor === asesor) || {}).supervisor || '';
+
+  const total = enviado.total || 10;
+  const correctas = enviado.correctas != null ? enviado.correctas
+    : (enviado.nota != null ? Math.round(enviado.nota) : Math.round((enviado.pct || 0) * total / 100));
+  // Crear array de respuestas sintético (correctas primero)
+  const respFinal = Array(total).fill(0).map((_, i) => i < correctas ? 1 : 0);
+
+  const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+  const evRec = {
+    id: _nuevoEvalId(),
+    asesor, supervisor, mes, anio: parseInt(anio),
+    actividad: (actLabels[modalidad] || 'Evaluación') + ' ' + mes + ' ' + anio,
+    respuestas: respFinal,
+    totalPreguntas: total,
+    tipo: 'continua',
+    modalidad,
+    nota: enviado.nota != null ? enviado.nota : null,
+    pct: enviado.pct,
+    correctas,
+    total,
+    fechaRegistro: new Date().toISOString(),
+    registradoPor: 'recuperado'
+  };
+
+  state.evaluaciones.push(evRec);
+  _fbSaveEval(evRec);
+  save();
+  updateAllFilters();
+  renderResultados();
+  renderSeguimiento();
+  showSyncToast('✓ Resultado recuperado — ya aparece en Resultados');
 }
 
 function _resetearEnviosSinCalif(filas) {
