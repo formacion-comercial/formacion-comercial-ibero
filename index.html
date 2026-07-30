@@ -8132,8 +8132,11 @@ function renderSeguimiento() {
   setKpi('seg-kpi-nopresento', noPresentaron);
   setKpi('seg-kpi-pct',        pctPart + '%');
 
-  // Botón masivo "Permitir reenvío a todos sin calificación"
+  // Botones masivos
   const segGaugeEl2 = document.getElementById('seg-gauge-row');
+  const _btnParent = segGaugeEl2 ? segGaugeEl2.parentNode : null;
+
+  // Botón masivo "Permitir reenvío a todos sin calificación"
   const btnMasivoId = 'seg-btn-reset-sincalif';
   let btnMasivo = document.getElementById(btnMasivoId);
   if (sinCalif > 0 && !supervisorActual) {
@@ -8141,13 +8144,31 @@ function renderSeguimiento() {
       btnMasivo = document.createElement('button');
       btnMasivo.id = btnMasivoId;
       btnMasivo.style.cssText = 'margin-top:10px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid rgba(201,165,69,0.4);background:rgba(201,165,69,0.08);color:var(--accent);font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
-      if (segGaugeEl2) segGaugeEl2.parentNode.insertBefore(btnMasivo, segGaugeEl2.nextSibling);
+      if (_btnParent && segGaugeEl2) _btnParent.insertBefore(btnMasivo, segGaugeEl2.nextSibling);
     }
     btnMasivo.textContent = `↺ Permitir reenvío a los ${sinCalif} asesor${sinCalif!==1?'es':''} sin calificación`;
     btnMasivo.onclick = () => _resetearEnviosSinCalif(filasFiltradas);
     btnMasivo.style.display = '';
   } else if (btnMasivo) {
     btnMasivo.style.display = 'none';
+  }
+
+  // Botón masivo "Recuperar todos los resultados sin documento"
+  const sinDoc = filasFiltradas.filter(f => f.presento && !f.tieneDocumento && f.pts !== null).length;
+  const btnRecupMasivoId = 'seg-btn-recuperar-todos';
+  let btnRecupMasivo = document.getElementById(btnRecupMasivoId);
+  if (sinDoc > 0 && !supervisorActual) {
+    if (!btnRecupMasivo) {
+      btnRecupMasivo = document.createElement('button');
+      btnRecupMasivo.id = btnRecupMasivoId;
+      btnRecupMasivo.style.cssText = 'margin-top:10px;margin-left:8px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid rgba(78,138,114,0.4);background:rgba(78,138,114,0.08);color:var(--pass);font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
+      if (_btnParent && segGaugeEl2) _btnParent.insertBefore(btnRecupMasivo, segGaugeEl2.nextSibling);
+    }
+    btnRecupMasivo.textContent = `📥 Recuperar ${sinDoc} resultado${sinDoc!==1?'s':''} pendiente${sinDoc!==1?'s':''}`;
+    btnRecupMasivo.onclick = () => _recuperarTodosSinDocumento(filasFiltradas);
+    btnRecupMasivo.style.display = '';
+  } else if (btnRecupMasivo) {
+    btnRecupMasivo.style.display = 'none';
   }
 
   const segGaugeEl = document.getElementById('seg-gauge-row');
@@ -8502,6 +8523,46 @@ function _recuperarEvalDesdeSeguimiento(asesor, mes, anio) {
   renderResultados();
   renderSeguimiento();
   showSyncToast('✓ Resultado recuperado — ya aparece en Resultados');
+}
+
+function _recuperarTodosSinDocumento(filas) {
+  const sinDoc = filas.filter(f => f.presento && !f.tieneDocumento && f.pts !== null);
+  if (!sinDoc.length) return;
+  if (!confirm(`¿Recuperar los ${sinDoc.length} resultado${sinDoc.length!==1?'s':''} pendiente${sinDoc.length!==1?'s':''}?\n\nSe guardarán en Resultados y en Firestore.`)) return;
+  sinDoc.forEach(f => {
+    const _ee = state.evaluacionesEnviadas || {};
+    const prefix = f.asesor + '||' + f.mes + '||' + f.anio;
+    const envKey = Object.keys(_ee).find(k => k === prefix || k.startsWith(prefix + '||'));
+    if (!envKey) return;
+    const enviado = _ee[envKey];
+    const modalidad = enviado.modalidad || (envKey.split('||')[3]) || 'mensual';
+    const aObj = state.asesores.find(a => a.nombre === f.asesor);
+    const supervisor = aObj ? aObj.supervisor
+      : (state.evaluaciones.find(e => e.asesor === f.asesor) || {}).supervisor || '';
+    const total = enviado.total || 10;
+    const correctas = enviado.correctas != null ? enviado.correctas
+      : (enviado.nota != null ? Math.round(enviado.nota) : Math.round((enviado.pct || 0) * total / 100));
+    const respFinal = Array(total).fill(0).map((_, i) => i < correctas ? 1 : 0);
+    const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+    const evRec = {
+      id: _nuevoEvalId(),
+      asesor: f.asesor, supervisor, mes: f.mes, anio: parseInt(f.anio),
+      actividad: (actLabels[modalidad] || 'Evaluación') + ' ' + f.mes + ' ' + f.anio,
+      respuestas: respFinal, totalPreguntas: total,
+      tipo: 'continua', modalidad,
+      nota: enviado.nota != null ? enviado.nota : null,
+      pct: enviado.pct, correctas, total,
+      fechaRegistro: new Date().toISOString(),
+      registradoPor: 'recuperado'
+    };
+    state.evaluaciones.push(evRec);
+    _fbSaveEval(evRec);
+  });
+  save();
+  updateAllFilters();
+  renderResultados();
+  renderSeguimiento();
+  showSyncToast(`✓ ${sinDoc.length} resultado${sinDoc.length!==1?'s':''} recuperado${sinDoc.length!==1?'s':''} y guardados en Resultados`);
 }
 
 function _resetearEnviosSinCalif(filas) {
