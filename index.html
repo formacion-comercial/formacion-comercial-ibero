@@ -1676,6 +1676,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:7px 14px">
             🔄 Sincronizar
           </button>
+          <button id="btn-recuperar-pendientes" class="btn" onclick="recuperarResultadosPendientes()"
+            style="background:rgba(78,138,114,0.10);border:1px solid rgba(78,138,114,0.35);color:var(--pass);font-size:12px;padding:7px 14px;font-weight:700;display:none">
+            📥 Recuperar pendientes
+          </button>
           <button class="btn" onclick="abrirRegistroManual()"
             style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:7px 14px">
             📝 Registrar manualmente
@@ -6796,6 +6800,7 @@ async function guardarEvaluacion() {
 
 // ==================== RESULTADOS ====================
 function renderResultados() {
+  try { _actualizarBtnRecuperar(); } catch(_) {}
   _repararSupervisoresVacios();
   const supFilArr = supervisorActual ? [supervisorActual] : [...resSupSelected];
   const anioF  = (document.getElementById('fil-anio-r') || {}).value || '';
@@ -6886,6 +6891,70 @@ function renderResultados() {
       }).join('')}
     </tbody>
   `;
+}
+
+// Detecta si hay resultados en evaluacionesEnviadas sin documento en state.evaluaciones
+function _contarPendientes() {
+  const _ee = state.evaluacionesEnviadas || {};
+  const ids = new Set((state.evaluaciones || []).map(e =>
+    e.asesor + '||' + e.mes + '||' + String(e.anio) + (e.modalidad && e.modalidad !== 'mensual' ? '||' + e.modalidad : '')
+  ));
+  return Object.entries(_ee).filter(([k, v]) => {
+    if (!v || typeof v !== 'object' || v.pts == null) return false;
+    return !ids.has(k);
+  }).length;
+}
+
+function _actualizarBtnRecuperar() {
+  const btn = document.getElementById('btn-recuperar-pendientes');
+  if (!btn || supervisorActual) return;
+  const n = _contarPendientes();
+  btn.style.display = n > 0 ? '' : 'none';
+  btn.textContent = `📥 Recuperar ${n} pendiente${n !== 1 ? 's' : ''}`;
+}
+
+function recuperarResultadosPendientes() {
+  const _ee = state.evaluacionesEnviadas || {};
+  const ids = new Set((state.evaluaciones || []).map(e =>
+    e.asesor + '||' + e.mes + '||' + String(e.anio) + (e.modalidad && e.modalidad !== 'mensual' ? '||' + e.modalidad : '')
+  ));
+  const pendientes = Object.entries(_ee).filter(([k, v]) =>
+    v && typeof v === 'object' && v.pts != null && !ids.has(k)
+  );
+  if (!pendientes.length) { showSyncToast('✓ No hay resultados pendientes'); return; }
+  if (!confirm(`¿Recuperar ${pendientes.length} resultado${pendientes.length !== 1 ? 's' : ''} que presentaron los asesores pero no aparecen en Resultados?`)) return;
+
+  pendientes.forEach(([k, enviado]) => {
+    const parts = k.split('||');
+    const asesor = parts[0], mes = parts[1], anio = parts[2];
+    const modalidad = parts[3] || enviado.modalidad || 'mensual';
+    const aObj = state.asesores.find(a => a.nombre === asesor);
+    const supervisor = aObj ? aObj.supervisor
+      : (state.evaluaciones.find(e => e.asesor === asesor) || {}).supervisor || '';
+    const total = enviado.total || 10;
+    const correctas = enviado.correctas != null ? enviado.correctas
+      : (enviado.nota != null ? Math.round(enviado.nota) : Math.round((enviado.pct || 0) * total / 100));
+    const respFinal = Array(total).fill(0).map((_, i) => i < correctas ? 1 : 0);
+    const actLabels = { mensual: 'Evaluación Mensual', 'asesor-nuevo': 'Evaluación Asesor Nuevo', fortalecimiento: 'Sesión de Fortalecimiento' };
+    const evRec = {
+      id: _nuevoEvalId(),
+      asesor, supervisor, mes, anio: parseInt(anio),
+      actividad: (actLabels[modalidad] || 'Evaluación') + ' ' + mes + ' ' + anio,
+      respuestas: respFinal, totalPreguntas: total,
+      tipo: 'continua', modalidad,
+      nota: enviado.nota != null ? enviado.nota : null,
+      pct: enviado.pct, correctas, total,
+      fechaRegistro: new Date().toISOString(),
+      registradoPor: 'recuperado'
+    };
+    state.evaluaciones.push(evRec);
+    _fbSaveEval(evRec);
+  });
+  save();
+  updateAllFilters();
+  renderResultados();
+  _actualizarBtnRecuperar();
+  showSyncToast(`✓ ${pendientes.length} resultado${pendientes.length !== 1 ? 's' : ''} recuperado${pendientes.length !== 1 ? 's' : ''}`);
 }
 
 async function sincronizarResultados() {
@@ -8037,15 +8106,6 @@ function renderSeguimiento() {
   state.evaluaciones.forEach(e => {
     if ((!mesesFil.length || mesesFil.includes(e.mes)) && (!anioFil || String(e.anio) === anioFil))
       periodos.add(e.mes + '||' + e.anio);
-  });
-  // También incluir períodos que solo existen en evaluacionesEnviadas (evals sin documento en Firestore)
-  Object.keys(state.evaluacionesEnviadas || {}).forEach(k => {
-    const parts = k.split('||');
-    if (parts.length >= 3) {
-      const mes = parts[1], anio = parts[2];
-      if ((!mesesFil.length || mesesFil.includes(mes)) && (!anioFil || anio === anioFil))
-        periodos.add(mes + '||' + anio);
-    }
   });
   // Si hay filtro de mes(es)+año, incluir esos períodos aunque no haya evaluaciones
   if (mesesFil.length && anioFil) mesesFil.forEach(m => periodos.add(m + '||' + anioFil));
