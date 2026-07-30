@@ -8038,6 +8038,15 @@ function renderSeguimiento() {
     if ((!mesesFil.length || mesesFil.includes(e.mes)) && (!anioFil || String(e.anio) === anioFil))
       periodos.add(e.mes + '||' + e.anio);
   });
+  // También incluir períodos que solo existen en evaluacionesEnviadas (evals sin documento en Firestore)
+  Object.keys(state.evaluacionesEnviadas || {}).forEach(k => {
+    const parts = k.split('||');
+    if (parts.length >= 3) {
+      const mes = parts[1], anio = parts[2];
+      if ((!mesesFil.length || mesesFil.includes(mes)) && (!anioFil || anio === anioFil))
+        periodos.add(mes + '||' + anio);
+    }
+  });
   // Si hay filtro de mes(es)+año, incluir esos períodos aunque no haya evaluaciones
   if (mesesFil.length && anioFil) mesesFil.forEach(m => periodos.add(m + '||' + anioFil));
   // Si no hay filtro de período, usar base vacía para "no presentó"
