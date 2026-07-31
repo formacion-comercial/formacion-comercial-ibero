@@ -4905,9 +4905,32 @@ async function _fbInit() {
 
     // Cargar configuración
     const _pwdsLocales = Object.assign({}, state.supervisorPasswords || {});
+    // Snapshot asesores locales ANTES de que Firestore los sobreescriba.
+    // Si el debounce de save() no alcanzó a escribir en Firestore (reload rápido
+    // o fallo de red), los cambios locales de tipo/programa/supervisor/email se perderían.
+    const _localAsesores = (state.asesores || []).slice();
+    const _localAsesoresByNombre = {};
+    _localAsesores.forEach(a => { if (a && a.nombre) _localAsesoresByNombre[a.nombre] = a; });
     const cfgSnap = await window._fbDb.collection('config').doc('main').get();
     if (cfgSnap.exists) {
       Object.assign(state, cfgSnap.data());
+      // Merge asesores: local gana sobre Firestore para asesores existentes
+      // (preserva cambios de credenciales que aún no llegaron a Firestore)
+      if (_localAsesores.length > 0) {
+        if (state.asesores && state.asesores.length > 0) {
+          state.asesores = state.asesores.map(a =>
+            (a && a.nombre && _localAsesoresByNombre[a.nombre])
+              ? Object.assign({}, a, _localAsesoresByNombre[a.nombre])
+              : a
+          );
+          // Asesores que están en local pero no llegaron a Firestore aún (nuevo asesor sin sync)
+          const _fbNombres = new Set(state.asesores.map(a => a && a.nombre));
+          _localAsesores.filter(a => a && a.nombre && !_fbNombres.has(a.nombre))
+                        .forEach(a => state.asesores.push(a));
+        } else {
+          state.asesores = _localAsesores;
+        }
+      }
       // Restaurar contraseñas locales si Firebase las borró
       if (!state.supervisorPasswords || Object.keys(state.supervisorPasswords).length === 0) {
         state.supervisorPasswords = _pwdsLocales;
