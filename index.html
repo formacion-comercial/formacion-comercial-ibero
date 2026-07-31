@@ -2523,6 +2523,16 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
           <option value="nopresento">✗ No presentó</option>
         </select>
 
+        <!-- Tipo de evaluación -->
+        <select id="seg-modalidad" onchange="renderSeguimiento()"
+          style="min-width:170px;padding:7px 11px;font-size:12px;border-radius:var(--radius-sm);
+                 background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'Montserrat',sans-serif">
+          <option value="">Todos los tipos</option>
+          <option value="mensual">📅 Mensual</option>
+          <option value="asesor-nuevo">🆕 Asesor Nuevo</option>
+          <option value="fortalecimiento">💪 Fortalecimiento</option>
+        </select>
+
         <!-- Limpiar -->
         <button onclick="limpiarFiltrosSeguimiento()"
           style="padding:7px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);
@@ -8121,9 +8131,10 @@ function renderSeguimiento() {
   // Garantizar que evaluacionesEnviadas refleje todos los resultados cargados
   try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
   // segSupsActivos[] — vacío = todos los supervisores
-  const aseFil    = (document.getElementById('seg-asesor')     || {}).value || '';
-  const anioFil   = (document.getElementById('seg-anio')       || {}).value || '';
-  const estadoFil = (document.getElementById('seg-estado')     || {}).value || '';
+  const aseFil      = (document.getElementById('seg-asesor')    || {}).value || '';
+  const anioFil     = (document.getElementById('seg-anio')      || {}).value || '';
+  const estadoFil   = (document.getElementById('seg-estado')    || {}).value || '';
+  const modalidadFil = (document.getElementById('seg-modalidad') || {}).value || '';
   // segMesesActivos[] — empty = todos los meses
   const mesesFil = segMesesActivos; // array, length 0 = sin filtro
 
@@ -8200,11 +8211,10 @@ function renderSeguimiento() {
     });
   }
 
-  // Aplicar filtro de estado
+  // Aplicar filtros de estado y modalidad
   const filasFiltradas = filas.filter(f =>
-    (!estadoFil) ||
-    (estadoFil === 'presento'   &&  f.presento) ||
-    (estadoFil === 'nopresento' && !f.presento)
+    ((!estadoFil) || (estadoFil === 'presento' && f.presento) || (estadoFil === 'nopresento' && !f.presento)) &&
+    ((!modalidadFil) || (f.modalidad || 'mensual') === modalidadFil)
   );
 
   // Ordenar: no presentaron primero, luego por supervisor + asesor
@@ -8678,7 +8688,7 @@ function _resetearEnviosSinCalif(filas) {
 }
 
 function limpiarFiltrosSeguimiento() {
-  ['seg-asesor','seg-anio','seg-estado'].forEach(id => {
+  ['seg-asesor','seg-anio','seg-estado','seg-modalidad'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   segSupsActivos = [];
