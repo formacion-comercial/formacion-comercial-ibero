@@ -5043,10 +5043,36 @@ async function _fbInit() {
       }, 600);
     }, e => console.warn('Firestore listener error:', e));
 
-    // Listener de config/main — recupera evalBackup de otros dispositivos sin recargar
+    // Listener de config/main — recupera evalBackup y sincroniza plazos en tiempo real
     window._fbDb.collection('config').doc('main').onSnapshot(cfgSnap => {
       if (!cfgSnap.exists) return;
-      const remotoBk = cfgSnap.data().evalBackup;
+      const cfgData = cfgSnap.data();
+
+      // Sincronizar plazos (fechas límite) para que el asesor los vea sin recargar
+      if (cfgData.plazos && Object.keys(cfgData.plazos).length) {
+        state.plazos = Object.assign({}, state.plazos, cfgData.plazos);
+        // Si el asesor está en la pantalla de evaluación, actualizar el banner de deadline
+        try {
+          const bannerEl = document.getElementById('asesor-deadline-banner');
+          if (bannerEl) {
+            const _mes  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
+            const _anio = asesorAnioDetectado || String(new Date().getFullYear());
+            const _key  = (asesorActual && asesorActual.supervisor ? asesorActual.supervisor : '') + '||' + _mes + '||' + _anio;
+            const _pl   = state.plazos[_key];
+            if (_pl && _pl.fecha) {
+              const fechaFmt = _pl.fecha.split('-').reverse().join('/');
+              bannerEl.style.display = 'block';
+              bannerEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.20);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:13px;color:var(--text2)">
+                <span style="font-size:18px">⏰</span>
+                <span><strong style="color:var(--accent)">Fecha límite:</strong> ${fechaFmt}${_pl.hora ? ' a las ' + _pl.hora : ''}</span>
+              </div>`;
+            }
+          }
+        } catch(_) {}
+      }
+
+      // Recuperar evalBackup de otros dispositivos
+      const remotoBk = cfgData.evalBackup;
       if (!remotoBk || !Object.keys(remotoBk).length) return;
       const collIds = new Set((state.evaluaciones || []).map(e => String(e.id)));
       const faltantes = Object.values(remotoBk).filter(e =>
