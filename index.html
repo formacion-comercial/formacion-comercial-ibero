@@ -5154,9 +5154,27 @@ async function _fbInit() {
         } catch(_) {}
       }
 
+      // Sincronizar evaluacionesEnviadas del remoto (formadora ve submissions en tiempo real)
+      // Solo cuando no hay sesión de asesor activa — el asesor maneja su propio estado
+      let _envMerged = false;
+      if (cfgData.evaluacionesEnviadas && !asesorActual) {
+        const _prevKeys = Object.keys(state.evaluacionesEnviadas || {}).length;
+        Object.assign(state.evaluacionesEnviadas = state.evaluacionesEnviadas || {}, cfgData.evaluacionesEnviadas);
+        _envMerged = Object.keys(state.evaluacionesEnviadas).length !== _prevKeys;
+      }
+
       // Recuperar evalBackup de otros dispositivos
       const remotoBk = cfgData.evalBackup;
-      if (!remotoBk || !Object.keys(remotoBk).length) return;
+      if (!remotoBk || !Object.keys(remotoBk).length) {
+        // Si llegaron nuevas evaluacionesEnviadas, refrescar seguimiento aunque no haya evalBackup
+        if (_envMerged) {
+          try {
+            const _av = document.querySelector('.view.active');
+            if (_av && _av.id.replace('view-', '') === 'seguimiento') renderSeguimiento();
+          } catch(_) {}
+        }
+        return;
+      }
       const collIds = new Set((state.evaluaciones || []).map(e => String(e.id)));
       const faltantes = Object.values(remotoBk).filter(e =>
         e && e.id && !collIds.has(String(e.id)) && !_MESES_EXCLUIR.includes(e.mes)
@@ -15514,11 +15532,14 @@ async function enviarEvaluacionAsesor() {
         ...(state.evalBackup && Object.keys(state.evalBackup).length ? { evalBackup: state.evalBackup } : {})
       });
     } catch(e) {
-      // Si update falla (doc no existe aún), usar set con merge
+      // Si update falla (doc no existe aún), usar set con merge — solo los campos necesarios
+      // NO incluir state completo (banks de preguntas + asesores puede superar el límite de 1 MB de Firestore)
       try {
-        const cfg = Object.assign({}, state);
-        delete cfg.evaluaciones; delete cfg.fotosPerfil;
-        await window._fbDb.collection('config').doc('main').set(cfg, { merge: true });
+        await window._fbDb.collection('config').doc('main').set({
+          evaluacionesEnviadas: state.evaluacionesEnviadas,
+          historicoAsesores:    state.historicoAsesores,
+          evalBackup:           state.evalBackup || {}
+        }, { merge: true });
       } catch(e2) { console.warn('Error guardando estado post-envío:', e2); }
     }
   }
