@@ -17563,7 +17563,7 @@ async function importarAsesoresSupervisoresExcel(input) {
   if (statusEl) { statusEl.textContent = 'Procesando…'; statusEl.style.color = 'var(--text3)'; }
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       let rows = [];
       if (input.files[0].name.endsWith('.csv')) {
