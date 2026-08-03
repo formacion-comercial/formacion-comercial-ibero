@@ -5076,10 +5076,30 @@ async function _fbInit() {
       }, 600);
     }, e => console.warn('Firestore listener error:', e));
 
-    // Listener de config/main — recupera evalBackup y sincroniza plazos en tiempo real
+    // Listener de config/main — recupera evalBackup, sincroniza plazos y
+    // habilita re-presentación en tiempo real cuando la formadora limpia la clave
     window._fbDb.collection('config').doc('main').onSnapshot(cfgSnap => {
       if (!cfgSnap.exists) return;
       const cfgData = cfgSnap.data();
+
+      // Si un asesor está activo y la formadora habilitó su re-presentación:
+      // actualizar evaluacionesEnviadas y re-renderizar la pantalla del asesor
+      if (asesorActual && cfgData.evaluacionesEnviadas !== undefined) {
+        const _prevEnv    = state.evaluacionesEnviadas || {};
+        const _remotoEnv  = cfgData.evaluacionesEnviadas || {};
+        const _prefix     = asesorActual.nombre + '||';
+        // Detectar claves del asesor que existen local pero fueron borradas en Firestore
+        const _keysLimpias = Object.keys(_prevEnv)
+          .filter(k => k.startsWith(_prefix) && !_remotoEnv[k]);
+        if (_keysLimpias.length > 0) {
+          state.evaluacionesEnviadas = Object.assign({}, _remotoEnv);
+          // Re-renderizar la pantalla "¿Qué quieres presentar?" del asesor
+          try {
+            const selSec = document.getElementById('asesor-selector-section');
+            if (selSec && selSec.style.display !== 'none') mostrarSelectorEvaluaciones();
+          } catch(_) {}
+        }
+      }
 
       // Sincronizar plazos (fechas límite) para que el asesor los vea sin recargar
       if (cfgData.plazos && Object.keys(cfgData.plazos).length) {
