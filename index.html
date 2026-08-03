@@ -8500,7 +8500,7 @@ function guardarCalifManual() {
     });
     if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
     state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct: pts, pass, correctas: corrAjust, total, nota };
-    save(); cerrarCalifManual(); renderSeguimiento();
+    save(); _fbSaveEvaluacionesEnviadas(); cerrarCalifManual(); renderSeguimiento();
     showSyncToast(`✓ Calificación de ${asesor} guardada: ${nota}/10`);
   } else {
     const pts = parseInt(ptsRaw);
@@ -8511,7 +8511,7 @@ function guardarCalifManual() {
     const total = 20;
     const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
     const pct = pts;
-    const pass = isPaso(respuestas, total, supervisor);
+    const pass = pts >= 95;
     _pushEval({
       id: _nuevoEvalId(), asesor, supervisor,
       mes, anio: parseInt(anio),
@@ -8523,7 +8523,7 @@ function guardarCalifManual() {
     });
     if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
     state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct, pass, correctas, total };
-    save(); cerrarCalifManual(); renderSeguimiento();
+    save(); _fbSaveEvaluacionesEnviadas(); cerrarCalifManual(); renderSeguimiento();
     showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
   }
 }
