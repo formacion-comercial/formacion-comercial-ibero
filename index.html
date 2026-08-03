@@ -5083,6 +5083,24 @@ async function _fbInit() {
       if (!cfgSnap.exists) return;
       const cfgData = cfgSnap.data();
 
+      // Mantener asesores y supervisores sincronizados en tiempo real
+      // (si la formadora cambia el supervisor de un asesor, la página del asesor lo refleja de inmediato)
+      if (cfgData.asesores && Array.isArray(cfgData.asesores)) {
+        state.asesores = cfgData.asesores;
+        // Si el dropdown de login tiene un asesor seleccionado, actualizar el supervisor mostrado
+        try {
+          const _loginHid = document.getElementById('asesor-select-login');
+          const _supEl    = document.getElementById('asesor-login-sup');
+          if (_loginHid && _loginHid.value && _supEl) {
+            const _aUpd = state.asesores.find(x => x.nombre === _loginHid.value);
+            if (_aUpd) _supEl.textContent = _aUpd.supervisor;
+          }
+        } catch(_) {}
+      }
+      if (cfgData.supervisores && Array.isArray(cfgData.supervisores)) {
+        state.supervisores = cfgData.supervisores;
+      }
+
       // Si un asesor está activo y la formadora habilitó su re-presentación:
       // actualizar evaluacionesEnviadas y re-renderizar la pantalla del asesor
       if (asesorActual && cfgData.evaluacionesEnviadas !== undefined) {
