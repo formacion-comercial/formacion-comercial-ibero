@@ -11129,26 +11129,6 @@ function cambiarSupervisorAsesor(nombre, nuevoSupervisor) {
   if (state.credenciales && state.credenciales[nombre]) {
     state.credenciales[nombre].supervisor = nuevoSupervisor;
   }
-  // Borrar banco individual del asesor para que use el banco del nuevo supervisor
-  if (state.preguntasPorAsesorMes) {
-    const _keysA = Object.keys(state.preguntasPorAsesorMes).filter(k => k.startsWith(nombre + '||'));
-    if (_keysA.length > 0) {
-      _keysA.forEach(k => {
-        delete state.preguntasPorAsesorMes[k];
-        if (state.modalidadPorSupMes) delete state.modalidadPorSupMes[k];
-      });
-      if (window._fbDb) {
-        try {
-          const _del = {};
-          _keysA.forEach(k => {
-            _del['preguntasPorAsesorMes.' + k] = firebase.firestore.FieldValue.delete();
-            _del['modalidadPorSupMes.' + k]    = firebase.firestore.FieldValue.delete();
-          });
-          window._fbDb.collection('config').doc('main').update(_del).catch(() => {});
-        } catch(_) {}
-      }
-    }
-  }
   showSyncToast(`Guardando: ${nombre.split(' ')[0]}...`);
   save(); _fbSaveAsesores(); updateAllFilters(); renderConfig();
   console.log(`Supervisor de ${nombre} cambiado: ${anterior} → ${nuevoSupervisor}`);
