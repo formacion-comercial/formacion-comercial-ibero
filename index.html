@@ -5067,10 +5067,11 @@ async function _fbInit() {
           const _av = document.querySelector('.view.active');
           if (_av) {
             const _vid = _av.id.replace('view-', '');
-            if (_vid === 'dashboard')  renderDashboard();
-            if (_vid === 'resultados') renderResultados();
-            if (_vid === 'ranking')    renderRanking();
-            if (_vid === 'reporte')    renderReporte();
+            if (_vid === 'dashboard')   renderDashboard();
+            if (_vid === 'resultados')  renderResultados();
+            if (_vid === 'ranking')     renderRanking();
+            if (_vid === 'reporte')     renderReporte();
+            if (_vid === 'seguimiento') renderSeguimiento();
           }
         } catch(_) {}
       }, 600);
@@ -5143,10 +5144,11 @@ async function _fbInit() {
           const _av = document.querySelector('.view.active');
           if (_av) {
             const _vid = _av.id.replace('view-', '');
-            if (_vid === 'dashboard')  renderDashboard();
-            if (_vid === 'resultados') renderResultados();
-            if (_vid === 'ranking')    renderRanking();
-            if (_vid === 'reporte')    renderReporte();
+            if (_vid === 'dashboard')   renderDashboard();
+            if (_vid === 'resultados')  renderResultados();
+            if (_vid === 'ranking')     renderRanking();
+            if (_vid === 'reporte')     renderReporte();
+            if (_vid === 'seguimiento') renderSeguimiento();
           }
         } catch(_) {}
       }, 700);
@@ -8219,11 +8221,20 @@ function renderSeguimiento() {
           ? evs[evs.length-1].asesor + '||' + pMes + '||' + pAnio : null;
         const _ee = state.evaluacionesEnviadas || {};
         // Verificar clave mensual Y claves de modalidad (fortalecimiento, asesor-nuevo)
-        const enviado = _ee[envKey]
+        let enviado = _ee[envKey]
           || _ee[envKey + '||fortalecimiento']
           || _ee[envKey + '||asesor-nuevo']
-          || (evKey && (_ee[evKey] || _ee[evKey + '||fortalecimiento'] || _ee[evKey + '||asesor-nuevo']))
-          || null;
+          || (evKey && (_ee[evKey] || _ee[evKey + '||fortalecimiento'] || _ee[evKey + '||asesor-nuevo']));
+        if (!enviado) {
+          // Fallback normalizado: buscar por nombre fuzzy cuando la clave exacta no coincide
+          const _normA = _formsNorm(a.nombre);
+          const _fzz = Object.entries(_ee).find(([k]) => {
+            const p = k.split('||');
+            return _formsNorm(p[0]) === _normA && p[1] === pMes && String(p[2]) === String(pAnio);
+          });
+          if (_fzz) enviado = _fzz[1];
+        }
+        enviado = enviado || null;
         const presento = evs.length > 0 || !!enviado;
         const lastEv = evs.length ? evs[evs.length - 1] : null;
         // Obtener puntaje usando el helper que soporta escala 0-10 (asesor-nuevo)
