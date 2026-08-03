@@ -7098,110 +7098,152 @@ function _actualizarBtnRecuperar() {
 }
 
 async function mostrarDiagnosticoHoy() {
-  const hoy = new Date().toISOString().slice(0, 10); // "2026-08-03"
+  const _MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const hoy       = new Date().toISOString().slice(0, 10);
+  const mesActual = _MESES_ES[new Date().getMonth()];
+  const anioActual= String(new Date().getFullYear());
 
-  // 1. Confirmados: están en la colección evaluaciones con fechaRegistro de hoy
+  // ── 1. Re-sincronizar Firestore para tener los datos más recientes ──
+  if (window._fbDb) {
+    try {
+      const [cfgSnap, evSnap] = await Promise.all([
+        window._fbDb.collection('config').doc('main').get(),
+        window._fbDb.collection('evaluaciones').get()
+      ]);
+      if (cfgSnap.exists) {
+        const rem = cfgSnap.data();
+        if (rem.evalBackup)           Object.assign(state.evalBackup           = state.evalBackup           || {}, rem.evalBackup);
+        if (rem.evaluacionesEnviadas) Object.assign(state.evaluacionesEnviadas = state.evaluacionesEnviadas || {}, rem.evaluacionesEnviadas);
+      }
+      const fsEvs = evSnap.docs.map(d => d.data());
+      const fsIds = new Set(fsEvs.map(e => String(e.id)));
+      const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
+      state.evaluaciones = [...fsEvs, ...pending];
+    } catch(_) {}
+  }
+
+  // ── 2. Confirmados hoy (tienen fechaRegistro con la fecha de hoy) ──
   const confirmados = (state.evaluaciones || []).filter(e =>
     e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
   );
 
-  // 2. En backup: llegaron vía config/main.evalBackup pero no están confirmados en colección
-  const idsConfirmados = new Set(confirmados.map(e => String(e.id)));
-  const backup = Object.values(state.evalBackup || {}).filter(e =>
-    e.fechaRegistro && e.fechaRegistro.startsWith(hoy) && !idsConfirmados.has(String(e.id))
+  // ── 3. Presentados del mes actual según evaluacionesEnviadas pero SIN eval guardada ──
+  // Estos son los "perdidos": el asesor recibió confirmación en pantalla pero el eval no llegó
+  const _ee = state.evaluacionesEnviadas || {};
+  const idsEnEvals = new Set((state.evaluaciones || []).map(e =>
+    e.asesor + '||' + e.mes + '||' + String(e.anio) + (e.modalidad && e.modalidad !== 'mensual' ? '||' + e.modalidad : '')
+  ));
+  const perdidos = Object.entries(_ee)
+    .filter(([k, v]) => {
+      if (!v || typeof v !== 'object' || v.pts == null) return false;
+      const parts = k.split('||');
+      // Debe ser del mes y año actual
+      return parts[1] === mesActual && parts[2] === anioActual && !idsEnEvals.has(k);
+    })
+    .map(([k, v]) => {
+      const parts = k.split('||');
+      const asesor = parts[0], mes = parts[1], anio = parts[2], modalidad = parts[3] || v.modalidad || 'mensual';
+      const aObj = (state.asesores || []).find(a => a.nombre === asesor);
+      const supervisor = aObj ? aObj.supervisor
+        : ((state.evaluaciones || []).find(e => e.asesor === asesor) || {}).supervisor || '—';
+      return { asesor, supervisor, mes, anio, modalidad, pts: v.pts, pct: v.pct, pass: v.pass, correctas: v.correctas, total: v.total, nota: v.nota, _key: k, _val: v };
+    })
+    .sort((a,b) => a.asesor.localeCompare(b.asesor));
+
+  // ── 4. Backup pendiente de confirmar ──
+  const idsConf = new Set(confirmados.map(e => String(e.id)));
+  const backupPend = Object.values(state.evalBackup || {}).filter(e =>
+    e.fechaRegistro && e.fechaRegistro.startsWith(hoy) && !idsConf.has(String(e.id))
   );
 
-  // 3. Intentar re-sincronizar desde Firestore en tiempo real
-  let fsHoy = [];
-  if (window._fbDb) {
-    try {
-      const snap = await window._fbDb.collection('evaluaciones').get();
-      fsHoy = snap.docs.map(d => d.data()).filter(e =>
-        e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
-      );
-      // Agregar al estado los que falten
-      const fsIds = new Set(fsHoy.map(e => String(e.id)));
-      const nuevos = fsHoy.filter(e => !idsConfirmados.has(String(e.id)));
-      if (nuevos.length) {
-        state.evaluaciones = [...(state.evaluaciones || []), ...nuevos];
-        nuevos.forEach(e => { idsConfirmados.add(String(e.id)); });
-      }
-    } catch(_) {}
-  }
+  const totalProblemas = perdidos.length + backupPend.length;
 
-  // Lista final confirmados (fusionada con Firestore)
-  const todosConfirmados = (state.evaluaciones || []).filter(e =>
-    e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
-  );
-  const idsFinales = new Set(todosConfirmados.map(e => String(e.id)));
-  const backupFinal = Object.values(state.evalBackup || {}).filter(e =>
-    e.fechaRegistro && e.fechaRegistro.startsWith(hoy) && !idsFinales.has(String(e.id))
-  );
-
-  // Armar filas
-  const filaConf = todosConfirmados.length
-    ? todosConfirmados.sort((a,b) => (a.asesor||'').localeCompare(b.asesor||'')).map(e => `
-        <tr>
-          <td style="padding:8px 12px;font-weight:600;color:var(--text)">${e.asesor || '—'}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${e.supervisor || '—'}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${e.mes || '—'} ${e.anio || ''}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
-          <td style="padding:8px 12px"><span style="background:rgba(78,138,114,0.12);color:var(--pass);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✓ Guardada</span></td>
+  // ── 5. Construir filas ──
+  const filaConf = confirmados.length
+    ? confirmados.sort((a,b)=>(a.asesor||'').localeCompare(b.asesor||'')).map(e => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:9px 12px;font-weight:600;color:var(--text)">${e.asesor||'—'}</td>
+          <td style="padding:9px 12px;color:var(--text2)">${e.supervisor||'—'}</td>
+          <td style="padding:9px 12px;color:var(--text2)">${e.mes||''} ${e.anio||''}</td>
+          <td style="padding:9px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
+          <td style="padding:9px 12px;font-weight:700;color:${e.pct>=95?'var(--pass)':'var(--fail)'}">${e.pct!=null?e.pct+'%':'—'}</td>
+          <td style="padding:9px 12px"><span style="background:rgba(78,138,114,0.12);color:var(--pass);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✓ Guardada</span></td>
         </tr>`).join('')
-    : `<tr><td colspan="5" style="padding:12px;color:var(--text3);text-align:center">Ninguna evaluación confirmada hoy</td></tr>`;
+    : `<tr><td colspan="6" style="padding:14px;color:var(--text3);text-align:center;font-style:italic">Ninguna evaluación guardada hoy</td></tr>`;
 
-  const filaPend = backupFinal.length
-    ? backupFinal.sort((a,b) => (a.asesor||'').localeCompare(b.asesor||'')).map(e => `
-        <tr>
-          <td style="padding:8px 12px;font-weight:600;color:var(--text)">${e.asesor || '—'}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${e.supervisor || '—'}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${e.mes || '—'} ${e.anio || ''}</td>
-          <td style="padding:8px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
-          <td style="padding:8px 12px"><span style="background:rgba(201,165,69,0.12);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">⚠ Pendiente</span></td>
-        </tr>`).join('')
-    : '';
+  const filaPerd = perdidos.map(p => `
+      <tr style="border-bottom:1px solid var(--border);background:rgba(184,80,80,0.03)">
+        <td style="padding:9px 12px;font-weight:600;color:var(--text)">${p.asesor}</td>
+        <td style="padding:9px 12px;color:var(--text2)">${p.supervisor}</td>
+        <td style="padding:9px 12px;color:var(--text2)">${p.mes} ${p.anio}</td>
+        <td style="padding:9px 12px;color:var(--text3);font-size:11px">Solo en evaluacionesEnviadas</td>
+        <td style="padding:9px 12px;font-weight:700;color:${(p.pct||0)>=95?'var(--pass)':'var(--fail)'}">${p.pct!=null?p.pct+'%':'—'}</td>
+        <td style="padding:9px 12px"><span style="background:rgba(184,80,80,0.12);color:var(--fail);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✗ No guardada</span></td>
+      </tr>`).join('');
 
-  // Modal
+  const filaBk = backupPend.map(e => `
+      <tr style="border-bottom:1px solid var(--border);background:rgba(201,165,69,0.03)">
+        <td style="padding:9px 12px;font-weight:600;color:var(--text)">${e.asesor||'—'}</td>
+        <td style="padding:9px 12px;color:var(--text2)">${e.supervisor||'—'}</td>
+        <td style="padding:9px 12px;color:var(--text2)">${e.mes||''} ${e.anio||''}</td>
+        <td style="padding:9px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
+        <td style="padding:9px 12px;color:var(--text3)">—</td>
+        <td style="padding:9px 12px"><span style="background:rgba(201,165,69,0.12);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">⚠ Pendiente</span></td>
+      </tr>`).join('');
+
+  // ── 6. Modal ──
   const ov = document.createElement('div');
   ov.id = '_diag-hoy-overlay';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML = `
-    <div style="background:var(--surface);border-radius:var(--radius);width:900px;max-width:98vw;max-height:88vh;
+    <div style="background:var(--surface);border-radius:var(--radius);width:960px;max-width:99vw;max-height:90vh;
                 display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.25);border:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);flex-shrink:0">
         <div>
-          <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:16px;color:var(--text)">Evaluaciones presentadas hoy — ${hoy}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px">${todosConfirmados.length} confirmada(s) • ${backupFinal.length} pendiente(s) de guardar</div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:17px;color:var(--text)">Estado de evaluaciones — ${mesActual} ${anioActual}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px">
+            <span style="color:var(--pass);font-weight:700">${confirmados.length} guardadas</span>
+            ${perdidos.length ? `&nbsp;•&nbsp;<span style="color:var(--fail);font-weight:700">${perdidos.length} no guardadas (recuperables)</span>` : ''}
+            ${backupPend.length ? `&nbsp;•&nbsp;<span style="color:var(--accent);font-weight:700">${backupPend.length} pendientes</span>` : ''}
+          </div>
         </div>
         <button onclick="document.getElementById('_diag-hoy-overlay').remove()"
-          style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1">×</button>
+          style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text3);line-height:1">×</button>
       </div>
       <div style="overflow-y:auto;padding:20px 24px;flex:1">
-        ${backupFinal.length ? `<div style="background:rgba(201,165,69,0.08);border:1px solid rgba(201,165,69,0.30);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--accent)">
-          <strong>⚠ ${backupFinal.length} evaluación(es) pendiente(s):</strong> llegaron al sistema pero no se confirmaron en la base de datos. Haz clic en <strong>"🔄 Sincronizar"</strong> para recuperarlas, o pide al asesor que vuelva a presentar si el problema persiste.
-        </div>` : ''}
+        ${totalProblemas > 0 ? `
+        <div style="background:rgba(184,80,80,0.07);border:1px solid rgba(184,80,80,0.25);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--fail)">
+          <strong>⚠ ${totalProblemas} evaluación(es) con problema:</strong> el asesor presentó y vio su resultado en pantalla, pero el registro no quedó guardado en la base de datos. Haz clic en <strong>"📥 Recuperar ahora"</strong> — el sistema reconstruirá el registro usando el puntaje que quedó guardado.
+        </div>` : `
+        <div style="background:rgba(78,138,114,0.07);border:1px solid rgba(78,138,114,0.25);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--pass)">
+          ✓ Todas las evaluaciones del mes están correctamente guardadas.
+        </div>`}
         <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Montserrat',sans-serif">
           <thead>
             <tr style="background:var(--surface2)">
-              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Asesor</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Supervisor</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Mes</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Hora</th>
-              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Estado</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Asesor</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Supervisor</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Mes</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Hora / Fuente</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Puntaje</th>
+              <th style="padding:9px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Estado</th>
             </tr>
           </thead>
           <tbody>
             ${filaConf}
-            ${filaPend}
+            ${filaPerd}
+            ${filaBk}
           </tbody>
         </table>
       </div>
       <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0">
-        ${backupFinal.length ? `<button onclick="recuperarResultadosPendientes();document.getElementById('_diag-hoy-overlay').remove();renderResultados()"
-          style="padding:9px 18px;border-radius:var(--radius-sm);border:none;background:var(--accent3);color:#fff;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
-          📥 Recuperar pendientes ahora</button>` : ''}
+        ${totalProblemas > 0 ? `<button onclick="_recuperarDesdeDiagnostico()"
+          style="padding:10px 22px;border-radius:var(--radius-sm);border:none;background:var(--accent3);color:#fff;
+                 font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          📥 Recuperar ${totalProblemas} evaluación(es) ahora</button>` : ''}
         <button onclick="document.getElementById('_diag-hoy-overlay').remove()"
-          style="padding:9px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;cursor:pointer">
+          style="padding:10px 20px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);
+                 color:var(--text2);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;cursor:pointer">
           Cerrar</button>
       </div>
     </div>`;
@@ -7209,6 +7251,11 @@ async function mostrarDiagnosticoHoy() {
   const old = document.getElementById('_diag-hoy-overlay');
   if (old) old.remove();
   document.body.appendChild(ov);
+}
+
+function _recuperarDesdeDiagnostico() {
+  document.getElementById('_diag-hoy-overlay').remove();
+  recuperarResultadosPendientes();
 }
 
 function recuperarResultadosPendientes() {
