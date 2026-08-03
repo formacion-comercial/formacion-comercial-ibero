@@ -12713,10 +12713,16 @@ async function loginAsesor() {
         ['preguntasPorSupMes','preguntasPorAsesorMes','plazos','evaluacionesEnviadas','asesores','supervisores',
          'modalidadPorSupMes','notifConfig','evalBackup'].forEach(k => {
           if (remoto[k] === undefined) return;
-          // Bancos de preguntas: COMBINAR local + remoto para no perder preguntas
-          // recién guardadas que aún no llegaron a Firestore
           if (k === 'preguntasPorAsesorMes' || k === 'preguntasPorSupMes' || k === 'modalidadPorSupMes') {
+            // Bancos de preguntas: combinar local + remoto
             state[k] = Object.assign({}, remoto[k], state[k] || {});
+          } else if (k === 'evalBackup') {
+            // evalBackup: el local tiene prioridad — puede tener evals pendientes que
+            // no llegaron a Firestore. Nunca pisar con el remoto.
+            state[k] = Object.assign({}, remoto[k] || {}, state[k] || {});
+          } else if (k === 'evaluacionesEnviadas') {
+            // Combinar: remoto + local (el local tiene los envíos del asesor que quizá no llegaron)
+            state[k] = Object.assign({}, remoto[k] || {}, state[k] || {});
           } else {
             state[k] = remoto[k];
           }
@@ -12730,14 +12736,39 @@ async function loginAsesor() {
       const evSnap = await window._fbDb.collection('evaluaciones').where('asesor', '==', nombre).get();
       const asesorEvs = evSnap.empty ? [] : evSnap.docs.map(d => d.data());
       const otrosEvs  = (state.evaluaciones || []).filter(e => (e.asesor || '').trim() !== nombre.trim());
-      // Agregar también evals del backup (por si _fbSaveEval falló al registrar)
+
+      // Evals locales del asesor que no están en Firestore (pueden ser de la sesión anterior que falló)
+      const _asesorIds  = new Set(asesorEvs.map(e => String(e.id)));
+      const _localEvs   = (state.evaluaciones || []).filter(e => (e.asesor || '').trim() === nombre.trim());
+      const _localPend  = _localEvs.filter(e => !_asesorIds.has(String(e.id)));
+
+      // Evals en evalBackup del asesor que no llegaron a Firestore
       const _bkParaAsesor = state.evalBackup
         ? Object.values(state.evalBackup).filter(e => (e.asesor || '').trim() === nombre.trim())
         : [];
-      const _asesorIds = new Set(asesorEvs.map(e => String(e.id)));
       const _bkFaltantes = _bkParaAsesor.filter(e => !_asesorIds.has(String(e.id)));
-      state.evaluaciones = [...otrosEvs, ...asesorEvs, ..._bkFaltantes];
-      if (_bkFaltantes.length) _bkFaltantes.forEach(ev => _fbSaveEval(ev)); // auto-corrección
+
+      // Fusionar: Firestore + locales pendientes + backup pendiente (sin duplicados)
+      const _todosPend = [..._localPend, ..._bkFaltantes];
+      const _pendIds   = new Set(_todosPend.map(e => String(e.id)));
+      const _pendUniq  = _todosPend.filter((e, i) => {
+        const k = String(e.id); return _pendIds.has(k) && _todosPend.findIndex(x => String(x.id) === k) === i;
+      });
+      state.evaluaciones = [...otrosEvs, ...asesorEvs, ..._pendUniq];
+
+      // Reintentar guardar en Firestore todos los pendientes
+      if (_pendUniq.length) {
+        _pendUniq.forEach(ev => _fbSaveEval(ev));
+        // También guardar en config/main para que la formadora los reciba vía onSnapshot
+        if (window._fbDb) {
+          _pendUniq.forEach(ev => { if (!state.evalBackup) state.evalBackup = {}; state.evalBackup[String(ev.id)] = ev; });
+          window._fbDb.collection('config').doc('main').set({
+            evalBackup: state.evalBackup,
+            evaluacionesEnviadas: state.evaluacionesEnviadas || {}
+          }, { merge: true }).catch(() => {});
+        }
+        showSyncToast('⏳ Sincronizando evaluación anterior…');
+      }
       try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
       localStorage.setItem('evalproState', JSON.stringify(state));
     } catch(e) { console.warn('Sync evaluaciones asesor falló:', e); }
