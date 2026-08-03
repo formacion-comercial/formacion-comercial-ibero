@@ -13145,8 +13145,12 @@ function _getPreguntas(sup, mes, anio, modalidad) {
   }
   return (anio && bank[_supMesKey(sup, mes, anio)]) || bank[_supMesKey(sup, mes)] || null;
 }
-// Individual asesor questions take priority over group questions
+// Las preguntas del supervisor tienen prioridad — todos los asesores del supervisor ven las mismas preguntas
 function _getPreguntasParaAsesor(asesorNombre, supervisor, mes, anio, modalidad) {
+  // 1. Siempre buscar primero el banco del supervisor
+  const _supPregs = _getPreguntas(supervisor, mes, anio, modalidad);
+  if (_supPregs && _supPregs.length > 0) return _supPregs;
+  // 2. Solo si el supervisor no tiene banco, usar banco individual del asesor
   const bank   = state.preguntasPorAsesorMes || {};
   const modMap = state.modalidadPorSupMes    || {};
   const suffix = (modalidad && modalidad !== 'mensual') ? '||' + modalidad : '';
