@@ -11089,16 +11089,25 @@ function _fbSaveEvaluacionesEnviadas() {
 }
 // Escribe SOLO el array asesores a Firestore sin pasar por el documento
 // completo de save() que puede superar 1MB y fallar silenciosamente.
+let _saveAsesoresTimer;
 function _fbSaveAsesores() {
   if (!window._fbDb) return;
-  const asesoresCopy = JSON.parse(JSON.stringify(state.asesores));
-  window._fbDb.collection('config').doc('main')
-    .update({ asesores: asesoresCopy })
-    .catch(() => {
-      window._fbDb.collection('config').doc('main')
-        .set({ asesores: asesoresCopy }, { merge: true })
-        .catch(e => console.warn('Error guardando asesores:', e));
-    });
+  clearTimeout(_saveAsesoresTimer);
+  _saveAsesoresTimer = setTimeout(() => {
+    const asesoresCopy = JSON.parse(JSON.stringify(state.asesores));
+    window._fbDb.collection('config').doc('main')
+      .update({ asesores: asesoresCopy })
+      .then(() => showSyncToast('✓ Cambios de asesores guardados'))
+      .catch(() => {
+        window._fbDb.collection('config').doc('main')
+          .set({ asesores: asesoresCopy }, { merge: true })
+          .then(() => showSyncToast('✓ Cambios de asesores guardados'))
+          .catch(e => {
+            console.error('Error critico guardando asesores:', e);
+            showSyncToast('⚠ ERROR: los cambios NO se guardaron. Verifica conexion y recarga.');
+          });
+      });
+  }, 300);
 }
 function actualizarEmailAsesor(nombre, email) {
   const a = state.asesores.find(x => x.nombre === nombre);
@@ -11120,6 +11129,7 @@ function cambiarSupervisorAsesor(nombre, nuevoSupervisor) {
   if (state.credenciales && state.credenciales[nombre]) {
     state.credenciales[nombre].supervisor = nuevoSupervisor;
   }
+  showSyncToast(`Guardando: ${nombre.split(' ')[0]}...`);
   save(); _fbSaveAsesores(); updateAllFilters(); renderConfig();
   console.log(`Supervisor de ${nombre} cambiado: ${anterior} → ${nuevoSupervisor}`);
 }
