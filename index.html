@@ -8953,7 +8953,9 @@ function exportarSeguimientoExcel() {
 }
 
 // ==================== EDITAR SUPERVISOR DE EVALUACIÓN ====================
-function editarSupervisorEval(evalId, supActual) {
+function editarSupervisorEval(evalId) {
+  const _ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
+  const supActual = _ev ? (_ev.supervisor || '') : '';
   const supervisores = (state.supervisores || [])
     .map(s => typeof s === 'string' ? s : s.nombre).filter(Boolean).sort();
   if (!supervisores.length) { alert('No hay supervisores configurados en el sistema.'); return; }
@@ -9489,7 +9491,7 @@ function renderReporte() {
             <div style="flex:1">
               <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px">${nombreAsesor}</div>
               <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
-                <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">👤 <span style="color:var(--text2)">${supervisor}</span>${(!supervisorActual && !coordinadorActual) ? `<button onclick="editarSupervisorEval(${JSON.stringify(String(e.id))},${JSON.stringify(supervisor)})" title="Cambiar supervisor" style="background:none;border:none;cursor:pointer;padding:0 4px;color:var(--text3);font-size:11px;opacity:0.55;vertical-align:middle;line-height:1">✏</button>` : ''}</span>
+                <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">👤 <span style="color:var(--text2)">${supervisor}</span>${(!supervisorActual && !coordinadorActual) ? `<button onclick="editarSupervisorEval(${e.id})" title="Cambiar supervisor" style="background:none;border:none;cursor:pointer;padding:0 4px;color:var(--text3);font-size:11px;opacity:0.55;vertical-align:middle;line-height:1">✏</button>` : ''}</span>
                 <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">📅 <span style="color:var(--text2)">${e.mes} ${e.anio}</span></span>
                 ${btnCorregir}
               </div>
