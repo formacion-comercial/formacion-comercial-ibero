@@ -8787,15 +8787,17 @@ function _habilitarEvaluacionSupervisor(filas) {
       idsAEliminar.forEach(id => { if (state.evalBackup[id]) delete state.evalBackup[id]; });
     }
     idsAEliminar.forEach(id => _fbDeleteEval(id));
-    // Limpiar evalBackup en Firestore
-    if (window._fbDb && idsAEliminar.size) {
-      window._fbDb.collection('config').doc('main').get().then(snap => {
-        if (!snap.exists) return;
-        const bk = snap.data().evalBackup || {};
-        let changed = false;
-        idsAEliminar.forEach(id => { if (bk[id]) { delete bk[id]; changed = true; } });
-        if (changed) window._fbDb.collection('config').doc('main').update({ evalBackup: bk }).catch(() => {});
-      }).catch(() => {});
+    // Borrar entradas de evalBackup atómicamente con FieldValue.delete()
+    // (evita la race condition del get()+update() que permitía al asesor
+    //  recargar antes de que se completara la limpieza)
+    if (window._fbDb) {
+      try {
+        const bkDel = {};
+        idsAEliminar.forEach(id => {
+          bkDel['evalBackup.' + id] = firebase.firestore.FieldValue.delete();
+        });
+        window._fbDb.collection('config').doc('main').update(bkDel).catch(() => {});
+      } catch(_) {}
     }
   }
 
@@ -9915,15 +9917,13 @@ function _resetearEvalParaRepresentar(id) {
   if (state.evalBackup && state.evalBackup[sid]) delete state.evalBackup[sid];
   state.evaluaciones = state.evaluaciones.filter(e => String(e.id) !== sid);
   _fbDeleteEval(sid);
-  // Eliminar de Firestore config/main.evalBackup si estaba allí
+  // Borrar entrada de evalBackup atómicamente con FieldValue.delete()
   if (window._fbDb) {
-    window._fbDb.collection('config').doc('main').get().then(snap => {
-      if (!snap.exists) return;
-      const bk = snap.data().evalBackup || {};
-      if (!bk[sid]) return;
-      delete bk[sid];
-      window._fbDb.collection('config').doc('main').update({ evalBackup: bk }).catch(() => {});
-    }).catch(() => {});
+    try {
+      const bkDel = {};
+      bkDel['evalBackup.' + sid] = firebase.firestore.FieldValue.delete();
+      window._fbDb.collection('config').doc('main').update(bkDel).catch(() => {});
+    } catch(_) {}
   }
   save(); _fbSaveEvaluacionesEnviadas();
   updateAllFilters();
