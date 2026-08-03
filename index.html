@@ -7127,8 +7127,9 @@ async function mostrarDiagnosticoHoy() {
     e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
   );
 
-  // ── 3. Presentados del mes actual según evaluacionesEnviadas pero SIN eval guardada ──
-  // Estos son los "perdidos": el asesor recibió confirmación en pantalla pero el eval no llegó
+  // ── 3. Todos los que tienen entrada en evaluacionesEnviadas pero SIN eval guardada ──
+  // Busca en TODOS los meses, no solo el actual (pueden ser evaluaciones de meses anteriores)
+  const _EXCLUIR_MESES = ['Octubre','Noviembre','Diciembre'];
   const _ee = state.evaluacionesEnviadas || {};
   const idsEnEvals = new Set((state.evaluaciones || []).map(e =>
     e.asesor + '||' + e.mes + '||' + String(e.anio) + (e.modalidad && e.modalidad !== 'mensual' ? '||' + e.modalidad : '')
@@ -7137,8 +7138,8 @@ async function mostrarDiagnosticoHoy() {
     .filter(([k, v]) => {
       if (!v || typeof v !== 'object' || v.pts == null) return false;
       const parts = k.split('||');
-      // Debe ser del mes y año actual
-      return parts[1] === mesActual && parts[2] === anioActual && !idsEnEvals.has(k);
+      if (_EXCLUIR_MESES.includes(parts[1])) return false;
+      return !idsEnEvals.has(k);
     })
     .map(([k, v]) => {
       const parts = k.split('||');
@@ -7148,7 +7149,7 @@ async function mostrarDiagnosticoHoy() {
         : ((state.evaluaciones || []).find(e => e.asesor === asesor) || {}).supervisor || '—';
       return { asesor, supervisor, mes, anio, modalidad, pts: v.pts, pct: v.pct, pass: v.pass, correctas: v.correctas, total: v.total, nota: v.nota, _key: k, _val: v };
     })
-    .sort((a,b) => a.asesor.localeCompare(b.asesor));
+    .sort((a,b) => a.asesor.localeCompare(b.asesor) || a.mes.localeCompare(b.mes));
 
   // ── 4. Backup pendiente de confirmar ──
   const idsConf = new Set(confirmados.map(e => String(e.id)));
