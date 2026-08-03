@@ -14674,6 +14674,49 @@ function mostrarSelectorEvaluaciones() {
   document.getElementById('asesor-score-sticky').style.display     = 'none';
 }
 
+// Construye la lista de opciones con color para la retroalimentación
+function _buildRetroOptsHtml(q, sel) {
+  if (!q || !q.opciones && q.tipo !== 'verdaderofalso') return '';
+  const LETRAS = ['A','B','C','D'];
+  const tipo = q.tipo || 'unica';
+  let html = '';
+  const _row = (letra, label, isCorr, isWrong) => {
+    const bg  = isCorr ? 'rgba(78,138,114,0.12)' : isWrong ? 'rgba(184,80,80,0.10)' : 'transparent';
+    const bdr = isCorr ? 'rgba(78,138,114,0.35)' : isWrong ? 'rgba(184,80,80,0.35)' : 'var(--border)';
+    const icn = isCorr ? `<span style="font-weight:800;font-size:13px;color:var(--pass)">✓</span>`
+              : isWrong ? `<span style="font-weight:800;font-size:13px;color:var(--fail)">✗</span>` : '';
+    return `<div style="padding:7px 12px;border-radius:6px;background:${bg};border:1px solid ${bdr};display:flex;align-items:center;gap:8px">
+      <span style="font-weight:700;font-size:11px;font-family:'Fira Code',monospace;min-width:18px;color:var(--text3)">${letra}</span>
+      <span style="font-size:12px;flex:1;color:var(--text);line-height:1.4">${label}</span>
+      ${icn}
+    </div>`;
+  };
+  if (tipo === 'verdaderofalso') {
+    [['V','Verdadero'],['F','Falso']].forEach(([letra, label]) => {
+      const isCorr  = letra === (q.correcta||'').toUpperCase();
+      const isWrong = !isCorr && letra === sel;
+      html += _row(letra, label, isCorr, isWrong);
+    });
+  } else if (tipo === 'multiple') {
+    const corrSet = new Set((q.correctas||[]).map(l => l.toUpperCase()));
+    const selSet  = new Set(Array.isArray(sel) ? sel.map(idx => LETRAS[idx]) : []);
+    (q.opciones||[]).forEach((opt, idx) => {
+      const letra   = LETRAS[idx];
+      const isCorr  = corrSet.has(letra);
+      const isWrong = !isCorr && selSet.has(letra);
+      html += _row(letra, opt, isCorr, isWrong);
+    });
+  } else {
+    const corrIdx = LETRAS.indexOf((q.correcta||'').toUpperCase());
+    (q.opciones||[]).forEach((opt, idx) => {
+      const isCorr  = idx === corrIdx;
+      const isWrong = !isCorr && idx === sel;
+      html += _row(LETRAS[idx], opt, isCorr, isWrong);
+    });
+  }
+  return html;
+}
+
 function verRetroalimentacionEvaluacion(modalidad) {
   if (!asesorActual) return;
   const mes  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
@@ -14794,24 +14837,17 @@ function verRetroalimentacionEvaluacion(modalidad) {
     };
 
     const _malCard = ({i}) => {
-      const {enunciado, selTexto, corrTexto, q} = _textos(i);
+      const q         = rawPregs[i] || {};
+      const enunciado = q.enunciado || q.texto || q.pregunta || ('Pregunta ' + (i+1));
+      const optsHtml  = _buildRetroOptsHtml(q, selecciones[i]);
       return `<div style="padding:12px 14px;border-radius:var(--radius-sm);background:rgba(184,80,80,0.05);border:1px solid rgba(184,80,80,0.18)">
-        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">
           <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;
                 background:rgba(184,80,80,0.15);font-size:10px;font-family:'Fira Code',monospace;font-weight:700;color:var(--fail);flex-shrink:0;margin-top:1px">P${i+1}</span>
           <span style="font-size:13px;font-weight:600;color:var(--text);line-height:1.4">${enunciado}</span>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.18)">
-            <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--fail);margin-bottom:3px">✗ Tu respuesta</div>
-            <div style="font-size:12px;font-weight:600;color:var(--text)">${selTexto}</div>
-          </div>
-          <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(78,138,114,0.08);border:1px solid rgba(78,138,114,0.18)">
-            <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--pass);margin-bottom:3px">✓ Respuesta correcta</div>
-            <div style="font-size:12px;font-weight:600;color:var(--text)">${corrTexto}</div>
-          </div>
-        </div>
-        ${q.explicacion ? `<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18)">
+        ${optsHtml ? `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:${q.explicacion?'10px':'0'}">${optsHtml}</div>` : ''}
+        ${q.explicacion ? `<div style="padding:8px 10px;border-radius:6px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18)">
           <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);margin-bottom:3px">💡 Explicación</div>
           <div style="font-size:12px;color:var(--text2);line-height:1.5">${q.explicacion}</div>
         </div>` : ''}
@@ -15499,26 +15535,19 @@ async function enviarEvaluacionAsesor() {
 
     // Tarjeta para pregunta incorrecta
     const _cardMala = ({ i }) => {
-      const { enunciado, selTexto, corrTexto, q } = _textosPregunta(i);
+      const q         = rawPregs[i] || {};
+      const enunciado = q.enunciado || q.texto || q.pregunta || ('Pregunta ' + (i+1));
+      const optsHtml  = _buildRetroOptsHtml(q, asesorRespuestas[i]);
       return `
         <div style="padding:12px 14px;border-radius:var(--radius-sm);background:rgba(184,80,80,0.05);border:1px solid rgba(184,80,80,0.18)">
-          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">
             <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;
                   background:rgba(184,80,80,0.15);font-size:10px;font-family:'Fira Code',monospace;font-weight:700;color:var(--fail);flex-shrink:0;margin-top:1px">P${i+1}</span>
             <span style="font-size:13px;font-weight:600;color:var(--text);line-height:1.4">${enunciado}</span>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.18)">
-              <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--fail);margin-bottom:3px">✗ Tu respuesta</div>
-              <div style="font-size:12px;font-weight:600;color:var(--text)">${selTexto}</div>
-            </div>
-            <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(78,138,114,0.08);border:1px solid rgba(78,138,114,0.18)">
-              <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--pass);margin-bottom:3px">✓ Respuesta correcta</div>
-              <div style="font-size:12px;font-weight:600;color:var(--text)">${corrTexto}</div>
-            </div>
-          </div>
+          ${optsHtml ? `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:${q.explicacion?'10px':'0'}">${optsHtml}</div>` : ''}
           ${q && q.explicacion ? `
-          <div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18)">
+          <div style="padding:8px 10px;border-radius:6px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18)">
             <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);margin-bottom:3px">💡 Explicación</div>
             <div style="font-size:12px;color:var(--text2);line-height:1.5">${q.explicacion}</div>
           </div>` : ''}
