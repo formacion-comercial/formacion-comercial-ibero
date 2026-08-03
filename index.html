@@ -8956,9 +8956,14 @@ function exportarSeguimientoExcel() {
 function editarSupervisorEval(evalId) {
   const _ev = state.evaluaciones.find(e => String(e.id) === String(evalId));
   const supActual = _ev ? (_ev.supervisor || '') : '';
-  const supervisores = (state.supervisores || [])
-    .map(s => typeof s === 'string' ? s : s.nombre).filter(Boolean).sort();
-  if (!supervisores.length) { alert('No hay supervisores configurados en el sistema.'); return; }
+  // Obtener lista de supervisores: primero del array dedicado, luego de asesores como respaldo
+  let supervisores = (state.supervisores || [])
+    .map(s => typeof s === 'string' ? s : s.nombre).filter(Boolean);
+  if (!supervisores.length) {
+    supervisores = [...new Set((state.asesores || []).map(a => a.supervisor).filter(Boolean))];
+  }
+  supervisores.sort();
+  if (!supervisores.length) { alert('No hay supervisores disponibles. Verifica la configuración.'); return; }
 
   const existing = document.getElementById('_edit-sup-overlay');
   if (existing) existing.remove();
@@ -8985,7 +8990,7 @@ function editarSupervisorEval(evalId) {
           style="padding:9px 20px;border-radius:var(--radius-sm);border:1px solid var(--border);
                  background:var(--surface2);color:var(--text2);font-family:'Montserrat',sans-serif;
                  font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
-        <button onclick="_confirmarCambioSupervisor(${JSON.stringify(String(evalId))})"
+        <button onclick="_confirmarCambioSupervisor(${evalId})"
           style="padding:9px 20px;border-radius:var(--radius-sm);border:none;
                  background:var(--accent3);color:#fff;font-family:'Montserrat',sans-serif;
                  font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
@@ -9491,8 +9496,9 @@ function renderReporte() {
             <div style="flex:1">
               <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px">${nombreAsesor}</div>
               <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
-                <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">👤 <span style="color:var(--text2)">${supervisor}</span>${(!supervisorActual && !coordinadorActual) ? `<button onclick="editarSupervisorEval(${e.id})" title="Cambiar supervisor" style="background:none;border:none;cursor:pointer;padding:0 4px;color:var(--text3);font-size:11px;opacity:0.55;vertical-align:middle;line-height:1">✏</button>` : ''}</span>
+                <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">👤 <span style="color:var(--text2)">${supervisor}</span></span>
                 <span style="font-size:12px;color:var(--text3);font-family:'Fira Code',monospace">📅 <span style="color:var(--text2)">${e.mes} ${e.anio}</span></span>
+                ${(!supervisorActual && !coordinadorActual) ? `<button onclick="editarSupervisorEval(${e.id})" style="display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:var(--radius-sm);border:1px solid rgba(91,130,190,0.35);background:rgba(91,130,190,0.07);color:var(--accent2);font-size:12px;font-weight:600;font-family:'Montserrat',sans-serif;cursor:pointer">✏ Cambiar supervisor</button>` : ''}
                 ${btnCorregir}
               </div>
             </div>
