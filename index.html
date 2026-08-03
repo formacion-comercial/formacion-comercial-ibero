@@ -14601,6 +14601,14 @@ function mostrarSelectorEvaluaciones() {
             <div style="font-size:20px;font-weight:800;color:${passColor};line-height:1">${scoreDisp}</div>
             <div style="font-size:11px;color:${passColor};font-weight:600;margin-top:2px">${enviado.pass ? '✓ Aprobado' : '✗ Reprobado'}</div>
           </div>
+        </div>
+        <div style="margin-top:12px;text-align:right">
+          <button onclick="verRetroalimentacionEvaluacion('${t.mod}')"
+            style="padding:7px 16px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);
+                   border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;
+                   font-family:'Montserrat',sans-serif">
+            📝 Ver retroalimentación
+          </button>
         </div>`;
     } else if (cerrada) {
       const _fechaFmt = _plazo.fecha ? _plazo.fecha.split('-').reverse().join('/') : '';
@@ -14664,6 +14672,188 @@ function mostrarSelectorEvaluaciones() {
   document.getElementById('asesor-form-section').style.display     = 'none';
   document.getElementById('asesor-result-section').classList.remove('show');
   document.getElementById('asesor-score-sticky').style.display     = 'none';
+}
+
+function verRetroalimentacionEvaluacion(modalidad) {
+  if (!asesorActual) return;
+  const mes  = asesorMesDetectado  || _MESES_ORD[new Date().getMonth()];
+  const anio = asesorAnioDetectado || String(new Date().getFullYear());
+  const mod  = modalidad || 'mensual';
+
+  // Buscar la evaluación más reciente del asesor para este mes/modalidad
+  const evs = (state.evaluaciones || []).filter(e =>
+    (e.asesor || '').trim() === asesorActual.nombre.trim() &&
+    e.mes === mes &&
+    String(e.anio) === String(anio) &&
+    (e.modalidad || 'mensual') === mod
+  );
+  const ev = evs.sort((a, b) => Number(b.id) - Number(a.id))[0];
+
+  if (!ev) {
+    showSyncToast('No se encontró la evaluación en este dispositivo. Espera un momento y vuelve a intentarlo.');
+    return;
+  }
+
+  const respFinal   = ev.respuestas || [];
+  const selecciones = ev.selecciones || [];
+  const corr        = respFinal.filter(r => r === 1 || r === true).length;
+  const totalPregs  = respFinal.length || 1;
+  const _esNuevo    = mod === 'asesor-nuevo' || mod === 'fortalecimiento';
+  const pts         = ev.pct != null ? ev.pct : (ev.pts != null ? ev.pts : 0);
+  const pass        = ev.pass !== undefined ? ev.pass : _evalPaso(ev);
+  const nota        = ev.nota !== undefined ? ev.nota : null;
+
+  // Obtener banco de preguntas actual para mostrar textos y opciones
+  const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, mod);
+
+  // Mostrar sección de resultado
+  document.getElementById('asesor-selector-section').style.display = 'none';
+  document.getElementById('asesor-form-section').style.display     = 'none';
+  document.getElementById('asesor-score-sticky').style.display     = 'none';
+  const res = document.getElementById('asesor-result-section');
+  res.classList.add('show');
+
+  document.getElementById('result-emoji').textContent       = pass ? '🏆' : '📋';
+  document.getElementById('result-status-text').textContent = pass ? '✓ APROBADO' : '✗ REPROBADO';
+  document.getElementById('result-status-text').style.color = pass ? 'var(--pass)' : 'var(--fail)';
+  document.getElementById('result-score-big').textContent   = pts;
+  document.getElementById('result-score-big').className     = 'result-big-score ' + (pass ? 'pass' : 'fail');
+  document.getElementById('result-sub-text').textContent    = pass
+    ? `Respondiste correctamente ${corr} de ${totalPregs} preguntas.`
+    : `Respondiste ${corr} de ${totalPregs} correctas.`;
+  document.getElementById('result-correctas').textContent   = corr;
+  document.getElementById('result-incorrectas').textContent = totalPregs - corr;
+  document.getElementById('result-pct').textContent         = _esNuevo ? `${nota}/10` : pts + '%';
+  document.getElementById('result-pts-v').textContent       = pts;
+
+  // Detalle por pregunta (grilla)
+  const LETRAS    = ['A','B','C','D'];
+  const detalleEl = document.getElementById('result-detalle-preguntas');
+  if (rawPregs && typeof rawPregs[0] === 'object') {
+    detalleEl.style.gridTemplateColumns = 'repeat(5,1fr)';
+    detalleEl.innerHTML = respFinal.map((r, i) => {
+      const q    = rawPregs[i] || {};
+      const tipo = q.tipo || 'unica';
+      const sel  = selecciones[i];
+      let selL, corrL;
+      if (tipo === 'verdaderofalso') {
+        selL  = sel || '—';
+        corrL = (q.correcta || '?').toUpperCase();
+      } else if (tipo === 'multiple') {
+        selL  = Array.isArray(sel) && sel.length ? sel.map(idx => LETRAS[idx]).join(',') : '—';
+        corrL = (q.correctas || []).join(',') || '?';
+      } else {
+        selL  = (sel !== null && sel !== undefined) ? LETRAS[sel] : '—';
+        corrL = q.correcta || '?';
+      }
+      return `<div style="text-align:center;padding:6px 4px;border-radius:6px;
+        background:${r?'rgba(78,138,114,0.10)':'rgba(184,80,80,0.10)'};
+        border:1px solid ${r?'rgba(78,138,114,0.20)':'rgba(184,80,80,0.20)'}">
+        <div style="font-size:9px;color:var(--text3);font-family:'Fira Code',monospace">P${i+1}</div>
+        <div style="font-size:14px;color:${r?'var(--pass)':'var(--fail)'}">${r?'✓':'✗'}</div>
+        <div style="font-size:9px;font-family:'Fira Code',monospace;color:var(--text3)">${selL}→${corrL}</div>
+      </div>`;
+    }).join('');
+  } else {
+    detalleEl.style.gridTemplateColumns = 'repeat(10,1fr)';
+    detalleEl.innerHTML = respFinal.map((r, i) => `<div style="text-align:center;padding:5px;border-radius:6px;
+      background:${r?'rgba(78,138,114,0.10)':'rgba(184,80,80,0.10)'};
+      border:1px solid ${r?'rgba(78,138,114,0.20)':'rgba(184,80,80,0.20)'}">
+      <div style="font-size:9px;color:var(--text3);font-family:'Fira Code',monospace">P${i+1}</div>
+      <div style="font-size:13px;color:${r?'var(--pass)':'var(--fail)'}">${r?'✓':'✗'}</div>
+    </div>`).join('');
+  }
+
+  // Retroalimentación detallada por pregunta
+  const retroCard  = document.getElementById('result-retro-card');
+  const retroLista = document.getElementById('result-retro-lista');
+  const retroBadge = document.getElementById('result-retro-badge');
+  if (retroCard && retroLista && rawPregs && typeof rawPregs[0] === 'object') {
+    const falladas  = respFinal.map((r,i) => ({r,i})).filter(x => !x.r);
+    const acertadas = respFinal.map((r,i) => ({r,i})).filter(x => x.r);
+    retroBadge.textContent = `${acertadas.length} correcta${acertadas.length!==1?'s':''} · ${falladas.length} incorrecta${falladas.length!==1?'s':''}`;
+
+    const _textos = i => {
+      const q    = rawPregs[i] || {};
+      const tipo = q.tipo || 'unica';
+      const sel  = selecciones[i];
+      const enunciado = q.enunciado || q.texto || q.pregunta || ('Pregunta ' + (i+1));
+      let selTexto = '—', corrTexto = '—';
+      if (tipo === 'verdaderofalso') {
+        selTexto  = sel === 'V' ? 'Verdadero' : sel === 'F' ? 'Falso' : '—';
+        corrTexto = (q.correcta||'?').toUpperCase() === 'V' ? 'Verdadero' : 'Falso';
+      } else if (tipo === 'multiple') {
+        selTexto  = Array.isArray(sel) && sel.length ? sel.map(idx => LETRAS[idx]).join(', ') : '—';
+        corrTexto = (q.correctas||[]).join(', ') || '?';
+      } else {
+        selTexto  = (sel !== null && sel !== undefined) ? (q.opciones && q.opciones[sel] ? q.opciones[sel] : LETRAS[sel]) : '—';
+        const ci  = LETRAS.indexOf((q.correcta||'').toUpperCase());
+        corrTexto = (q.opciones && ci >= 0 && q.opciones[ci]) ? q.opciones[ci] : (q.correcta||'?');
+      }
+      return { enunciado, selTexto, corrTexto, q };
+    };
+
+    const _malCard = ({i}) => {
+      const {enunciado, selTexto, corrTexto, q} = _textos(i);
+      return `<div style="padding:12px 14px;border-radius:var(--radius-sm);background:rgba(184,80,80,0.05);border:1px solid rgba(184,80,80,0.18)">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;
+                background:rgba(184,80,80,0.15);font-size:10px;font-family:'Fira Code',monospace;font-weight:700;color:var(--fail);flex-shrink:0;margin-top:1px">P${i+1}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text);line-height:1.4">${enunciado}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(184,80,80,0.08);border:1px solid rgba(184,80,80,0.18)">
+            <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--fail);margin-bottom:3px">✗ Tu respuesta</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">${selTexto}</div>
+          </div>
+          <div style="flex:1;min-width:120px;padding:6px 10px;border-radius:6px;background:rgba(78,138,114,0.08);border:1px solid rgba(78,138,114,0.18)">
+            <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--pass);margin-bottom:3px">✓ Respuesta correcta</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">${corrTexto}</div>
+          </div>
+        </div>
+        ${q.explicacion ? `<div style="margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(201,165,69,0.07);border:1px solid rgba(201,165,69,0.18)">
+          <div style="font-size:9px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);margin-bottom:3px">💡 Explicación</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">${q.explicacion}</div>
+        </div>` : ''}
+      </div>`;
+    };
+    const _bienCard = ({i}) => {
+      const {enunciado, selTexto} = _textos(i);
+      return `<div style="padding:10px 14px;border-radius:var(--radius-sm);background:rgba(78,138,114,0.05);border:1px solid rgba(78,138,114,0.18);display:flex;align-items:flex-start;gap:8px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;
+              background:rgba(78,138,114,0.15);font-size:10px;font-family:'Fira Code',monospace;font-weight:700;color:var(--pass);flex-shrink:0;margin-top:1px">P${i+1}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:3px">${enunciado}</div>
+          <div style="font-size:11px;color:var(--pass)">✓ ${selTexto}</div>
+        </div>
+      </div>`;
+    };
+
+    let html = '';
+    if (falladas.length > 0) {
+      html += `<div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--fail);margin-bottom:10px">✗ Para repasar (${falladas.length})</div>`;
+      html += `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:${acertadas.length?'16px':'0'}">${falladas.map(_malCard).join('')}</div>`;
+    }
+    if (acertadas.length > 0) {
+      html += `<details style="margin-top:${falladas.length?'4px':'0'}">
+        <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);background:rgba(78,138,114,0.07);border:1px solid rgba(78,138,114,0.18);user-select:none">
+          <span style="font-size:13px">✅</span>
+          <span style="font-size:12px;font-weight:700;color:var(--pass)">Ver respuestas correctas (${acertadas.length})</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--text3)">▼</span>
+        </summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">${acertadas.map(_bienCard).join('')}</div>
+      </details>`;
+    }
+    retroLista.innerHTML = html;
+    retroCard.style.display = 'block';
+  } else if (retroCard) {
+    retroCard.style.display = 'none';
+  }
+
+  const gemCard = document.getElementById('result-gemini-card');
+  if (gemCard) gemCard.style.display = 'none';
+
+  res.scrollIntoView({ behavior: 'smooth' });
 }
 
 function iniciarEvaluacionConModalidad(modalidad) {
