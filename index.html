@@ -11051,18 +11051,31 @@ function guardarNuevoAsesorCred() {
   const programa = document.getElementById('cred-nuevo-asesor-programa').value || '';
   const email    = (document.getElementById('cred-nuevo-asesor-email').value || '').trim();
   state.asesores.push({ nombre, supervisor: sup, password: '123', tipo, programa, email, mustChangePassword: true });
-  save(); updateAllFilters(); renderConfig(); initRegistro();
+  save(); _fbSaveAsesores(); updateAllFilters(); renderConfig(); initRegistro();
   document.getElementById('nuevo-asesor-cred-form').style.display = 'none';
   document.getElementById('cred-nuevo-asesor-email').value = '';
 }
+// Escribe SOLO el array asesores a Firestore sin pasar por el documento
+// completo de save() que puede superar 1MB y fallar silenciosamente.
+function _fbSaveAsesores() {
+  if (!window._fbDb) return;
+  const asesoresCopy = JSON.parse(JSON.stringify(state.asesores));
+  window._fbDb.collection('config').doc('main')
+    .update({ asesores: asesoresCopy })
+    .catch(() => {
+      window._fbDb.collection('config').doc('main')
+        .set({ asesores: asesoresCopy }, { merge: true })
+        .catch(e => console.warn('Error guardando asesores:', e));
+    });
+}
 function actualizarEmailAsesor(nombre, email) {
   const a = state.asesores.find(x => x.nombre === nombre);
-  if (a) { a.email = email.trim(); save(); }
+  if (a) { a.email = email.trim(); save(); _fbSaveAsesores(); }
 }
 function cambiarTipoAsesor(i, nuevoTipo) {
   if (!state.asesores[i]) return;
   state.asesores[i].tipo = nuevoTipo;
-  save(); renderConfig();
+  save(); _fbSaveAsesores(); renderConfig();
 }
 function cambiarSupervisorAsesor(nombre, nuevoSupervisor) {
   const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
@@ -11075,7 +11088,7 @@ function cambiarSupervisorAsesor(nombre, nuevoSupervisor) {
   if (state.credenciales && state.credenciales[nombre]) {
     state.credenciales[nombre].supervisor = nuevoSupervisor;
   }
-  save(); updateAllFilters(); renderConfig();
+  save(); _fbSaveAsesores(); updateAllFilters(); renderConfig();
   console.log(`Supervisor de ${nombre} cambiado: ${anterior} → ${nuevoSupervisor}`);
 }
 function cambiarProgramaAsesor(nombre, nuevoProg) {
@@ -11084,7 +11097,7 @@ function cambiarProgramaAsesor(nombre, nuevoProg) {
   const a = state.asesores.find(x => norm(x.nombre) === n);
   if (!a) return;
   a.programa = nuevoProg;
-  save(); renderConfig();
+  save(); _fbSaveAsesores(); renderConfig();
 }
 
 // ── Modal asignación masiva de programas ──
@@ -11156,7 +11169,7 @@ function asignacionMasivaPrograma() {
   _renderModalProgramasLista();
 }
 function guardarProgramas() {
-  save();
+  save(); _fbSaveAsesores();
   renderConfig();
   cerrarModalProgramas();
   setDbPrograma(dbProgramaFil);
@@ -11170,7 +11183,7 @@ function eliminarAsesorCred(i) {
   state.evaluaciones = state.evaluaciones.filter(e => e.asesor !== a.nombre);
   if (state.evaluacionesEnviadas) Object.keys(state.evaluacionesEnviadas).filter(k => k.startsWith(a.nombre + '||')).forEach(k => delete state.evaluacionesEnviadas[k]);
   if (state.ultimosAccesos) delete state.ultimosAccesos[a.nombre];
-  save(); updateAllFilters(); renderConfig(); initRegistro();
+  save(); _fbSaveAsesores(); updateAllFilters(); renderConfig(); initRegistro();
 }
 
 function abrirModalNuevoSupCred() {
@@ -11230,7 +11243,7 @@ function agregarAsesor() {
   if (!n || !s) { alert('Completa todos los campos'); return; }
   if (state.asesores.find(a => a.nombre === n)) { alert('Ya existe'); return; }
   state.asesores.push({ nombre: n, supervisor: s, password: '123', mustChangePassword: true });
-  save(); updateAllFilters(); renderConfig(); initRegistro();
+  save(); _fbSaveAsesores(); updateAllFilters(); renderConfig(); initRegistro();
   document.getElementById('new-ase').value = '';
 }
 
