@@ -6908,8 +6908,60 @@ async function guardarEvaluacion() {
   updateAllFilters();
 }
 
+// ── Recuperación silenciosa: fusiona evalBackup en state.evaluaciones ────────
+function _recuperarDesdeBackupSilencioso() {
+  const _EXCLUIR = ['Noviembre','Diciembre','Octubre'];
+  let changed = false;
+  // 1. evalBackup → evaluaciones
+  if (state.evalBackup && Object.keys(state.evalBackup).length) {
+    const allIds = new Set((state.evaluaciones || []).map(e => String(e.id)));
+    const faltantes = Object.values(state.evalBackup)
+      .filter(e => e && e.id && !allIds.has(String(e.id)) && !_EXCLUIR.includes(e.mes));
+    if (faltantes.length) {
+      state.evaluaciones = [...(state.evaluaciones || []), ...faltantes];
+      faltantes.forEach(ev => _fbSaveEval(ev));
+      changed = true;
+    }
+  }
+  if (changed) {
+    try { localStorage.setItem('evalproState', JSON.stringify(state)); } catch(_) {}
+    try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+  }
+}
+
+// ── Sincronización completa desde Firestore al entrar a Resultados ───────────
+let _resultadosSyncDone = false;
+async function _autoSyncResultados() {
+  if (_resultadosSyncDone || !window._fbDb) return;
+  _resultadosSyncDone = true;
+  try {
+    const _EXCLUIR = ['Noviembre','Diciembre','Octubre'];
+    // Re-leer config/main para evalBackup y evaluacionesEnviadas más recientes
+    const cfgSnap = await window._fbDb.collection('config').doc('main').get();
+    if (cfgSnap.exists) {
+      const rem = cfgSnap.data();
+      if (rem.evalBackup)           Object.assign(state.evalBackup           = state.evalBackup           || {}, rem.evalBackup);
+      if (rem.evaluacionesEnviadas) Object.assign(state.evaluacionesEnviadas = state.evaluacionesEnviadas || {}, rem.evaluacionesEnviadas);
+    }
+    // Re-leer colección evaluaciones
+    const evSnap = await window._fbDb.collection('evaluaciones').get();
+    const fromFs = evSnap.docs.map(d => d.data()).filter(ev => !_EXCLUIR.includes(ev.mes));
+    const fsIds  = new Set(fromFs.map(e => String(e.id)));
+    const pending = (state.evaluaciones || []).filter(e => !fsIds.has(String(e.id)));
+    state.evaluaciones = [...fromFs, ...pending];
+    pending.forEach(ev => _fbSaveEval(ev));
+    // Fusionar evalBackup
+    _recuperarDesdeBackupSilencioso();
+    try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
+    localStorage.setItem('evalproState', JSON.stringify(state));
+    renderResultados();
+  } catch(e) { console.warn('Auto-sync resultados falló:', e); }
+}
+
 // ==================== RESULTADOS ====================
 function renderResultados() {
+  // Recuperar evals de evalBackup que no llegaron a la colección
+  try { _recuperarDesdeBackupSilencioso(); } catch(_) {}
   try { _actualizarBtnRecuperar(); } catch(_) {}
   _repararSupervisoresVacios();
   const supFilArr = supervisorActual ? [supervisorActual] : [...resSupSelected];
@@ -11662,7 +11714,7 @@ function showView(name, el) {
 
   if (name === 'dashboard') renderDashboard();
   if (name === 'registro')  regShowTab('preguntas');
-  if (name === 'resultados') renderResultados();
+  if (name === 'resultados') { renderResultados(); _autoSyncResultados(); }
   if (name === 'ranking') renderRanking();
   if (name === 'reporte') renderReporte();
   if (name === 'seguimiento') { _initSegFilters(); renderSeguimiento(); }
@@ -17503,7 +17555,7 @@ function importarEmailsExcel(input) {
 // ── Importar asesores con su supervisor desde Excel ──────────────────────────
 // Formato Excel: columnas ASESOR y SUPERVISOR (cabecera auto-detectada).
 // Si el asesor ya existe, actualiza su supervisor. Si no existe, lo crea.
-function importarAsesoresSupervisoresExcel(input) {
+async function importarAsesoresSupervisoresExcel(input) {
   if (!input.files[0]) return;
   if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
 
@@ -17569,40 +17621,57 @@ function importarAsesoresSupervisoresExcel(input) {
         }
       });
 
-      // Guardar: localStorage inmediato + Firestore directo (sin debounce)
+      const total = actualizados + creados;
+      if (!total) {
+        if (statusEl) { statusEl.textContent = '⚠ Sin coincidencias — verifica el formato del archivo'; statusEl.style.color = 'var(--fail)'; }
+        alert('⚠ No se encontraron asesores coincidentes. El archivo debe tener columnas ASESOR y SUPERVISOR.');
+        input.value = '';
+        return;
+      }
+
+      // 1. Guardar en localStorage inmediatamente (sincrónico, siempre funciona)
       localStorage.setItem('evalproState', JSON.stringify(state));
+
+      // 2. Cancelar timers pendientes para que no sobreescriban
+      clearTimeout(_saveTimer);
+      clearTimeout(_saveAsesoresTimer);
+
+      // 3. Guardar en Firestore y esperar confirmación
+      let fbOk = false;
       if (window._fbDb) {
         window._asesoresDirty = true;
+        if (statusEl) { statusEl.textContent = '⏳ Guardando en Firestore…'; statusEl.style.color = 'var(--text3)'; }
         const asesoresCopy = JSON.parse(JSON.stringify(state.asesores));
-        window._fbDb.collection('config').doc('main')
-          .update({ asesores: asesoresCopy })
-          .then(() => {
-            window._asesoresDirty = false;
-            showSyncToast('✓ Asesores y supervisores guardados en Firestore');
-          })
-          .catch(() => {
-            window._fbDb.collection('config').doc('main')
-              .set({ asesores: asesoresCopy }, { merge: true })
-              .then(() => { window._asesoresDirty = false; showSyncToast('✓ Asesores y supervisores guardados'); })
-              .catch(err2 => { window._asesoresDirty = false; console.error(err2); showSyncToast('⚠ Error guardando en Firestore'); });
-          });
+        try {
+          await window._fbDb.collection('config').doc('main').update({ asesores: asesoresCopy });
+          fbOk = true;
+        } catch(e1) {
+          try {
+            await window._fbDb.collection('config').doc('main').set({ asesores: asesoresCopy }, { merge: true });
+            fbOk = true;
+          } catch(e2) {
+            console.error('Error Firestore al guardar asesores:', e2);
+          }
+        }
+        window._asesoresDirty = false;
       }
 
       updateAllFilters();
       renderConfig();
       input.value = '';
 
-      const total = actualizados + creados;
-      let msg = `✓ ${actualizados} actualizados`;
-      if (creados)               msg += `, ${creados} nuevos`;
-      if (noEncontradosSup.length) msg += ` · ${[...new Set(noEncontradosSup)].length} supervisores no encontrados (se usaron tal como vienen)`;
-      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = total ? 'var(--pass)' : 'var(--fail)'; }
+      let msg = fbOk
+        ? `✓ ${actualizados} actualizados${creados ? ', ' + creados + ' nuevos' : ''} — guardado en Firestore`
+        : `⚠ ${actualizados} actualizados localmente pero FALLÓ el guardado en Firestore`;
+      if (noEncontradosSup.length) msg += ` · ${[...new Set(noEncontradosSup)].length} supervisores no encontrados`;
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = fbOk ? 'var(--pass)' : 'var(--fail)'; }
 
-      let alertMsg = `✓ ¡Listo! ${actualizados} asesores actualizados`;
-      if (creados) alertMsg += `, ${creados} creados nuevos`;
+      let alertMsg = fbOk
+        ? `✓ ¡Guardado exitosamente!\n\n${actualizados} asesores actualizados${creados ? '\n' + creados + ' asesores nuevos creados' : ''}`
+        : `⚠ ATENCIÓN: Se actualizaron ${actualizados} asesores en esta sesión, pero NO se guardaron en Firestore.\n\nVerifica tu conexión a internet y vuelve a cargar el archivo.`;
       if (noEncontradosSup.length) {
         const uniq = [...new Set(noEncontradosSup)].slice(0, 5).join('\n');
-        alertMsg += `\n\n⚠ Supervisores no encontrados en el sistema (verificar nombres):\n${uniq}`;
+        alertMsg += `\n\n⚠ Supervisores no encontrados en el sistema (se usaron tal como vienen):\n${uniq}`;
       }
       alert(alertMsg);
 
