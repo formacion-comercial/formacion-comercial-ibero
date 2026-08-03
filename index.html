@@ -5083,9 +5083,9 @@ async function _fbInit() {
       if (!cfgSnap.exists) return;
       const cfgData = cfgSnap.data();
 
-      // Mantener asesores y supervisores sincronizados en tiempo real
-      // (si la formadora cambia el supervisor de un asesor, la página del asesor lo refleja de inmediato)
-      if (cfgData.asesores && Array.isArray(cfgData.asesores)) {
+      // Sincronizar asesores desde Firestore SOLO si no hay cambios locales pendientes.
+      // Si _asesoresDirty=true, el save todavía no llegó a Firestore y no debemos pisar.
+      if (cfgData.asesores && Array.isArray(cfgData.asesores) && !window._asesoresDirty) {
         state.asesores = cfgData.asesores;
         // Si el dropdown de login tiene un asesor seleccionado, actualizar el supervisor mostrado
         try {
@@ -5097,7 +5097,7 @@ async function _fbInit() {
           }
         } catch(_) {}
       }
-      if (cfgData.supervisores && Array.isArray(cfgData.supervisores)) {
+      if (cfgData.supervisores && Array.isArray(cfgData.supervisores) && !window._asesoresDirty) {
         state.supervisores = cfgData.supervisores;
       }
 
@@ -11121,20 +11121,20 @@ function _fbSaveEvaluacionesEnviadas() {
 let _saveAsesoresTimer;
 function _fbSaveAsesores() {
   if (!window._fbDb) return;
+  window._asesoresDirty = true; // protege contra onSnapshot que llega antes del write
   clearTimeout(_saveAsesoresTimer);
   _saveAsesoresTimer = setTimeout(() => {
     const asesoresCopy = JSON.parse(JSON.stringify(state.asesores));
+    const _done = () => { window._asesoresDirty = false; showSyncToast('✓ Cambios de asesores guardados'); };
+    const _fail = e => { window._asesoresDirty = false; console.error('Error guardando asesores:', e); showSyncToast('⚠ ERROR: los cambios NO se guardaron. Verifica conexion y recarga.'); };
     window._fbDb.collection('config').doc('main')
       .update({ asesores: asesoresCopy })
-      .then(() => showSyncToast('✓ Cambios de asesores guardados'))
+      .then(_done)
       .catch(() => {
         window._fbDb.collection('config').doc('main')
           .set({ asesores: asesoresCopy }, { merge: true })
-          .then(() => showSyncToast('✓ Cambios de asesores guardados'))
-          .catch(e => {
-            console.error('Error critico guardando asesores:', e);
-            showSyncToast('⚠ ERROR: los cambios NO se guardaron. Verifica conexion y recarga.');
-          });
+          .then(_done)
+          .catch(_fail);
       });
   }, 300);
 }
