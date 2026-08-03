@@ -8299,6 +8299,26 @@ function renderSeguimiento() {
     btnRecupMasivo.style.display = 'none';
   }
 
+  // Botón masivo "Habilitar evaluación" — visible cuando hay un supervisor filtrado
+  const btnHabilitarId = 'seg-btn-habilitar-evaluacion';
+  let btnHabilitar = document.getElementById(btnHabilitarId);
+  const hayPresentaron = filasFiltradas.some(f => f.presento);
+  if (segSupsActivos.length > 0 && filasFiltradas.length > 0 && !supervisorActual) {
+    if (!btnHabilitar) {
+      btnHabilitar = document.createElement('button');
+      btnHabilitar.id = btnHabilitarId;
+      btnHabilitar.style.cssText = 'margin-top:10px;margin-left:8px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid rgba(91,143,176,0.4);background:rgba(91,143,176,0.08);color:#5B8FB0;font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
+      if (_btnParent && segGaugeEl2) _btnParent.insertBefore(btnHabilitar, segGaugeEl2.nextSibling);
+    }
+    const sups = segSupsActivos.join(', ');
+    const mesesLabel = segMesesActivos.length ? segMesesActivos.join('/') : 'el período';
+    btnHabilitar.textContent = `📋 Habilitar evaluación de ${mesesLabel} (${filasFiltradas.length} asesores de ${sups})`;
+    btnHabilitar.onclick = () => _habilitarEvaluacionSupervisor(filasFiltradas);
+    btnHabilitar.style.display = '';
+  } else if (btnHabilitar) {
+    btnHabilitar.style.display = 'none';
+  }
+
   const segGaugeEl = document.getElementById('seg-gauge-row');
   if (segGaugeEl) segGaugeEl.innerHTML = '';
 
@@ -8708,6 +8728,63 @@ function _resetearEnviosSinCalif(filas) {
   save();
   renderSeguimiento();
   showSyncToast(`✓ ${sinCalif.length} asesor${sinCalif.length!==1?'es':''} habilitados para volver a presentar.`);
+}
+
+function _habilitarEvaluacionSupervisor(filas) {
+  const presentaron = filas.filter(f => f.presento);
+  const noPresent   = filas.filter(f => !f.presento);
+  const sups  = [...new Set(filas.map(f => f.supervisor))];
+  const meses = [...new Set(filas.map(f => f.mes + ' ' + f.anio))];
+  const supLabel  = sups.length === 1 ? sups[0] : sups.join(', ');
+  const mesLabel  = meses.join(' / ');
+  const totalAse  = filas.length;
+  let msg = `¿Habilitar la evaluación de ${mesLabel} para los ${totalAse} asesores de ${supLabel}?\n\n`;
+  if (presentaron.length) msg += `• ${presentaron.length} ya presentaron — se borrará su resultado para que puedan volver a presentar.\n`;
+  if (noPresent.length)   msg += `• ${noPresent.length} aún no han presentado — podrán hacerlo normalmente.\n`;
+  if (!confirm(msg)) return;
+
+  // 1. Limpiar evaluacionesEnviadas (bloqueo de re-presentación)
+  if (state.evaluacionesEnviadas) {
+    presentaron.forEach(f => {
+      const prefix = f.asesor + '||' + f.mes + '||' + f.anio;
+      delete state.evaluacionesEnviadas[prefix];
+      Object.keys(state.evaluacionesEnviadas).forEach(k => {
+        if (k.startsWith(prefix + '||')) delete state.evaluacionesEnviadas[k];
+      });
+    });
+  }
+
+  // 2. Eliminar documentos de evaluación de los que ya presentaron
+  const idsAEliminar = new Set();
+  presentaron.forEach(f => {
+    state.evaluaciones
+      .filter(e => e.asesor === f.asesor && e.mes === f.mes && String(e.anio) === String(f.anio))
+      .forEach(e => { idsAEliminar.add(String(e.id)); });
+  });
+  if (idsAEliminar.size) {
+    state.evaluaciones = state.evaluaciones.filter(e => !idsAEliminar.has(String(e.id)));
+    if (state.evalBackup) {
+      idsAEliminar.forEach(id => { if (state.evalBackup[id]) delete state.evalBackup[id]; });
+    }
+    idsAEliminar.forEach(id => _fbDeleteEval(id));
+    // Limpiar evalBackup en Firestore
+    if (window._fbDb && idsAEliminar.size) {
+      window._fbDb.collection('config').doc('main').get().then(snap => {
+        if (!snap.exists) return;
+        const bk = snap.data().evalBackup || {};
+        let changed = false;
+        idsAEliminar.forEach(id => { if (bk[id]) { delete bk[id]; changed = true; } });
+        if (changed) window._fbDb.collection('config').doc('main').update({ evalBackup: bk }).catch(() => {});
+      }).catch(() => {});
+    }
+  }
+
+  save();
+  updateAllFilters();
+  renderResultados();
+  renderSeguimiento();
+  const n = presentaron.length + noPresent.length;
+  showSyncToast(`✓ ${n} asesor${n !== 1 ? 'es' : ''} habilitados para presentar la evaluación de ${mesLabel}`);
 }
 
 function limpiarFiltrosSeguimiento() {
