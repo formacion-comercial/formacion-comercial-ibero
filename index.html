@@ -8643,7 +8643,7 @@ function _resetearEnvioAsesor(asesor, mes, anio) {
       if (k.startsWith(prefix + '||')) delete state.evaluacionesEnviadas[k];
     });
   }
-  save();
+  save(); _fbSaveEvaluacionesEnviadas();
   renderSeguimiento();
   showSyncToast(`✓ ${asesor} puede volver a presentar su evaluación.`);
 }
@@ -8745,7 +8745,7 @@ function _resetearEnviosSinCalif(filas) {
       if (k.startsWith(prefix + '||')) delete state.evaluacionesEnviadas[k];
     });
   });
-  save();
+  save(); _fbSaveEvaluacionesEnviadas();
   renderSeguimiento();
   showSyncToast(`✓ ${sinCalif.length} asesor${sinCalif.length!==1?'es':''} habilitados para volver a presentar.`);
 }
@@ -8799,7 +8799,7 @@ function _habilitarEvaluacionSupervisor(filas) {
     }
   }
 
-  save();
+  save(); _fbSaveEvaluacionesEnviadas();
   updateAllFilters();
   renderResultados();
   renderSeguimiento();
@@ -9925,7 +9925,7 @@ function _resetearEvalParaRepresentar(id) {
       window._fbDb.collection('config').doc('main').update({ evalBackup: bk }).catch(() => {});
     }).catch(() => {});
   }
-  save();
+  save(); _fbSaveEvaluacionesEnviadas();
   updateAllFilters();
   renderResultados();
   showSyncToast('✓ Evaluación reiniciada — el asesor puede volver a presentarla');
@@ -11074,6 +11074,18 @@ function guardarNuevoAsesorCred() {
   save(); _fbSaveAsesores(); updateAllFilters(); renderConfig(); initRegistro();
   document.getElementById('nuevo-asesor-cred-form').style.display = 'none';
   document.getElementById('cred-nuevo-asesor-email').value = '';
+}
+// Escribe SOLO evaluacionesEnviadas a Firestore (evita fallo silencioso por >1MB)
+function _fbSaveEvaluacionesEnviadas() {
+  if (!window._fbDb) return;
+  const envCopy = JSON.parse(JSON.stringify(state.evaluacionesEnviadas || {}));
+  window._fbDb.collection('config').doc('main')
+    .update({ evaluacionesEnviadas: envCopy })
+    .catch(() => {
+      window._fbDb.collection('config').doc('main')
+        .set({ evaluacionesEnviadas: envCopy }, { merge: true })
+        .catch(e => console.warn('Error guardando evaluacionesEnviadas:', e));
+    });
 }
 // Escribe SOLO el array asesores a Firestore sin pasar por el documento
 // completo de save() que puede superar 1MB y fallar silenciosamente.
