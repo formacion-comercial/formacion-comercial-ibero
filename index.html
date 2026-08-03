@@ -1685,6 +1685,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             📝 Registrar manualmente
           </button>
           <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
+          <button class="btn" onclick="mostrarDiagnosticoHoy()"
+            style="background:rgba(201,165,69,0.10);border:1px solid rgba(201,165,69,0.40);color:var(--accent);font-size:12px;padding:7px 14px;font-weight:700">
+            🔍 Quién presentó hoy
+          </button>
         </div>
       </div>
 
@@ -7091,6 +7095,120 @@ function _actualizarBtnRecuperar() {
   const n = _contarPendientes();
   btn.style.display = n > 0 ? '' : 'none';
   btn.textContent = `📥 Recuperar ${n} pendiente${n !== 1 ? 's' : ''}`;
+}
+
+async function mostrarDiagnosticoHoy() {
+  const hoy = new Date().toISOString().slice(0, 10); // "2026-08-03"
+
+  // 1. Confirmados: están en la colección evaluaciones con fechaRegistro de hoy
+  const confirmados = (state.evaluaciones || []).filter(e =>
+    e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
+  );
+
+  // 2. En backup: llegaron vía config/main.evalBackup pero no están confirmados en colección
+  const idsConfirmados = new Set(confirmados.map(e => String(e.id)));
+  const backup = Object.values(state.evalBackup || {}).filter(e =>
+    e.fechaRegistro && e.fechaRegistro.startsWith(hoy) && !idsConfirmados.has(String(e.id))
+  );
+
+  // 3. Intentar re-sincronizar desde Firestore en tiempo real
+  let fsHoy = [];
+  if (window._fbDb) {
+    try {
+      const snap = await window._fbDb.collection('evaluaciones').get();
+      fsHoy = snap.docs.map(d => d.data()).filter(e =>
+        e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
+      );
+      // Agregar al estado los que falten
+      const fsIds = new Set(fsHoy.map(e => String(e.id)));
+      const nuevos = fsHoy.filter(e => !idsConfirmados.has(String(e.id)));
+      if (nuevos.length) {
+        state.evaluaciones = [...(state.evaluaciones || []), ...nuevos];
+        nuevos.forEach(e => { idsConfirmados.add(String(e.id)); });
+      }
+    } catch(_) {}
+  }
+
+  // Lista final confirmados (fusionada con Firestore)
+  const todosConfirmados = (state.evaluaciones || []).filter(e =>
+    e.fechaRegistro && e.fechaRegistro.startsWith(hoy)
+  );
+  const idsFinales = new Set(todosConfirmados.map(e => String(e.id)));
+  const backupFinal = Object.values(state.evalBackup || {}).filter(e =>
+    e.fechaRegistro && e.fechaRegistro.startsWith(hoy) && !idsFinales.has(String(e.id))
+  );
+
+  // Armar filas
+  const filaConf = todosConfirmados.length
+    ? todosConfirmados.sort((a,b) => (a.asesor||'').localeCompare(b.asesor||'')).map(e => `
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:var(--text)">${e.asesor || '—'}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${e.supervisor || '—'}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${e.mes || '—'} ${e.anio || ''}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
+          <td style="padding:8px 12px"><span style="background:rgba(78,138,114,0.12);color:var(--pass);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">✓ Guardada</span></td>
+        </tr>`).join('')
+    : `<tr><td colspan="5" style="padding:12px;color:var(--text3);text-align:center">Ninguna evaluación confirmada hoy</td></tr>`;
+
+  const filaPend = backupFinal.length
+    ? backupFinal.sort((a,b) => (a.asesor||'').localeCompare(b.asesor||'')).map(e => `
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:var(--text)">${e.asesor || '—'}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${e.supervisor || '—'}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${e.mes || '—'} ${e.anio || ''}</td>
+          <td style="padding:8px 12px;color:var(--text2)">${(e.fechaRegistro||'').replace('T',' ').slice(0,16)}</td>
+          <td style="padding:8px 12px"><span style="background:rgba(201,165,69,0.12);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">⚠ Pendiente</span></td>
+        </tr>`).join('')
+    : '';
+
+  // Modal
+  const ov = document.createElement('div');
+  ov.id = '_diag-hoy-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = `
+    <div style="background:var(--surface);border-radius:var(--radius);width:900px;max-width:98vw;max-height:88vh;
+                display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.25);border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:16px;color:var(--text)">Evaluaciones presentadas hoy — ${hoy}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${todosConfirmados.length} confirmada(s) • ${backupFinal.length} pendiente(s) de guardar</div>
+        </div>
+        <button onclick="document.getElementById('_diag-hoy-overlay').remove()"
+          style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1">×</button>
+      </div>
+      <div style="overflow-y:auto;padding:20px 24px;flex:1">
+        ${backupFinal.length ? `<div style="background:rgba(201,165,69,0.08);border:1px solid rgba(201,165,69,0.30);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--accent)">
+          <strong>⚠ ${backupFinal.length} evaluación(es) pendiente(s):</strong> llegaron al sistema pero no se confirmaron en la base de datos. Haz clic en <strong>"🔄 Sincronizar"</strong> para recuperarlas, o pide al asesor que vuelva a presentar si el problema persiste.
+        </div>` : ''}
+        <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Montserrat',sans-serif">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Asesor</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Supervisor</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Mes</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Hora</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filaConf}
+            ${filaPend}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0">
+        ${backupFinal.length ? `<button onclick="recuperarResultadosPendientes();document.getElementById('_diag-hoy-overlay').remove();renderResultados()"
+          style="padding:9px 18px;border-radius:var(--radius-sm);border:none;background:var(--accent3);color:#fff;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          📥 Recuperar pendientes ahora</button>` : ''}
+        <button onclick="document.getElementById('_diag-hoy-overlay').remove()"
+          style="padding:9px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;cursor:pointer">
+          Cerrar</button>
+      </div>
+    </div>`;
+  ov.addEventListener('click', ev => { if (ev.target === ov) ov.remove(); });
+  const old = document.getElementById('_diag-hoy-overlay');
+  if (old) old.remove();
+  document.body.appendChild(ov);
 }
 
 function recuperarResultadosPendientes() {
