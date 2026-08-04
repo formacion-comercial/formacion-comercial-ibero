@@ -8605,6 +8605,29 @@ function renderSeguimiento() {
     });
   }
 
+  // ── Evals huérfanas: asesores que fueron eliminados pero cuyas evals aún existen ──
+  // Esto hace que Seguimiento y Dashboard cuenten lo mismo.
+  if (!aseFil) {
+    const _nombresRegistrados = new Set(state.asesores.map(a => _formsNorm(a.nombre)));
+    const _periodosFil = periodos;
+    state.evaluaciones.forEach(ev => {
+      if (!ev.asesor || !ev.mes || !ev.anio) return;
+      if (_nombresRegistrados.has(_formsNorm(ev.asesor))) return; // ya está en filas normales
+      // Aplicar mismo filtro de periodo
+      const _pKey = ev.mes + '||' + String(ev.anio);
+      if (_periodosFil.size && !_periodosFil.has('') && !_periodosFil.has(_pKey)) return;
+      // Aplicar filtro de supervisor
+      if (segSupsActivos.length && !segSupsActivos.some(s => _formsNorm(s) === _formsNorm(ev.supervisor || ''))) return;
+      const sc = _getEvalScore(ev);
+      filas.push({
+        asesor: ev.asesor, supervisor: ev.supervisor || '—',
+        mes: ev.mes, anio: String(ev.anio),
+        presento: true, pts: sc.pts, pct: sc.pct, nota: sc.nota, escala: sc.escala,
+        modalidad: ev.modalidad || 'mensual', tieneDocumento: true, orphan: true
+      });
+    });
+  }
+
   // Aplicar filtros de estado y modalidad
   const filasFiltradas = filas.filter(f =>
     ((!estadoFil) || (estadoFil === 'presento' && f.presento) || (estadoFil === 'nopresento' && !f.presento)) &&
@@ -8732,15 +8755,19 @@ function renderSeguimiento() {
     const btnReset = (btnCalif || btnReenvio || btnRecuperar)
       ? `<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${btnCalif}${btnReenvio}${btnRecuperar}</div>`
       : '';
-    return `<tr>
-      <td style="font-weight:600">${f.asesor}</td>
+    const rowStyle = f.orphan ? 'opacity:0.65;background:repeating-linear-gradient(135deg,transparent,transparent 4px,rgba(184,80,80,0.03) 4px,rgba(184,80,80,0.03) 8px)' : '';
+    const asesorLabel = f.orphan
+      ? `<span style="color:var(--text2)">${f.asesor}</span><br><span style="font-size:10px;color:var(--fail);font-family:'Fira Code',monospace">asesor eliminado</span>`
+      : `<span style="font-weight:600">${f.asesor}</span>`;
+    return `<tr style="${rowStyle}">
+      <td>${asesorLabel}</td>
       <td style="font-family:'Fira Code',monospace;font-size:11px;color:var(--text3)">${f.supervisor}</td>
       <td>${f.mes}</td>
       <td style="font-family:'Fira Code',monospace;font-size:12px">${f.anio}</td>
       <td style="text-align:center">${estadoBadge}</td>
       <td style="text-align:center">${calLabel}</td>
       <td style="text-align:center">${pctLabel}</td>
-      <td style="text-align:center">${btnReset}</td>
+      <td style="text-align:center">${f.orphan ? '' : btnReset}</td>
     </tr>`;
   }).join('');
 }
