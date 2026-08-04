@@ -8610,25 +8610,9 @@ function renderSeguimiento() {
     btnRecupMasivo.style.display = 'none';
   }
 
-  // Botón masivo "Habilitar evaluación" — visible cuando hay un supervisor filtrado
-  const btnHabilitarId = 'seg-btn-habilitar-evaluacion';
-  let btnHabilitar = document.getElementById(btnHabilitarId);
-  const hayPresentaron = filasFiltradas.some(f => f.presento);
-  if (segSupsActivos.length > 0 && filasFiltradas.length > 0 && !supervisorActual) {
-    if (!btnHabilitar) {
-      btnHabilitar = document.createElement('button');
-      btnHabilitar.id = btnHabilitarId;
-      btnHabilitar.style.cssText = 'margin-top:10px;margin-left:8px;padding:8px 16px;border-radius:var(--radius-sm);border:1px solid rgba(91,143,176,0.4);background:rgba(91,143,176,0.08);color:#5B8FB0;font-size:12px;font-weight:700;font-family:Montserrat,sans-serif;cursor:pointer';
-      if (_btnParent && segGaugeEl2) _btnParent.insertBefore(btnHabilitar, segGaugeEl2.nextSibling);
-    }
-    const sups = segSupsActivos.join(', ');
-    const mesesLabel = segMesesActivos.length ? segMesesActivos.join('/') : 'el período';
-    btnHabilitar.textContent = `📋 Habilitar evaluación de ${mesesLabel} (${filasFiltradas.length} asesores de ${sups})`;
-    btnHabilitar.onclick = () => _habilitarEvaluacionSupervisor(filasFiltradas);
-    btnHabilitar.style.display = '';
-  } else if (btnHabilitar) {
-    btnHabilitar.style.display = 'none';
-  }
+  // Botón "Habilitar evaluación" eliminado
+  const btnHabilitar = document.getElementById('seg-btn-habilitar-evaluacion');
+  if (btnHabilitar) btnHabilitar.remove();
 
   const segGaugeEl = document.getElementById('seg-gauge-row');
   if (segGaugeEl) segGaugeEl.innerHTML = '';
