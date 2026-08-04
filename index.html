@@ -4915,6 +4915,17 @@ function save() {
       if (!Object.keys(cfg.programaPorSupervisor  || {}).length) delete cfg.programaPorSupervisor;
       if (!Object.keys(cfg.ultimosAccesos         || {}).length) delete cfg.ultimosAccesos;
       if (!Object.keys(cfg.plazos                 || {}).length) delete cfg.plazos;
+      // Recortar evaluacionesEnviadas: conservar solo año actual y el anterior.
+      // Con 144 asesores × varios meses crece indefinidamente y reventaría el límite de 1 MB.
+      if (cfg.evaluacionesEnviadas && Object.keys(cfg.evaluacionesEnviadas).length) {
+        const _minAnioSave = new Date().getFullYear() - 1;
+        const _envTrimmed = {};
+        Object.entries(cfg.evaluacionesEnviadas).forEach(([k, v]) => {
+          const _y = parseInt((k.split('||')[2] || ''), 10);
+          if (!_y || _y >= _minAnioSave) _envTrimmed[k] = v;
+        });
+        cfg.evaluacionesEnviadas = _envTrimmed;
+      } else { delete cfg.evaluacionesEnviadas; }
       window._fbDb.collection('config').doc('main')
         .set(cfg, { merge: true })
         .catch(e => {
@@ -11625,9 +11636,15 @@ function guardarNuevoAsesorCred() {
   document.getElementById('cred-nuevo-asesor-email').value = '';
 }
 // Escribe SOLO evaluacionesEnviadas a Firestore (evita fallo silencioso por >1MB)
+// Recorta entradas de años anteriores a currentYear-1 para controlar el crecimiento del documento.
 function _fbSaveEvaluacionesEnviadas() {
   if (!window._fbDb) return;
-  const envCopy = JSON.parse(JSON.stringify(state.evaluacionesEnviadas || {}));
+  const _minAnio = new Date().getFullYear() - 1;
+  const envCopy = {};
+  Object.entries(state.evaluacionesEnviadas || {}).forEach(([k, v]) => {
+    const _y = parseInt((k.split('||')[2] || ''), 10);
+    if (!_y || _y >= _minAnio) envCopy[k] = v;
+  });
   window._fbDb.collection('config').doc('main')
     .update({ evaluacionesEnviadas: envCopy })
     .catch(() => {
@@ -16103,7 +16120,11 @@ async function enviarEvaluacionAsesor() {
   // evalBackup garantiza que la formadora siempre reciba el resultado via onSnapshot
   // aunque _fbSaveEval falle por permisos o conectividad del dispositivo del asesor
   if (!state.evalBackup) state.evalBackup = {};
-  state.evalBackup[String(evObj.id)] = evObj;
+  // Guardar en evalBackup SIN el snapshot de preguntas — cada eval con snapshot pesa 20–50 KB
+  // y con 144 asesores simultáneos superaría el límite de 1 MB de config/main.
+  // El snapshot completo vive en la colección `evaluaciones`; el backup solo necesita el resultado.
+  const _evBackup = Object.assign({}, evObj); delete _evBackup.preguntas;
+  state.evalBackup[String(evObj.id)] = _evBackup;
   state.evaluaciones.push(evObj);
   localStorage.setItem('evalproState', JSON.stringify(state));
   const guardadoOk = await _fbSaveEval(evObj);
@@ -16132,9 +16153,16 @@ async function enviarEvaluacionAsesor() {
   // Guardar todo de forma inmediata (sin debounce) — incluye evalBackup si hubo error de Firestore
   localStorage.setItem('evalproState', JSON.stringify(state));
   if (window._fbDb) {
+    // Recortar evaluacionesEnviadas antes de escribir (mismo criterio que save() y _fbSaveEvaluacionesEnviadas)
+    const _minAnioEnv = new Date().getFullYear() - 1;
+    const _envParaGuardar = {};
+    Object.entries(state.evaluacionesEnviadas || {}).forEach(([k, v]) => {
+      const _y = parseInt((k.split('||')[2] || ''), 10);
+      if (!_y || _y >= _minAnioEnv) _envParaGuardar[k] = v;
+    });
     try {
       await window._fbDb.collection('config').doc('main').update({
-        evaluacionesEnviadas: state.evaluacionesEnviadas,
+        evaluacionesEnviadas: _envParaGuardar,
         historicoAsesores: state.historicoAsesores,
         ...(state.evalBackup && Object.keys(state.evalBackup).length ? { evalBackup: state.evalBackup } : {})
       });
@@ -16143,7 +16171,7 @@ async function enviarEvaluacionAsesor() {
       // NO incluir state completo (banks de preguntas + asesores puede superar el límite de 1 MB de Firestore)
       try {
         await window._fbDb.collection('config').doc('main').set({
-          evaluacionesEnviadas: state.evaluacionesEnviadas,
+          evaluacionesEnviadas: _envParaGuardar,
           historicoAsesores:    state.historicoAsesores,
           evalBackup:           state.evalBackup || {}
         }, { merge: true });
