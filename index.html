@@ -2689,6 +2689,61 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
         </div>
       </div>
 
+      <!-- ══ GESTIÓN DE PLAZOS ══ -->
+      <div class="card section-gap" style="border-left:3px solid #e07b54;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(224,123,84,0.12);display:flex;align-items:center;justify-content:center;font-size:18px">⏰</div>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--text)">Fechas límite de evaluación</div>
+            <div style="font-size:11.5px;color:var(--text3)">Define hasta cuándo los asesores pueden presentar cada evaluación mensual</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <div>
+            <label style="display:block;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:5px">Mes</label>
+            <select id="cfg-plazo-mes" onchange="cfgCargarPlazo()"
+              style="padding:9px 12px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif;min-width:130px">
+              <option value="Enero">Enero</option><option value="Febrero">Febrero</option>
+              <option value="Marzo">Marzo</option><option value="Abril">Abril</option>
+              <option value="Mayo">Mayo</option><option value="Junio">Junio</option>
+              <option value="Julio" selected>Julio</option><option value="Agosto">Agosto</option>
+              <option value="Septiembre">Septiembre</option><option value="Octubre">Octubre</option>
+              <option value="Noviembre">Noviembre</option><option value="Diciembre">Diciembre</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:5px">Año</label>
+            <select id="cfg-plazo-anio" onchange="cfgCargarPlazo()"
+              style="padding:9px 12px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:5px">Fecha límite</label>
+            <input type="date" id="cfg-plazo-fecha"
+              style="padding:9px 12px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:5px">Hora límite</label>
+            <input type="time" id="cfg-plazo-hora" value="23:59"
+              style="padding:9px 12px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:'Montserrat',sans-serif">
+          </div>
+          <button onclick="cfgGuardarPlazo()"
+            style="padding:9px 18px;border-radius:var(--radius-sm);border:none;background:#e07b54;color:#fff;font-size:13px;font-weight:700;font-family:'Montserrat',sans-serif;cursor:pointer">
+            💾 Guardar
+          </button>
+          <button onclick="cfgLimpiarPlazo()"
+            style="padding:9px 12px;border-radius:var(--radius-sm);border:1px solid rgba(184,80,80,0.3);background:rgba(184,80,80,0.07);color:var(--fail);font-size:13px;font-family:'Montserrat',sans-serif;cursor:pointer">
+            ✕ Quitar
+          </button>
+        </div>
+        <div id="cfg-plazo-estado" style="font-size:12.5px;color:var(--text3);padding:8px 12px;background:var(--surface2);border-radius:6px"></div>
+        <!-- Tabla resumen de plazos activos -->
+        <div id="cfg-plazo-tabla" style="margin-top:14px"></div>
+      </div>
+
       <!-- ══ IMPORTAR RESULTADOS DESDE EXCEL ══ -->
       <div class="card section-gap" style="border-left:3px solid var(--accent);margin-bottom:8px">
         <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">
@@ -11180,6 +11235,8 @@ function _credSort(col) {
 }
 
 function renderConfig() {
+  _cfgRenderTablaPlazo();
+  cfgCargarPlazo();
   _renderNotifConfig();
   // Gemini API key — mostrar masked si ya está guardada
   const keyInp = document.getElementById('gemini-api-key-input');
@@ -14060,6 +14117,131 @@ function limpiarDeadlineMasivo() {
   if (hEl) hEl.value = '';
   onMasivoDeadlineChange();
   _setMasivoDeadlineNote('Fecha límite eliminada para todos los supervisores.', 'var(--text3)');
+}
+
+// ── Gestión de plazos desde Configuración ──
+function cfgCargarPlazo() {
+  const mes  = (document.getElementById('cfg-plazo-mes')  || {}).value || '';
+  const anio = (document.getElementById('cfg-plazo-anio') || {}).value || '';
+  const fEl  = document.getElementById('cfg-plazo-fecha');
+  const hEl  = document.getElementById('cfg-plazo-hora');
+  const est  = document.getElementById('cfg-plazo-estado');
+  if (!mes || !anio || !fEl) return;
+  // Busca el plazo de cualquier supervisor para ese mes/año
+  const plazos = state.plazos || {};
+  const keyMatch = Object.keys(plazos).find(k => {
+    const p = k.split('||');
+    return p[1] === mes && p[2] === anio;
+  });
+  if (keyMatch) {
+    const pl = plazos[keyMatch];
+    fEl.value = pl.fecha || '';
+    if (hEl) hEl.value = pl.hora || '23:59';
+    const [y, m, d] = (pl.fecha || '').split('-');
+    const hora = pl.hora || '23:59';
+    const ahora = new Date();
+    const limite = new Date((pl.fecha || '') + 'T' + hora);
+    const vencido = ahora > limite;
+    if (est) est.innerHTML = vencido
+      ? `<span style="color:var(--fail)">⛔ Cerrado</span> — venció el ${d}/${m}/${y} a las ${hora}`
+      : `<span style="color:var(--pass)">✅ Abierto</span> — cierra el ${d}/${m}/${y} a las ${hora}`;
+  } else {
+    if (fEl) fEl.value = '';
+    if (hEl) hEl.value = '23:59';
+    if (est) est.textContent = 'Sin fecha límite definida — los asesores pueden presentar en cualquier momento.';
+  }
+  _cfgRenderTablaPlazo();
+}
+
+function cfgGuardarPlazo() {
+  const mes   = (document.getElementById('cfg-plazo-mes')   || {}).value || '';
+  const anio  = (document.getElementById('cfg-plazo-anio')  || {}).value || '';
+  const fecha = (document.getElementById('cfg-plazo-fecha') || {}).value || '';
+  const hora  = (document.getElementById('cfg-plazo-hora')  || {}).value || '23:59';
+  const est   = document.getElementById('cfg-plazo-estado');
+  if (!mes || !anio) { if (est) est.textContent = '⚠ Selecciona mes y año.'; return; }
+  if (!fecha)        { if (est) est.textContent = '⚠ Ingresa la fecha límite.'; return; }
+  if (!state.plazos) state.plazos = {};
+  let count = 0;
+  state.supervisores.forEach(sup => {
+    state.plazos[sup + '||' + mes + '||' + anio] = { fecha, hora };
+    count++;
+  });
+  save();
+  window._fbDb && window._fbDb.collection('config').doc('main')
+    .set({ plazos: state.plazos }, { merge: true })
+    .catch(e => console.warn('Error guardando plazos:', e));
+  const [y, m, d] = fecha.split('-');
+  const ahora = new Date();
+  const limite = new Date(fecha + 'T' + hora);
+  const vencido = ahora > limite;
+  if (est) est.innerHTML = `✓ Guardado para ${count} supervisor${count!==1?'es':''} — `
+    + (vencido
+      ? `<span style="color:var(--fail)">⛔ Cerrado</span> (venció el ${d}/${m}/${y} a las ${hora})`
+      : `<span style="color:var(--pass)">✅ Abierto</span> hasta el ${d}/${m}/${y} a las ${hora}`);
+  _cfgRenderTablaPlazo();
+}
+
+function cfgLimpiarPlazo() {
+  const mes  = (document.getElementById('cfg-plazo-mes')  || {}).value || '';
+  const anio = (document.getElementById('cfg-plazo-anio') || {}).value || '';
+  const est  = document.getElementById('cfg-plazo-estado');
+  if (!mes || !anio) { if (est) est.textContent = '⚠ Selecciona mes y año.'; return; }
+  if (!confirm(`¿Quitar la fecha límite de ${mes} ${anio}? Los asesores podrán presentar sin restricción.`)) return;
+  if (state.plazos) {
+    state.supervisores.forEach(sup => delete state.plazos[sup + '||' + mes + '||' + anio]);
+    save();
+    window._fbDb && window._fbDb.collection('config').doc('main')
+      .set({ plazos: state.plazos }, { merge: true })
+      .catch(e => console.warn('Error guardando plazos:', e));
+  }
+  const fEl = document.getElementById('cfg-plazo-fecha');
+  if (fEl) fEl.value = '';
+  if (est) est.textContent = 'Fecha límite eliminada. Los asesores pueden presentar sin restricción.';
+  _cfgRenderTablaPlazo();
+}
+
+function _cfgRenderTablaPlazo() {
+  const tabla = document.getElementById('cfg-plazo-tabla');
+  if (!tabla) return;
+  const plazos = state.plazos || {};
+  // Agrupar por mes||año (un plazo por mes, no por supervisor)
+  const grupos = {};
+  Object.entries(plazos).forEach(([k, v]) => {
+    const p = k.split('||');
+    if (p.length < 3) return;
+    const gk = p[1] + '||' + p[2];
+    if (!grupos[gk]) grupos[gk] = { mes: p[1], anio: p[2], fecha: v.fecha, hora: v.hora };
+  });
+  const filas = Object.values(grupos).sort((a, b) => {
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return (Number(b.anio) - Number(a.anio)) || (meses.indexOf(b.mes) - meses.indexOf(a.mes));
+  });
+  if (!filas.length) { tabla.innerHTML = ''; return; }
+  const ahora = new Date();
+  tabla.innerHTML = `<div style="font-size:11px;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px">Plazos configurados</div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:600;font-size:11px">Mes</th>
+      <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:600;font-size:11px">Fecha límite</th>
+      <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:600;font-size:11px">Hora</th>
+      <th style="text-align:left;padding:6px 10px;color:var(--text3);font-weight:600;font-size:11px">Estado</th>
+    </tr></thead>
+    <tbody>${filas.map(f => {
+      const [y, m, d] = (f.fecha || '').split('-');
+      const hora = f.hora || '23:59';
+      const vencido = ahora > new Date((f.fecha || '') + 'T' + hora);
+      const estado = vencido
+        ? `<span style="color:var(--fail);font-weight:700">⛔ Cerrado</span>`
+        : `<span style="color:var(--pass);font-weight:700">✅ Abierto</span>`;
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px;font-weight:600">${f.mes} ${f.anio}</td>
+        <td style="padding:8px 10px">${d}/${m}/${y}</td>
+        <td style="padding:8px 10px;font-family:'Fira Code',monospace">${hora}</td>
+        <td style="padding:8px 10px">${estado}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
 }
 
 function _setMasivoDeadlineNote(msg, color) {
