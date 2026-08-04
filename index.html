@@ -1685,6 +1685,10 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             📝 Registrar manualmente
           </button>
           <button class="btn btn-export" onclick="exportarExcelResultados()">⬇ Exportar Excel</button>
+          <button class="btn btn-export" onclick="exportarRespuestasPorPregunta()"
+            style="background:rgba(91,143,176,0.10);border:1px solid rgba(91,143,176,0.35);color:var(--accent4)">
+            ⬇ Respuestas por pregunta
+          </button>
           <button class="btn" onclick="mostrarDiagnosticoHoy()"
             style="background:rgba(201,165,69,0.10);border:1px solid rgba(201,165,69,0.40);color:var(--accent);font-size:12px;padding:7px 14px;font-weight:700">
             🔍 Quién presentó hoy
@@ -10690,6 +10694,112 @@ function exportarExcelResultados() {
   XLSX.writeFile(wb, `evalpro_resultados_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+// ==================== EXPORTAR RESPUESTAS POR PREGUNTA ====================
+function exportarRespuestasPorPregunta() {
+  if (typeof XLSX === 'undefined') { alert('Librería XLSX no disponible. Recarga la página.'); return; }
+  const supFilExp   = supervisorActual ? [supervisorActual] : [...resSupSelected];
+  const anioF       = (document.getElementById('fil-anio-r') || {}).value || '';
+  const estado      = (document.getElementById('fil-estado')  || {}).value || '';
+  const LETRAS      = ['A','B','C','D'];
+
+  let evs = state.evaluaciones.filter(e => !supFilExp.length || supFilExp.includes(e.supervisor));
+  if (resMesesActivos.length > 0) evs = evs.filter(e => resMesesActivos.includes(e.mes));
+  if (anioF)             evs = evs.filter(e => String(e.anio) === anioF);
+  if (estado === 'Aprobado')  evs = evs.filter(e => _evalPaso(e));
+  if (estado === 'Reprobado') evs = evs.filter(e => !_evalPaso(e));
+
+  if (!evs.length) { alert('No hay evaluaciones con los filtros actuales.'); return; }
+
+  const header = ['Supervisor','Asesor','Mes','Año','Modalidad','# Pregunta',
+                  'Enunciado','Respuesta del Asesor','Respuesta Correcta','Correcto','Puntaje Total (%)'];
+  const rows = [];
+
+  evs.forEach(ev => {
+    const respFinal   = ev.respuestas   || [];
+    const selecciones = ev.selecciones  || [];
+    const totalPregs  = respFinal.length || 1;
+    const sc          = _getEvalScore(ev);
+    const puntajeTotal = sc.pct != null ? sc.pct + '%' : '—';
+    const modalidad   = ev.modalidad || 'mensual';
+
+    // Usar snapshot si existe, si no el banco actual
+    const _snap = ev.preguntas && ev.preguntas.length && typeof ev.preguntas[0] === 'object'
+      ? ev.preguntas : null;
+    const banco = _snap || _getPreguntasParaAsesor(ev.asesor, ev.supervisor, ev.mes, String(ev.anio), modalidad);
+
+    respFinal.forEach((correcto, i) => {
+      const q   = banco ? banco[i] : null;
+      const sel = selecciones[i];
+
+      // Texto del enunciado
+      const enunciado = q
+        ? (typeof q === 'object' ? (q.enunciado || q.texto || `Pregunta ${i+1}`) : String(q))
+        : `Pregunta ${i+1}`;
+
+      // Respuesta del asesor en texto
+      let respAsesor = '—';
+      if (q && typeof q === 'object') {
+        const tipo = q.tipo || 'unica';
+        if (tipo === 'verdaderofalso') {
+          respAsesor = sel || '—';
+        } else if (tipo === 'multiple') {
+          const idxs = Array.isArray(sel) ? sel : [];
+          respAsesor = idxs.length
+            ? idxs.map(idx => {
+                const op = q.opciones && q.opciones[idx];
+                return `${LETRAS[idx]}) ${op || ''}`;
+              }).join(' | ')
+            : '—';
+        } else {
+          // única
+          if (sel !== null && sel !== undefined && q.opciones && q.opciones[sel] !== undefined) {
+            respAsesor = `${LETRAS[sel]}) ${q.opciones[sel]}`;
+          } else if (sel !== null && sel !== undefined) {
+            respAsesor = LETRAS[sel] || String(sel);
+          }
+        }
+      } else if (sel !== null && sel !== undefined) {
+        respAsesor = String(sel);
+      }
+
+      // Respuesta correcta en texto
+      let respCorrecta = '—';
+      if (q && typeof q === 'object') {
+        const tipo = q.tipo || 'unica';
+        if (tipo === 'verdaderofalso') {
+          respCorrecta = q.correcta || '—';
+        } else if (tipo === 'multiple') {
+          const corrs = (q.correctas || []).map(l => {
+            const idx = LETRAS.indexOf(l.toUpperCase());
+            const op  = q.opciones && idx >= 0 ? q.opciones[idx] : '';
+            return `${l}) ${op}`;
+          });
+          respCorrecta = corrs.join(' | ') || '—';
+        } else {
+          if (q.correcta) {
+            const idx = LETRAS.indexOf(q.correcta.toUpperCase());
+            const op  = q.opciones && idx >= 0 ? q.opciones[idx] : '';
+            respCorrecta = `${q.correcta.toUpperCase()}) ${op}`;
+          }
+        }
+      }
+
+      rows.push([
+        ev.supervisor, ev.asesor, ev.mes, ev.anio, modalidad,
+        i + 1, enunciado, respAsesor, respCorrecta,
+        correcto ? 'Sí' : 'No', puntajeTotal
+      ]);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{wch:22},{wch:26},{wch:10},{wch:6},{wch:16},{wch:6},
+                 {wch:60},{wch:40},{wch:40},{wch:8},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Respuestas por Pregunta');
+  XLSX.writeFile(wb, `respuestas_pregunta_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 // ==================== SUPERVISOR INSIGHTS ====================
 function calcSupervisorInsights(supervisor) {
   const anio   = (document.getElementById('rank-anio') || {}).value || '';
@@ -15350,8 +15460,9 @@ function verRetroalimentacionEvaluacion(modalidad) {
   const pass        = ev.pass !== undefined ? ev.pass : _evalPaso(ev);
   const nota        = ev.nota !== undefined ? ev.nota : null;
 
-  // Obtener banco de preguntas actual para mostrar textos y opciones
-  const rawPregs = _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, mod);
+  // Usar snapshot de preguntas guardado en el eval (versioning) — si no existe, caer al banco actual
+  const _snap = ev.preguntas && ev.preguntas.length && typeof ev.preguntas[0] === 'object' ? ev.preguntas : null;
+  const rawPregs = _snap || _getPreguntasParaAsesor(asesorActual.nombre, asesorActual.supervisor, mes, anio, mod);
 
   // Mostrar sección de resultado
   document.getElementById('asesor-selector-section').style.display = 'none';
@@ -15978,7 +16089,13 @@ async function enviarEvaluacionAsesor() {
     pct, correctas: corr, total: respFinal.length,
     fechaRegistro: new Date().toISOString(),
     preguntas: rawPregs
-      ? rawPregs.map(q => typeof q === 'object' ? (q.enunciado || q.texto || null) : (q || null))
+      ? rawPregs.map(q => typeof q === 'object' ? {
+          enunciado: q.enunciado || q.texto || null,
+          tipo:      q.tipo      || 'unica',
+          opciones:  q.opciones  || null,
+          correcta:  q.correcta  || null,
+          correctas: q.correctas || null
+        } : { enunciado: String(q || ''), tipo: 'unica', opciones: null, correcta: null, correctas: null })
       : null
   };
 
