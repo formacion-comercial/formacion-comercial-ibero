@@ -4919,6 +4919,18 @@ async function _fbInit() {
     if (!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
     window._fbDb = firebase.firestore();
     window._fbDb.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    // Persistencia offline: guarda escrituras en disco del PC antes de enviar a Firestore.
+    // Si hay corte de red o el asesor cierra el navegador justo al enviar,
+    // Firestore sincroniza automáticamente la próxima vez que se abra la app.
+    window._fbDb.enablePersistence({ synchronizeTabs: true }).catch(err => {
+      if (err.code === 'failed-precondition') {
+        // Más de una pestaña abierta al mismo tiempo — normal, no afecta el funcionamiento
+        console.warn('Persistencia offline: múltiples pestañas abiertas');
+      } else if (err.code === 'unimplemented') {
+        // Navegador muy antiguo sin soporte para IndexedDB — muy raro en PC
+        console.warn('Persistencia offline no disponible en este navegador');
+      }
+    });
 
     // Cargar configuración
     const _pwdsLocales = Object.assign({}, state.supervisorPasswords || {});
