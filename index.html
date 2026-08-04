@@ -8574,7 +8574,7 @@ function renderSeguimiento() {
     });
     if (!enPeriodo) return;
     // Verificar filtro supervisor
-    if (supFilArr.length && !supFilArr.includes(e.supervisor)) return; // supFilArr viene de segSupsActivos
+    if (segSupsActivos.length && !segSupsActivos.includes(e.supervisor)) return;
     const key = e.asesor + '||' + e.mes + '||' + e.anio;
     if (!fantasmas.find(f => f.key === key))
       fantasmas.push({ key, asesor: e.asesor, supervisor: e.supervisor||'—', mes: e.mes, anio: e.anio });
