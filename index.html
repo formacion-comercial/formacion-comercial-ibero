@@ -4900,11 +4900,17 @@ function save() {
       const cfg = Object.assign({}, state);
       delete cfg.evaluaciones; // guardadas individualmente
       delete cfg.fotosPerfil;  // fotos solo en localStorage — demasiado pesadas para Firestore
-      // Proteger banco de preguntas: si está vacío no sobrescribir lo que hay en Firebase
-      // (evita que una sesión sin banco borre el banco de otra sesión)
-      if (!Object.keys(cfg.preguntasPorSupMes      || {}).length) delete cfg.preguntasPorSupMes;
-      if (!Object.keys(cfg.preguntasPorAsesorMes   || {}).length) delete cfg.preguntasPorAsesorMes;
+      // Proteger campos que pueden estar vacíos en sesión de asesor o estado incompleto
+      // — nunca pisar Firestore con arrays/objetos vacíos que sobreescribirían datos reales
+      if (!Object.keys(cfg.preguntasPorSupMes        || {}).length) delete cfg.preguntasPorSupMes;
+      if (!Object.keys(cfg.preguntasPorAsesorMes     || {}).length) delete cfg.preguntasPorAsesorMes;
       if (!Object.keys(cfg.preguntasPorSupMesInicial || {}).length) delete cfg.preguntasPorSupMesInicial;
+      if (!(cfg.asesores     || []).length) delete cfg.asesores;
+      if (!(cfg.supervisores || []).length) delete cfg.supervisores;
+      if (!Object.keys(cfg.supervisorPasswords    || {}).length) delete cfg.supervisorPasswords;
+      if (!Object.keys(cfg.programaPorSupervisor  || {}).length) delete cfg.programaPorSupervisor;
+      if (!Object.keys(cfg.ultimosAccesos         || {}).length) delete cfg.ultimosAccesos;
+      if (!Object.keys(cfg.plazos                 || {}).length) delete cfg.plazos;
       window._fbDb.collection('config').doc('main')
         .set(cfg, { merge: true })
         .catch(e => {
@@ -12834,7 +12840,7 @@ async function loginAsesor() {
   if (!asesor) return;
 
   // Ensure password exists (backward compat)
-  if (!asesor.password) { asesor.password = '123'; save(); }
+  if (!asesor.password) { asesor.password = '123'; localStorage.setItem('evalproState', JSON.stringify(state)); _fbSaveAsesores(); }
 
   // ── Verificar bloqueo por intentos ──
   const _lkKeyAs = 'as_' + nombre;
@@ -12855,7 +12861,7 @@ async function loginAsesor() {
     if (pwdOkAs && storedAs !== '123') {
       asesor.password = await sha256hex(pwd);
       asesor.passwordPersonalizada = true;
-      save();
+      localStorage.setItem('evalproState', JSON.stringify(state)); _fbSaveAsesores();
     }
   }
   if (!pwdOkAs) {
@@ -15200,14 +15206,19 @@ function mostrarSelectorEvaluaciones() {
                display:flex;align-items:center;justify-content:center;flex-shrink:0">${t.icon}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px;color:var(--text)">${t.label}</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:2px">${mes} ${anio} · ${banco.length} preguntas</div>
+            <div style="font-size:12px;color:${banco.length ? 'var(--text3)' : 'var(--fail)'};margin-top:2px">
+              ${banco.length ? `${mes} ${anio} · ${banco.length} preguntas` : '⚠ Sin preguntas configuradas — contacta a tu formadora'}
+            </div>
           </div>
-          <button onclick="iniciarEvaluacionConModalidad('${t.mod}')"
-            style="padding:9px 20px;background:${t.accent};color:${t.txtBtn};border:none;
-                   border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;
-                   font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0">
-            Presentar →
-          </button>
+          ${banco.length
+            ? `<button onclick="iniciarEvaluacionConModalidad('${t.mod}')"
+                style="padding:9px 20px;background:${t.accent};color:${t.txtBtn};border:none;
+                       border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;
+                       font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0">
+                Presentar →
+              </button>`
+            : `<span style="font-size:12px;font-weight:700;color:var(--text3);flex-shrink:0">No disponible</span>`
+          }
         </div>`;
     }
 
