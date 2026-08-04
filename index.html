@@ -11657,7 +11657,7 @@ function agregarAsesor() {
 function eliminarAsesor(i) {
   if (!confirm(`¿Eliminar asesor "${state.asesores[i].nombre}"?`)) return;
   state.asesores.splice(i, 1);
-  save(); updateAllFilters(); renderConfig(); initRegistro();
+  save(); _fbSaveAsesores(); updateAllFilters(); renderConfig(); initRegistro();
 }
 
 // ==================== DETALLE MODAL ====================
