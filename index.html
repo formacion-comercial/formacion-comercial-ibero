@@ -15305,6 +15305,10 @@ function mostrarSelectorEvaluaciones() {
     const disponible = banco && banco.length > 0;
     const cerrada = t.mod === 'mensual' && _mensualCerrada;
 
+    // Restringir "Asesor Nuevo" solo a asesores de tipo Nuevo.
+    // Si ya presentó, mostrar igual para que vea su resultado/retroalimentación.
+    if (t.mod === 'asesor-nuevo' && (asesorActual.tipo || '') !== 'Nuevo' && !enviado) return '';
+
     if (!disponible && !enviado && !cerrada) return '';
 
     let inner;
