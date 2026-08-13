@@ -4926,6 +4926,21 @@ function save() {
         });
         cfg.evaluacionesEnviadas = _envTrimmed;
       } else { delete cfg.evaluacionesEnviadas; }
+      // Recortar preguntasPorSupMes y preguntasPorAsesorMes por año.
+      // El MESES_EXCLUIR solo elimina Oct/Nov/Dic pero no años anteriores, por lo que
+      // 2025 completo + lo que va de 2026 se acumula y puede superar el límite de 1 MB.
+      // Claves: supervisor||mes||año  o  supervisor||mes||año||modalidad → año en [2]
+      const _minAnioPregs = new Date().getFullYear() - 1;
+      ['preguntasPorSupMes','preguntasPorSupMesInicial','preguntasPorAsesorMes'].forEach(campo => {
+        if (!cfg[campo] || !Object.keys(cfg[campo]).length) { delete cfg[campo]; return; }
+        const _trimmed = {};
+        Object.entries(cfg[campo]).forEach(([k, v]) => {
+          const _y = parseInt((k.split('||')[2] || ''), 10);
+          if (!_y || _y >= _minAnioPregs) _trimmed[k] = v;
+        });
+        if (Object.keys(_trimmed).length) cfg[campo] = _trimmed;
+        else delete cfg[campo];
+      });
       window._fbDb.collection('config').doc('main')
         .set(cfg, { merge: true })
         .catch(e => {
@@ -14593,10 +14608,17 @@ function eliminarBancoMes(supervisor, mes, anio, modalidad) {
   // Guardar en localStorage
   localStorage.setItem('evalproState', JSON.stringify(state));
   // Reemplazar el mapa completo en Firestore con update() — save() usa merge:true
-  // que NO borra claves existentes en mapas anidados, por eso el banco reaparece al recargar
+  // que NO borra claves existentes en mapas anidados, por eso el banco reaparece al recargar.
+  // Recortar por año antes de escribir para no superar el límite de 1 MB.
   if (window._fbDb) {
+    const _minAnioDelBanco = new Date().getFullYear() - 1;
+    const _bancoTrimmed = {};
+    Object.entries(state.preguntasPorSupMes || {}).forEach(([k, v]) => {
+      const _y = parseInt((k.split('||')[2] || ''), 10);
+      if (!_y || _y >= _minAnioDelBanco) _bancoTrimmed[k] = v;
+    });
     window._fbDb.collection('config').doc('main')
-      .update({ preguntasPorSupMes: state.preguntasPorSupMes || {} })
+      .update({ preguntasPorSupMes: _bancoTrimmed })
       .catch(e => console.warn('Error eliminando banco en Firestore:', e));
   }
   renderSupervisorQuestionCards();
