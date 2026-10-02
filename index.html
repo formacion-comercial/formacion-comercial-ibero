@@ -4301,7 +4301,7 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
                font-family:'Montserrat',sans-serif;cursor:pointer">
         Cancelar
       </button>
-      <button onclick="guardarCalifManual()"
+      <button id="btn-guardar-calif-manual" onclick="guardarCalifManual()"
         style="flex:2;padding:10px;border-radius:var(--radius-sm);border:none;
                background:var(--accent);color:#fff;font-size:13px;font-weight:700;
                font-family:'Montserrat',sans-serif;cursor:pointer">
@@ -8970,37 +8970,37 @@ function cerrarCalifManual() {
   document.getElementById('modal-calif-manual').style.display = 'none';
   _califManualData = null;
 }
-function guardarCalifManual() {
+async function guardarCalifManual() {
   const ptsRaw = document.getElementById('calif-manual-pts').value;
   const errEl  = document.getElementById('calif-manual-error');
+  const btnSave = document.getElementById('btn-guardar-calif-manual');
   errEl.style.display = 'none';
   const { asesor, mes, anio, supervisor, esNuevo } = _califManualData;
 
+  // Construir objeto eval según modalidad
+  let evData, envKey, envVal;
   if (esNuevo) {
-    // Escala 0-10 con decimales de 0.5 en 0.5
     const nota = parseFloat(ptsRaw);
     if (isNaN(nota) || nota < 0 || nota > 10) {
       errEl.textContent = '✗ Ingresa una nota entre 0.0 y 10.0'; errEl.style.display = 'block'; return;
     }
-    const correctas = Math.round((nota - 5) / 0.5);  // inversa de: nota = 5 + corr*0.5
     const total     = 10;
-    const corrAjust = Math.max(0, Math.min(total, correctas));
+    const corrAjust = Math.max(0, Math.min(total, Math.round((nota - 5) / 0.5)));
     const respuestas = Array(corrAjust).fill(1).concat(Array(total - corrAjust).fill(0));
     const pts  = Math.round(nota * 10);
     const pass = _isPasoAsesorNuevo(nota);
-    _pushEval({
+    evData = {
       id: _nuevoEvalId(), asesor, supervisor,
       mes, anio: parseInt(anio),
-      actividad: 'Evaluación ' + mes + ' ' + anio,
+      actividad: 'Evaluación Asesor Nuevo ' + mes + ' ' + anio,
       respuestas, totalPreguntas: total,
       registradoPor: 'manual', tipo: 'continua', modalidad: 'asesor-nuevo',
       nota, pct: pts, correctas: corrAjust, total,
       fechaRegistro: new Date().toISOString()
-    });
-    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-    state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct: pts, pass, correctas: corrAjust, total, nota };
-    save(); _fbSaveEvaluacionesEnviadas(); cerrarCalifManual(); renderSeguimiento();
-    showSyncToast(`✓ Calificación de ${asesor} guardada: ${nota}/10`);
+    };
+    // Clave correcta incluyendo sufijo de modalidad
+    envKey = asesor + '||' + mes + '||' + anio + '||asesor-nuevo';
+    envVal = { pts, pct: pts, pass, correctas: corrAjust, total, nota, modalidad: 'asesor-nuevo' };
   } else {
     const pts = parseInt(ptsRaw);
     if (isNaN(pts) || pts < 0 || pts > 100) {
@@ -9009,22 +9009,65 @@ function guardarCalifManual() {
     const correctas = Math.round(pts / 5);
     const total = 20;
     const respuestas = Array(correctas).fill(1).concat(Array(total - correctas).fill(0));
-    const pct = pts;
     const pass = pts >= 95;
-    _pushEval({
+    evData = {
       id: _nuevoEvalId(), asesor, supervisor,
       mes, anio: parseInt(anio),
-      actividad: 'Evaluación ' + mes + ' ' + anio,
+      actividad: 'Calificación manual ' + mes + ' ' + anio,
       respuestas, totalPreguntas: total, pctRaw: pts,
-      registradoPor: 'manual', tipo: 'continua',
-      pct, correctas, total,
+      registradoPor: 'manual', tipo: 'continua', modalidad: 'mensual',
+      pct: pts, correctas, total,
       fechaRegistro: new Date().toISOString()
-    });
-    if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
-    state.evaluacionesEnviadas[asesor + '||' + mes + '||' + anio] = { pts, pct, pass, correctas, total };
-    save(); _fbSaveEvaluacionesEnviadas(); cerrarCalifManual(); renderSeguimiento();
-    showSyncToast(`✓ Calificación de ${asesor} guardada: ${pts}/100`);
+    };
+    envKey = asesor + '||' + mes + '||' + anio;
+    envVal = { pts, pct: pts, pass, correctas, total, modalidad: 'mensual' };
   }
+
+  // Mostrar estado de carga
+  if (btnSave) { btnSave.disabled = true; btnSave.textContent = '⏳ Guardando…'; }
+
+  // 1. Guardar en localStorage inmediatamente (siempre funciona)
+  state.evaluaciones.push(evData);
+  if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
+  state.evaluacionesEnviadas[envKey] = envVal;
+  localStorage.setItem('evalproState', JSON.stringify(state));
+
+  // 2. Guardar en Firestore y esperar confirmación
+  let fbOk = false;
+  if (window._fbDb) {
+    try {
+      // eval individual en su colección
+      await window._fbDb.collection('evaluaciones').doc(String(evData.id)).set(evData);
+      // recibo liviano en pendientes/ como respaldo
+      _fbSavePendiente(evData).catch(() => {});
+      // evaluacionesEnviadas en config/main
+      const _minAnioEnv = new Date().getFullYear() - 1;
+      const _envGuardar = {};
+      Object.entries(state.evaluacionesEnviadas).forEach(([k, v]) => {
+        const _y = parseInt((k.split('||')[2] || ''), 10);
+        if (!_y || _y >= _minAnioEnv) _envGuardar[k] = v;
+      });
+      await window._fbDb.collection('config').doc('main').update({
+        evaluacionesEnviadas: _envGuardar
+      });
+      fbOk = true;
+    } catch(e) {
+      try {
+        await window._fbDb.collection('config').doc('main').set({
+          evaluacionesEnviadas: state.evaluacionesEnviadas
+        }, { merge: true });
+        fbOk = true;
+      } catch(e2) { console.warn('Error guardando calificación manual en Firestore:', e2); }
+    }
+  }
+
+  if (btnSave) { btnSave.disabled = false; btnSave.textContent = 'Guardar'; }
+  cerrarCalifManual();
+  renderSeguimiento();
+  const label = esNuevo ? `${parseFloat(ptsRaw)}/10` : `${parseInt(ptsRaw)}/100`;
+  showSyncToast(fbOk
+    ? `✓ Calificación de ${asesor} guardada en servidor: ${label}`
+    : `⚠ Guardada localmente. Sin conexión — se sincronizará automáticamente.`);
 }
 
 // ── Marcar asesor como No presentó (elimina evaluación del período) ─────────
