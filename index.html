@@ -9026,17 +9026,36 @@ async function guardarCalifManual() {
   // Mostrar estado de carga
   if (btnSave) { btnSave.disabled = true; btnSave.textContent = '⏳ Guardando…'; }
 
-  // 1. Guardar en localStorage inmediatamente (siempre funciona)
+  // 1. Eliminar evaluaciones anteriores del mismo asesor/mes/anio para no dejar duplicados
+  const _normA = _formsNorm(asesor);
+  const _idsAEliminar = (state.evaluaciones || [])
+    .filter(e => _formsNorm(e.asesor) === _normA && e.mes === mes && String(e.anio) === String(anio))
+    .map(e => String(e.id));
+  state.evaluaciones = (state.evaluaciones || []).filter(e =>
+    !(_formsNorm(e.asesor) === _normA && e.mes === mes && String(e.anio) === String(anio))
+  );
+
+  // 2. Insertar la nueva y guardar en localStorage inmediatamente
   state.evaluaciones.push(evData);
   if (!state.evaluacionesEnviadas) state.evaluacionesEnviadas = {};
   state.evaluacionesEnviadas[envKey] = envVal;
   localStorage.setItem('evalproState', JSON.stringify(state));
 
-  // 2. Guardar en Firestore y esperar confirmación
+  // 3. Guardar en Firestore y esperar confirmación
   let fbOk = false;
   if (window._fbDb) {
     try {
-      // eval individual en su colección
+      // Eliminar evaluaciones anteriores del mismo asesor/mes/anio en Firestore
+      if (_idsAEliminar.length) {
+        const _delBatch = window._fbDb.batch();
+        _idsAEliminar.forEach(id => _delBatch.delete(window._fbDb.collection('evaluaciones').doc(id)));
+        await _delBatch.commit().catch(() => {
+          // Si falla el batch (offline), intentar uno a uno silenciosamente
+          _idsAEliminar.forEach(id =>
+            window._fbDb.collection('evaluaciones').doc(id).delete().catch(() => {}));
+        });
+      }
+      // Escribir la nueva eval en su colección
       await window._fbDb.collection('evaluaciones').doc(String(evData.id)).set(evData);
       // recibo liviano en pendientes/ como respaldo
       _fbSavePendiente(evData).catch(() => {});
