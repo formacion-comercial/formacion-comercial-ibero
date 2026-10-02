@@ -4842,6 +4842,65 @@ try {
   })();
 } catch(e) { /* silent */ }
 
+// ── Migración: unificar variantes del nombre de Nelson Javier Morera Rincon ──
+try {
+  (function unificarNelsonMorera() {
+    if (state._migNelsonMorera) return;
+    const CANONICO = 'Nelson Javier Morera Rincon';
+    const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+    // Cualquier variante que contenga "nelson" y "morera" pero NO sea ya el nombre canónico
+    const esVariante = s => {
+      const n = norm(s);
+      return n.includes('nelson') && n.includes('morera') && norm(s) !== norm(CANONICO);
+    };
+    let changed = false;
+
+    // 1. Lista de supervisores: eliminar variantes, asegurar canónico
+    if (state.supervisores) {
+      const sinVariantes = state.supervisores.filter(s => !esVariante(s));
+      if (!sinVariantes.some(s => norm(s) === norm(CANONICO))) sinVariantes.push(CANONICO);
+      if (sinVariantes.length !== state.supervisores.length ||
+          !state.supervisores.includes(CANONICO)) {
+        state.supervisores = sinVariantes;
+        changed = true;
+      }
+    }
+
+    // 2. Asesores: corregir campo supervisor
+    (state.asesores || []).forEach(a => {
+      if (esVariante(a.supervisor || '')) { a.supervisor = CANONICO; changed = true; }
+    });
+
+    // 3. Evaluaciones: corregir campo supervisor
+    (state.evaluaciones || []).forEach(ev => {
+      if (esVariante(ev.supervisor || '')) { ev.supervisor = CANONICO; changed = true; }
+    });
+
+    // 4. historicoAsesores: las claves son "asesor||supervisor"
+    if (state.historicoAsesores) {
+      const nuevasClaves = {};
+      let hChanged = false;
+      Object.entries(state.historicoAsesores).forEach(([k, v]) => {
+        const parts = k.split('||');
+        if (parts[1] && esVariante(parts[1])) {
+          const nuevaClave = parts[0] + '||' + CANONICO;
+          nuevasClaves[nuevaClave] = (nuevasClaves[nuevaClave] || []).concat(v || []);
+          hChanged = true;
+        } else {
+          nuevasClaves[k] = v;
+        }
+      });
+      if (hChanged) { state.historicoAsesores = nuevasClaves; changed = true; }
+    }
+
+    // 5. evaluacionesEnviadas: las claves son "asesor||mes||año[||modalidad]"
+    // (el supervisor no está en la clave, no necesita cambio)
+
+    state._migNelsonMorera = true;
+    if (changed) localStorage.setItem('evalproState', JSON.stringify(state));
+  })();
+} catch(e) { /* silent */ }
+
 // ── Migración: reparar evaluaciones de Carga manual con respuestas vacías ──
 try {
   (function repararCargaManualVacia() {
@@ -5263,6 +5322,39 @@ async function _fbInit() {
     }
 
     localStorage.setItem('evalproState', JSON.stringify(state));
+
+    // ── Propagar corrección de nombres a Firestore (una sola vez por flag) ──────
+    // La migración puntual de localStorage corre antes de _fbInit; aquí escribimos
+    // los cambios a Firestore para que todos los dispositivos los reciban.
+    if (!state._migNelsonMoreraFb && state._migNelsonMorera) {
+      try {
+        const CANONICO = 'Nelson Javier Morera Rincon';
+        const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+        const esVariante = s => {
+          const n = norm(s);
+          return n.includes('nelson') && n.includes('morera') && norm(s) !== norm(CANONICO);
+        };
+        // Corregir documentos de la colección evaluaciones/ que aún tengan el nombre antiguo
+        const _evsIncorrectas = (state.evaluaciones || []).filter(e => esVariante(e.supervisor || ''));
+        if (_evsIncorrectas.length) {
+          for (let i = 0; i < _evsIncorrectas.length; i += 400) {
+            const batch = window._fbDb.batch();
+            _evsIncorrectas.slice(i, i + 400).forEach(ev => {
+              ev.supervisor = CANONICO;
+              batch.set(window._fbDb.collection('evaluaciones').doc(String(ev.id)), ev);
+            });
+            await batch.commit().catch(e => console.warn('Error corrigiendo supervisor en eval:', e));
+          }
+        }
+        // Guardar config/main con supervisores y asesores ya corregidos
+        const cfgCorr = Object.assign({}, state);
+        delete cfgCorr.evaluaciones;
+        await window._fbDb.collection('config').doc('main').set(cfgCorr, { merge: true }).catch(() => {});
+        state._migNelsonMoreraFb = true;
+        localStorage.setItem('evalproState', JSON.stringify(state));
+      } catch(e) { console.warn('Error propagando corrección Nelson Morera a Firestore:', e); }
+    }
+
     try { _sincronizarEvaluacionesEnviadas(); } catch(_) {}
     try { updateAllFilters(); } catch(_) {}
     setTimeout(() => updateSyncIndicator('Sincronizado', false), 300);
