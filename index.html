@@ -3207,6 +3207,14 @@ body.modo-coordinador #gestion-datos-panel { display: none !important; }
             onchange="importarAsesoresSupervisoresExcel(this)">
           <span id="email-import-status" style="font-size:12px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
           <span id="sup-import-status"   style="font-size:12px;font-family:'Fira Code',monospace;color:var(--text3)"></span>
+          <!-- Exportar histórico completo -->
+          <button onclick="exportarHistoricoCompleto()"
+            style="display:flex;align-items:center;gap:6px;padding:8px 16px;
+                   background:rgba(91,143,176,0.10);color:var(--accent4);border:1px solid rgba(91,143,176,0.35);
+                   border-radius:var(--radius-sm);font:700 12px 'Montserrat',sans-serif;cursor:pointer"
+            title="Descarga el histórico completo de evaluaciones y preguntas en el formato de la plantilla de la formadora">
+            ⬇ Exportar histórico completo (.xlsx)
+          </button>
         </div>
         <div class="table-wrap">
           <table>
@@ -11454,6 +11462,87 @@ function descargarAsignacionActual() {
 
   const fecha = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `asignacion_supervisores_${fecha}.xlsx`);
+}
+
+// ==================== EXPORTAR HISTÓRICO COMPLETO (formato plantilla_historico_formadora) ====================
+function exportarHistoricoCompleto() {
+  if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
+  const evs = [...(state.evaluaciones || [])].sort((a, b) => {
+    if ((a.anio || 0) !== (b.anio || 0)) return (a.anio || 0) - (b.anio || 0);
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const ai = MESES.indexOf(a.mes), bi = MESES.indexOf(b.mes);
+    if (ai !== bi) return ai - bi;
+    return String(a.asesor || '').localeCompare(String(b.asesor || ''), 'es');
+  });
+
+  const TIPO = { 'mensual': 'Mensual', 'asesor-nuevo': 'Asesor Nuevo', 'fortalecimiento': 'Fortalecimiento' };
+  const norm = s => String(s || '').trim();
+
+  const pregHeaders  = ['Cédula asesor','Asesor *','Supervisor *','Mes *','Año *','Tipo de evaluación *','# Pregunta *','Pregunta *','Tipo de pregunta','Respuesta del asesor','Respuesta correcta *','¿Acertó? *','Calificación (%)','Estado'];
+  const califHeaders = ['Cédula asesor','Asesor *','Supervisor *','Mes *','Año *','Tipo de evaluación *','Calificación (%) *','Correctas','Total preguntas','Estado'];
+  const pregRows  = [pregHeaders];
+  const califRows = [califHeaders];
+
+  evs.forEach(ev => {
+    const modalidad  = ev.modalidad || 'mensual';
+    const tipoLabel  = TIPO[modalidad] || 'Mensual';
+    const sc         = _getEvalScore(ev);
+    const pct        = sc.pct != null ? Math.round(sc.pct) : (ev.pct != null ? Math.round(ev.pct) : '');
+    const pass       = sc.pass;
+    const estado     = pass ? 'Aprobado' : 'No aprobado';
+    const totalP     = ev.totalPreguntas || (ev.respuestas ? ev.respuestas.length : 0);
+    const correctas  = ev.respuestas ? ev.respuestas.filter(r => r === 1 || r === true).length : (ev.correctas || '');
+    const sufijo     = (modalidad && modalidad !== 'mensual') ? `||${modalidad}` : '';
+    const keyAsesor  = `${ev.asesor}||${ev.mes}||${ev.anio}${sufijo}`;
+    const keySup     = `${ev.supervisor}||${ev.mes}||${ev.anio}${sufijo}`;
+    const banco      = (state.preguntasPorAsesorMes    && state.preguntasPorAsesorMes[keyAsesor])
+                    || (state.preguntasPorAsesorMes    && state.preguntasPorAsesorMes[keyAsesor.replace(`||${modalidad}`,'')]) // fallback sin sufijo
+                    || (state.preguntasPorSupMes       && state.preguntasPorSupMes[keySup])
+                    || (state.preguntasPorSupMesInicial && state.preguntasPorSupMesInicial[keySup])
+                    || null;
+    // Construir lista de preguntas con detalle
+    const qList = banco
+      ? banco
+      : (ev.preguntas && ev.preguntas.length
+          ? ev.preguntas.map(t => typeof t === 'object' ? t : { enunciado: t })
+          : null);
+
+    const tieneDetalle = qList && qList.length > 0 && ev.respuestas && ev.respuestas.length > 0;
+
+    if (tieneDetalle) {
+      qList.forEach((q, i) => {
+        const esObj      = typeof q === 'object' && q !== null;
+        const enunciado  = esObj ? (q.enunciado || q.texto || '') : String(q || '');
+        const tipo       = esObj ? (q.tipo || '') : '';
+        const corrLetra  = esObj ? norm(q.correcta || '') : '';
+        let   respCorrecta = corrLetra;
+        if (esObj && q.opciones && corrLetra) {
+          const idx = 'ABCD'.indexOf(corrLetra.toUpperCase());
+          if (idx >= 0 && q.opciones[idx]) respCorrecta = `${corrLetra.toUpperCase()}) ${q.opciones[idx]}`;
+        }
+        const acerto = (i < ev.respuestas.length)
+          ? ((ev.respuestas[i] === 1 || ev.respuestas[i] === true) ? 'Sí' : 'No')
+          : '';
+        pregRows.push(['', norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
+                       tipoLabel, i + 1, enunciado, tipo, '', respCorrecta, acerto, pct, estado]);
+      });
+    }
+    // Todos van a calificaciones (independientemente de si tienen detalle de pregunta)
+    califRows.push(['', norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
+                    tipoLabel, pct, correctas, totalP, estado]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const wsPrg = XLSX.utils.aoa_to_sheet(pregRows);
+  wsPrg['!cols'] = [{wch:14},{wch:32},{wch:30},{wch:13},{wch:6},{wch:18},{wch:11},{wch:58},{wch:16},{wch:20},{wch:26},{wch:10},{wch:14},{wch:13}];
+  XLSX.utils.book_append_sheet(wb, wsPrg, 'preguntas');
+
+  const wsCalif = XLSX.utils.aoa_to_sheet(califRows);
+  wsCalif['!cols'] = [{wch:14},{wch:32},{wch:30},{wch:13},{wch:6},{wch:18},{wch:16},{wch:10},{wch:16},{wch:13}];
+  XLSX.utils.book_append_sheet(wb, wsCalif, 'calificaciones');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `historico_evalua_pro_${fecha}.xlsx`);
 }
 
 function handleDropCambioSup(e) {
