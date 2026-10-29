@@ -11467,6 +11467,101 @@ function descargarAsignacionActual() {
 // ==================== EXPORTAR HISTÓRICO COMPLETO (formato plantilla_historico_formadora) ====================
 function exportarHistoricoCompleto() {
   if (typeof XLSX === 'undefined') { alert('Librería no disponible. Recarga la página.'); return; }
+
+  // Diccionario cédulas — nombre normalizado → cédula
+  const _CEDULAS_RAW = [
+    ['63501040','Alba Rocío Guerrero Carrillo'],['1006505929','Brayan Stiven Sapuy Hurtado'],
+    ['1030662884','Daniela Vanessa Villafrade Talero'],['1018496066','Emily Fernanda Rondon Baez'],
+    ['1023000938','Jeimi Andrea Bejarano León'],['1000777598','Laura Tatiana Rodriguez Vera'],
+    ['1001315142','Luisa Maria Contreras Ospina'],['79635092','Oscar Mosquera Mosquera'],
+    ['52759865','Paula Andrea Blanco Rojas'],['1026299972','Zulin Daniela Morales Peña'],
+    ['10753993','Fabian Concha Fernandez'],['1022343831','Ivonne Jineth Rodriguez Rojas'],
+    ['79789547','Javier Orlando Hernandez Rivera'],['1023899450','Jeisson Fabian Molina Ciro'],
+    ['1015401969','Adriana Milena Torres Silva'],['52965969','Aura Patricia Quiroz Herrera'],
+    ['1012355141','Diana Paola Pineda Garzón'],['1022407392','Edwin Fabian Ospina Zambrano'],
+    ['1019052150','Helmuth Stiven Navas Landazuri'],['1070973852','Leidy Tatiana Mora Moreno'],
+    ['1233888787','Maria Fernanda Sanchez Martinez'],['52916205','Maylin Johana Amortegui Montero'],
+    ['1032406382','Sonia Liliana Murcia'],['1193146767','Yesika Grandas Sanabria'],
+    ['1075542872','Esneider Quiroga Cortes'],['1033784244','Samir Stiven Ramos Algarra'],
+    ['1000120140','Wendy Lizeth Useche Betancourt'],['36384914','Edi Yojana Clavijo Cerquera'],
+    ['1032407623','Yorks Briant Cuellar Robayo'],['80851443','Juan Miguel Herrera Nuñez'],
+    ['1023898063','Adriana Lisseth Correa Jaramillo'],['1023884028','Susan Jurado Ramos'],
+    ['1010173130','Wendy Anyury Mogollon Mayorga'],['1022971085','Gina Paola Medina Florez'],
+    ['1013631367','Heidy Lorena Prieto Ahumada'],['80751460','Nelson Javier Morera Rincon'],
+    ['1033720898','Paola Andrea Calderon Cetina'],['1030560508','Jose Luis Jimenez Ramirez'],
+    ['1000685546','Daniela Alejandra Ensuncho Chingate'],['1032678391','Deivid Santiago Joya Apolin'],
+    ['1073692626','Diana Carolina Moyano Garzon'],['53139409','Erika Esmeralda Melo Salgado'],
+    ['1030651078','Gabriela García González'],['1006023129','Gerardo Alonso Gonzalez Henao'],
+    ['45555807','Helen Patricia Figueroa Jimenez'],['1000001980','Jessica Andrea Castiblanco Fuentes'],
+    ['1015428862','Jhon Daney Ríos Ortiz'],['1073234125','Julieth Zamantha Pedraza Perdigon'],
+    ['1023974716','Mayerly Astrid Bernal Hernandez'],['1030570122','Nataly Ramirez Monroy'],
+    ['1013664858','Paula Andrea Saavedra Bogota'],['52342867','Saira Lorena Zamudio Torres'],
+    ['1013662799','Sirley Viviana Villabon Melo'],['1012397153','Stefany Lara Sipagauta'],
+    ['1001277801','Yesid Eduardo Quitian Abril'],['1026298522','Yurlei Camila López Argüello'],
+    ['1010046835','Angie Juliana Peñaloza Parra'],['1000973717','Angie Daniela Gaitan Bejarano'],
+    ['52446712','Claudia Rocio Jauregui Herrera'],['1077967131','Dayana Katherin Beltran Ordoñez'],
+    ['1014283217','Fabian Mateo Sepúlveda Salinas'],['1000251314','Johan Alexis Hernández Torralba'],
+    ['1023367706','Maria Camila Joanias Aguilar'],['39658730','Nelly Cuellar Rodriguez'],
+    ['1118531834','Paula Alexandra Barreto Díaz'],['1000350862','Sara de los Angeles Ordoñez'],
+    ['1023975276','Sharom Nicole Cortes Ramos'],['1014738865','Sara Catalina Acosta Torres'],
+    ['1014187934','Nicolas Alejandro Ventero Mayorga'],['1073708501','Levi Julieth Salazar Varela'],
+    ['53116792','Ginna Marcela Campo Castro'],['1016030683','Anngy Lorena Carrillo Torres'],
+    ['1014285873','Cristian Eduardo Vinasco Garcia'],['1033781417','Cristian Felipe Bernal Carmago'],
+    ['1140420282','Damelis Aguilar Zapata'],['1020754225','Diana Alexandra Castilo Prieto'],
+    ['1233513889','Ingrid Dayana Mora Moreno'],['1031147887','Jefferson Gomez Jimenez'],
+    ['1033793185','Monica Dayana Gutierrez Sanchez'],['1032451737','Nicolas Esteban Benavides Gomez'],
+    ['52032666','Sandra Bibiana Zorrilla Riveros'],['1012389748','Yulieth Paola Ramos Candela'],
+    ['1032433111','Ana Milena Rios Disanto'],['52956322','Julie Caterine Villalobos Ortiz'],
+    ['52377590','Angela Alexandra Rodriguez Cortes'],['1022973948','Camilo Andrés Ruíz González'],
+    ['60345453','Claudia Restrepo Gonzalez'],['52834109','Jeny Marlen Ordoñez Mendez'],
+    ['1033714104','Rubén Dario Elles Trujillo'],['52168054','Sandra Patricia Munar Hernandez'],
+    ['52792500','Andrea Mireya Ariza Cruz'],['1000457850','Angie Vanessa Castro Pineda'],
+    ['1019102787','Juan Manuel Niño Aldana'],['1070332422','Sara Alejandra Jutinico Vargas'],
+    ['1074184614','Diana Carolina Torres Silva'],['80180042','Fabian Andres Vargas Beltran'],
+    ['52429528','Maria Catalina Barahona Sabogal'],['1030672201','Yina Ovalle'],
+    ['1014255259','Omar Felipe Rodríguez Rojas'],['1193566421','Juan Daniel Andrade Herrera'],
+    ['1065824282','Karol Natalia Fontalvo Moreno'],['1000788047','Lizeth Helena Puerto Pinto'],
+    ['52221286','Luz Yannet Gil Duran'],['1000857610','Tania Brigith Herrera Vargas'],
+    ['1031813047','Juan David Espinosa Riaño'],['1013260536','Maria Paula Caicedo Salazar'],
+    ['1030625347','Karol Gisell Hernandez Araque'],['1001089065','Julieth Carolina Garcia Suarez'],
+    ['53040709','Adriana Gabriela Farfan Rodriguez'],['1023370559','Carol Dayana Rada Ramirez'],
+    ['53061994','Claudia Milena Garcia Muñoz'],['1000349074','Jessica Paola Garcia Ochoa'],
+    ['1026262709','Leonardo Laverde Munar'],['1007709034','Maryuri Tatiana Lopez Acosta'],
+    ['1000625316','Natalia Andrea Chaguendo Sáenz'],['1016110979','Sergio Murcia Acevedo'],
+    ['1012376251','William Alexander Novoa Ballen'],['1000271190','Michell Yesenia Morales Gonzalez'],
+    ['1001066549','Angie Paola Vega Moreno'],['1032479388','Leidy Johana Segura Roa'],
+    ['1010162288','Cindy Dayhana Quiroga Pardo'],['1019068131','Camilo Andrés Navas Gonzalez'],
+    ['51951991','Adriana Coronado Montoya'],['1082247308','Adriana Margarita Anaya Buelvas'],
+    ['1000183349','Laura Daniela Pineda Tovar'],['1014273794','Lorena Martinez Pedroza'],
+    ['1030573476','Malory Andrea Mesa Martinez'],['79786913','Wilson Javier Virviescas Pardo'],
+    ['1018460155','Kevin Camilo Guzman Castro'],['51919062','Teresa Mendez Martinez'],
+    ['1001273124','Adrian Deyvis Acosta Garcia'],['1030600913','Alejandro Emilio Garcia Molano'],
+    ['1003652550','Andrey Fernando Sánchez Melo'],['1024584102','Brenda Gabriela López Chaux'],
+    ['39666517','Consuelo Villada Ocampo'],['1007473661','Daniel Alexander Bejarano Bejarano'],
+    ['1030525993','Danilo Enrique Valenzuela Silva'],['1013595695','Diana Carolina Orjuela Restrepo'],
+    ['1012441147','Diego Esteban Gallego Fichas'],['1023921046','Genny Marysol Solano Garzon'],
+    ['1233695657','Harry Giovanni Laverde Motta'],['53071696','Jenniffer Zulai Gomez Ruiz'],
+    ['1024572316','Jesica Lorena Guerrero Portela'],['1030617300','Karen Johanna Andrade Herrera'],
+    ['1025460711','Karen Nathalia Gualteros Martinez'],['1015441103','Kelly Lorena Coy Castro'],
+    ['1032502825','Laura Lizeth Celis Rueda'],['1057582137','Maria Ines Cetina Cetina'],
+    ['1023970223','Wilman Ferney Guerra Nivia'],['1023039610','Johan Sebastian Pardeyn Aguilar'],
+    ['52962919','Catalina Pacheco Burgos'],['79914768','Jovanny Alexander Benavides Apraez'],
+    ['1014212257','Marshia Milena Jimenez Gomez'],['1030561016','Luisa Fernanda Cardozo Salgado'],
+    ['53178431','Ana Maria Cuervo Cardenas'],['1023000285','Cristian Camilo Caballero Reyes'],
+    ['1002500634','Edinson Orozco Garcia'],['1023929839','Fabian Oswaldo Aza Barbosa'],
+    ['80219471','Hernando Alexander Sabogal Tuta'],['1032394283','Juan Carlos Molina Gamba'],
+    ['1018455773','Julian Andres Alejo Velasco'],['1022392610','Karol Yiset Moreno Rodriguez'],
+    ['1019115186','Leidy Vergel Castrillon'],['52182207','Maria Cecila Aguilar Duran'],
+    ['1003690112','Nasly Yired Diaz Muñoz'],['1001192723','Natalia Sanchez Guio'],
+    ['1020730718','Sergio Alejandro Espinel Cartagena'],['52876433','Yara Karina Liberato Sánchez'],
+    ['1024550728','Andres Alonso Cortes Hernandez'],['1023953276','Andres Camilo Reyes Santiago'],
+    ['1013629429','Yenifer Lorena Prieto Maldonado'],['1022409269','Lizeth Andrade Bernal'],
+  ];
+  const _normNombre = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+  const _CEDULAS = {};
+  _CEDULAS_RAW.forEach(([ced, nom]) => { _CEDULAS[_normNombre(nom)] = ced; });
+  const _getCedula = nombre => _CEDULAS[_normNombre(nombre)] || '';
+
   const evs = [...(state.evaluaciones || [])].sort((a, b) => {
     if ((a.anio || 0) !== (b.anio || 0)) return (a.anio || 0) - (b.anio || 0);
     const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -11523,12 +11618,12 @@ function exportarHistoricoCompleto() {
         const acerto = (i < ev.respuestas.length)
           ? ((ev.respuestas[i] === 1 || ev.respuestas[i] === true) ? 'Sí' : 'No')
           : '';
-        pregRows.push(['', norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
+        pregRows.push([_getCedula(ev.asesor), norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
                        tipoLabel, i + 1, enunciado, tipo, '', respCorrecta, acerto, pct, estado]);
       });
     }
     // Todos van a calificaciones (independientemente de si tienen detalle de pregunta)
-    califRows.push(['', norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
+    califRows.push([_getCedula(ev.asesor), norm(ev.asesor), norm(ev.supervisor), norm(ev.mes), String(ev.anio || ''),
                     tipoLabel, pct, correctas, totalP, estado]);
   });
 
